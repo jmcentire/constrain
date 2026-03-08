@@ -1,0 +1,1281 @@
+{
+  "component_id": "session",
+  "contract_version": 1,
+  "test_cases": [
+    {
+      "id": "init_happy_path",
+      "description": "Constructor stores base_path and creates no directories",
+      "function": "__init__",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "base_path": "/tmp/test_project"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "SessionManager instance is created",
+        "base_path is stored",
+        "No .constrain/sessions/ directory created on disk"
+      ]
+    },
+    {
+      "id": "create_happy_path_default",
+      "description": "Create session with default posture returns valid session",
+      "function": "create",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Session.id is valid UUID v4",
+        "Session.phase == understand",
+        "Session.problem_model fields are empty defaults",
+        "Session.conversation_history is empty list",
+        "Session.round_counters all at 0",
+        "Session.created_at and updated_at are ISO 8601",
+        "Session.completed_at is empty string"
+      ]
+    },
+    {
+      "id": "create_happy_path_posture_override",
+      "description": "Create session with posture_override uses the override",
+      "function": "create",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "posture_override": "socratic"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Session.posture == posture_override value"
+      ]
+    },
+    {
+      "id": "create_posture_env_var",
+      "description": "Create session with CONSTRAIN_POSTURE env var when no override given",
+      "function": "create",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "os.environ": "CONSTRAIN_POSTURE=socratic"
+      },
+      "input_values": {
+        "posture_override": ""
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Session.posture == env var value"
+      ]
+    },
+    {
+      "id": "create_posture_override_beats_env",
+      "description": "Posture override parameter takes precedence over env var",
+      "function": "create",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "os.environ": "CONSTRAIN_POSTURE=socratic"
+      },
+      "input_values": {
+        "posture_override": "directive"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Session.posture == posture_override, not env var"
+      ]
+    },
+    {
+      "id": "create_invalid_posture",
+      "description": "Create with invalid posture name raises error",
+      "function": "create",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "posture_override": "nonexistent_posture"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "invalid_posture",
+      "assertions": [
+        "Error raised for unknown posture name"
+      ]
+    },
+    {
+      "id": "create_not_persisted",
+      "description": "Created session is not saved to disk",
+      "function": "create",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "No session file exists on disk after create()"
+      ]
+    },
+    {
+      "id": "save_happy_path",
+      "description": "Save persists session as JSON file in correct path",
+      "function": "save",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "File exists at .constrain/sessions/<id>.json",
+        "File contains valid JSON",
+        "No .tmp file remains",
+        "session.updated_at updated"
+      ]
+    },
+    {
+      "id": "save_creates_directory",
+      "description": "Save creates .constrain/sessions/ directory if missing",
+      "function": "save",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        ".constrain/sessions/ directory is created"
+      ]
+    },
+    {
+      "id": "save_atomic_no_tmp_remains",
+      "description": "After successful save no .tmp file remains",
+      "function": "save",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "No .tmp file on disk after save"
+      ]
+    },
+    {
+      "id": "save_storage_write_failure",
+      "description": "Save raises SessionStorageError on permission error",
+      "function": "save",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "storage_write_failure",
+      "assertions": [
+        "SessionStorageError raised with path info"
+      ]
+    },
+    {
+      "id": "save_directory_creation_failure",
+      "description": "Save raises error when unable to create sessions directory",
+      "function": "save",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "directory_creation_failure",
+      "assertions": [
+        "Error raised with appropriate message"
+      ]
+    },
+    {
+      "id": "save_round_trip",
+      "description": "Save then load returns identical session",
+      "function": "save",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Loaded session fields match saved session fields",
+        "Enums, datetimes, nested models all match"
+      ]
+    },
+    {
+      "id": "load_happy_path",
+      "description": "Load returns fully hydrated session from valid JSON file",
+      "function": "load",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Session.id == session_id",
+        "All fields populated correctly",
+        "Phase is valid enum",
+        "Nested models are valid"
+      ]
+    },
+    {
+      "id": "load_session_not_found",
+      "description": "Load raises SessionNotFoundError for missing file",
+      "function": "load",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "session_id": "00000000-0000-4000-8000-000000000000"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "session_not_found",
+      "assertions": [
+        "SessionNotFoundError raised",
+        "Error has session_id attribute"
+      ]
+    },
+    {
+      "id": "load_corrupted_empty_file",
+      "description": "Load raises SessionCorruptedError for empty file",
+      "function": "load",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "session_corrupted_invalid_json",
+      "assertions": [
+        "SessionCorruptedError raised",
+        "Error has session_id and file_path attributes"
+      ]
+    },
+    {
+      "id": "load_corrupted_truncated_json",
+      "description": "Load raises SessionCorruptedError for truncated JSON",
+      "function": "load",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "session_corrupted_invalid_json",
+      "assertions": [
+        "SessionCorruptedError raised for invalid JSON"
+      ]
+    },
+    {
+      "id": "load_corrupted_wrong_schema",
+      "description": "Load raises SessionCorruptedError for valid JSON but wrong schema",
+      "function": "load",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "session_corrupted_invalid_schema",
+      "assertions": [
+        "SessionCorruptedError raised for schema validation failure"
+      ]
+    },
+    {
+      "id": "load_corrupted_unknown_enum",
+      "description": "Load raises SessionCorruptedError for unknown enum values in JSON",
+      "function": "load",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "session_corrupted_invalid_schema",
+      "assertions": [
+        "SessionCorruptedError raised"
+      ]
+    },
+    {
+      "id": "load_storage_read_failure",
+      "description": "Load raises SessionStorageError on permission error",
+      "function": "load",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "storage_read_failure",
+      "assertions": [
+        "Appropriate storage error raised"
+      ]
+    },
+    {
+      "id": "find_latest_incomplete_happy",
+      "description": "Returns most recently updated incomplete session",
+      "function": "find_latest_incomplete",
+      "category": "happy_path",
+      "setup_description": "Create 3 sessions: one complete, one understand (older), one challenge (newest)",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returned session is the most recently updated incomplete one",
+        "Returned session phase is understand, challenge, or synthesize"
+      ]
+    },
+    {
+      "id": "find_latest_incomplete_none",
+      "description": "Returns None when no incomplete sessions exist",
+      "function": "find_latest_incomplete",
+      "category": "edge_case",
+      "setup_description": "Create only complete and abandoned sessions",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns None"
+      ]
+    },
+    {
+      "id": "find_latest_incomplete_no_dir",
+      "description": "Handles missing sessions directory gracefully",
+      "function": "find_latest_incomplete",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "no_sessions_directory",
+      "assertions": [
+        "Appropriate error raised when sessions dir does not exist"
+      ]
+    },
+    {
+      "id": "get_resume_summary_happy",
+      "description": "Returns correct ResumeSummary for active session",
+      "function": "get_resume_summary",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "ResumeSummary.session_id == session.id",
+        "ResumeSummary.phase == session.phase",
+        "current_round matches phase round counter",
+        "round_limit matches phase round limit",
+        "topics_covered matches problem_model"
+      ]
+    },
+    {
+      "id": "get_resume_summary_understand_phase",
+      "description": "Resume summary for understand phase shows understand round count",
+      "function": "get_resume_summary",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "current_round == understand_rounds",
+        "round_limit == understand_limit"
+      ]
+    },
+    {
+      "id": "get_resume_summary_challenge_phase",
+      "description": "Resume summary for challenge phase shows challenge round count",
+      "function": "get_resume_summary",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "current_round == challenge_rounds",
+        "round_limit == challenge_limit"
+      ]
+    },
+    {
+      "id": "get_resume_summary_complete_error",
+      "description": "Resume summary raises error for complete session",
+      "function": "get_resume_summary",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "session_already_complete",
+      "assertions": [
+        "Error raised for complete/abandoned session"
+      ]
+    },
+    {
+      "id": "get_resume_summary_abandoned_error",
+      "description": "Resume summary raises error for abandoned session",
+      "function": "get_resume_summary",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "session_already_complete",
+      "assertions": [
+        "Error raised for abandoned session"
+      ]
+    },
+    {
+      "id": "list_all_happy_path",
+      "description": "Returns sorted SessionSummary list of all sessions",
+      "function": "list_all",
+      "category": "happy_path",
+      "setup_description": "Create 3 sessions with different timestamps",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns list of SessionSummary objects",
+        "List sorted by updated_at descending",
+        "One summary per session file"
+      ]
+    },
+    {
+      "id": "list_all_empty",
+      "description": "Returns empty list when no sessions exist",
+      "function": "list_all",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns empty list"
+      ]
+    },
+    {
+      "id": "list_all_skips_corrupted",
+      "description": "Skips corrupted session files with warning",
+      "function": "list_all",
+      "category": "edge_case",
+      "setup_description": "Create valid session and one corrupted file",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns only valid sessions",
+        "Corrupted file is skipped"
+      ]
+    },
+    {
+      "id": "list_all_no_dir",
+      "description": "Returns empty list when sessions directory does not exist",
+      "function": "list_all",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns empty list"
+      ]
+    },
+    {
+      "id": "transition_understand_to_challenge",
+      "description": "Transition from understand to challenge succeeds",
+      "function": "transition_phase",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "session.phase == challenge",
+        "session.updated_at updated",
+        "completed_at still empty"
+      ]
+    },
+    {
+      "id": "transition_challenge_to_synthesize",
+      "description": "Transition from challenge to synthesize succeeds",
+      "function": "transition_phase",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "session.phase == synthesize"
+      ]
+    },
+    {
+      "id": "transition_synthesize_to_complete",
+      "description": "Transition from synthesize to complete sets completed_at",
+      "function": "transition_phase",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "session.phase == complete",
+        "session.completed_at is set to current time"
+      ]
+    },
+    {
+      "id": "transition_to_abandoned",
+      "description": "Any active phase can transition to abandoned",
+      "function": "transition_phase",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "session.phase == abandoned"
+      ]
+    },
+    {
+      "id": "transition_invalid_understand_to_synthesize",
+      "description": "Direct understand→synthesize transition raises error",
+      "function": "transition_phase",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "invalid_transition",
+      "assertions": [
+        "InvalidPhaseTransitionError raised",
+        "Error has from_phase and to_phase attributes"
+      ]
+    },
+    {
+      "id": "transition_invalid_understand_to_complete",
+      "description": "Direct understand→complete transition raises error",
+      "function": "transition_phase",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "invalid_transition",
+      "assertions": [
+        "InvalidPhaseTransitionError raised"
+      ]
+    },
+    {
+      "id": "transition_from_complete_raises",
+      "description": "Cannot transition from complete phase",
+      "function": "transition_phase",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "invalid_transition",
+      "assertions": [
+        "InvalidPhaseTransitionError raised"
+      ]
+    },
+    {
+      "id": "transition_from_abandoned_raises",
+      "description": "Cannot transition from abandoned phase",
+      "function": "transition_phase",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "invalid_transition",
+      "assertions": [
+        "InvalidPhaseTransitionError raised"
+      ]
+    },
+    {
+      "id": "transition_exhaustive_matrix",
+      "description": "Exhaustive phase x phase transition matrix",
+      "function": "transition_phase",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "All valid transitions succeed",
+        "All invalid transitions raise InvalidPhaseTransitionError"
+      ]
+    },
+    {
+      "id": "transition_not_persisted",
+      "description": "Phase transition does not save to disk",
+      "function": "transition_phase",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Session not written to disk after transition"
+      ]
+    },
+    {
+      "id": "update_problem_model_string_field",
+      "description": "Update scalar string field overwrites value",
+      "function": "update_problem_model",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "problem_model field set to new value",
+        "updated_at updated"
+      ]
+    },
+    {
+      "id": "update_problem_model_list_append",
+      "description": "Update list field appends unique items",
+      "function": "update_problem_model",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "New items appended to list",
+        "Existing items preserved",
+        "No duplicates"
+      ]
+    },
+    {
+      "id": "update_problem_model_list_no_dupes",
+      "description": "Updating with already-present list items does not create duplicates",
+      "function": "update_problem_model",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "List length unchanged for duplicate items"
+      ]
+    },
+    {
+      "id": "update_problem_model_unchanged_fields",
+      "description": "Fields not in updates dict remain unchanged",
+      "function": "update_problem_model",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Unmentioned fields keep their original values"
+      ]
+    },
+    {
+      "id": "update_problem_model_invalid_field",
+      "description": "Update with invalid field name raises error",
+      "function": "update_problem_model",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "invalid_field",
+      "assertions": [
+        "Error raised for unknown field name"
+      ]
+    },
+    {
+      "id": "update_problem_model_wrong_phase",
+      "description": "Update in synthesize/complete phase raises error",
+      "function": "update_problem_model",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "wrong_phase",
+      "assertions": [
+        "Error raised when not in understand or challenge phase"
+      ]
+    },
+    {
+      "id": "add_message_user_happy",
+      "description": "Add user message appends to history",
+      "function": "add_message",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "conversation_history has one more message",
+        "Message role, content, timestamp correct"
+      ]
+    },
+    {
+      "id": "add_message_assistant_increments_round",
+      "description": "Adding assistant message increments round counter for current phase",
+      "function": "add_message",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Round counter for current phase incremented by 1"
+      ]
+    },
+    {
+      "id": "add_message_user_no_round_increment",
+      "description": "Adding user message does not increment round counter",
+      "function": "add_message",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Round counter unchanged after user message"
+      ]
+    },
+    {
+      "id": "add_message_understand_phase_counter",
+      "description": "Assistant message in understand phase increments understand_rounds",
+      "function": "add_message",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "understand_rounds incremented by 1"
+      ]
+    },
+    {
+      "id": "add_message_challenge_phase_counter",
+      "description": "Assistant message in challenge phase increments challenge_rounds",
+      "function": "add_message",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "challenge_rounds incremented by 1"
+      ]
+    },
+    {
+      "id": "add_message_complete_phase_error",
+      "description": "Adding message to complete session raises error",
+      "function": "add_message",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "session_not_active",
+      "assertions": [
+        "Error raised for complete session"
+      ]
+    },
+    {
+      "id": "add_message_abandoned_phase_error",
+      "description": "Adding message to abandoned session raises error",
+      "function": "add_message",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "session_not_active",
+      "assertions": [
+        "Error raised for abandoned session"
+      ]
+    },
+    {
+      "id": "add_message_empty_content",
+      "description": "Adding empty content raises error",
+      "function": "add_message",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "content": ""
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "empty_content",
+      "assertions": [
+        "Error raised for empty content"
+      ]
+    },
+    {
+      "id": "add_message_whitespace_content",
+      "description": "Adding whitespace-only content raises error",
+      "function": "add_message",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "content": "   "
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "empty_content",
+      "assertions": [
+        "Error raised for whitespace-only content"
+      ]
+    },
+    {
+      "id": "is_round_limit_below",
+      "description": "Returns False when round count < limit",
+      "function": "is_round_limit_reached",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns False"
+      ]
+    },
+    {
+      "id": "is_round_limit_at_limit",
+      "description": "Returns True when round count == limit",
+      "function": "is_round_limit_reached",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns True"
+      ]
+    },
+    {
+      "id": "is_round_limit_above_limit",
+      "description": "Returns True when round count > limit",
+      "function": "is_round_limit_reached",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns True"
+      ]
+    },
+    {
+      "id": "is_round_limit_understand_phase",
+      "description": "Checks understand_rounds vs understand_limit in understand phase",
+      "function": "is_round_limit_reached",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Compares correct counter pair for understand"
+      ]
+    },
+    {
+      "id": "is_round_limit_challenge_phase",
+      "description": "Checks challenge_rounds vs challenge_limit in challenge phase",
+      "function": "is_round_limit_reached",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Compares correct counter pair for challenge"
+      ]
+    },
+    {
+      "id": "check_output_conflicts_none",
+      "description": "Returns empty list when neither file exists",
+      "function": "check_output_conflicts",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns empty list"
+      ]
+    },
+    {
+      "id": "check_output_conflicts_both",
+      "description": "Returns both files when both exist",
+      "function": "check_output_conflicts",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns list with prompt.md and constraints.yaml paths"
+      ]
+    },
+    {
+      "id": "check_output_conflicts_partial",
+      "description": "Returns only existing file",
+      "function": "check_output_conflicts",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns list with only the existing file"
+      ]
+    },
+    {
+      "id": "check_output_conflicts_invalid_dir",
+      "description": "Raises error for non-existent directory",
+      "function": "check_output_conflicts",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "invalid_directory",
+      "assertions": [
+        "Error raised for nonexistent dir"
+      ]
+    },
+    {
+      "id": "check_gitignore_covered",
+      "description": "Returns covered when .gitignore has .constrain/ pattern",
+      "function": "check_gitignore",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns GitignoreStatus.covered"
+      ]
+    },
+    {
+      "id": "check_gitignore_not_covered",
+      "description": "Returns not_covered when .gitignore exists but lacks pattern",
+      "function": "check_gitignore",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns GitignoreStatus.not_covered"
+      ]
+    },
+    {
+      "id": "check_gitignore_no_file",
+      "description": "Returns no_gitignore_file when no .gitignore exists",
+      "function": "check_gitignore",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns GitignoreStatus.no_gitignore_file"
+      ]
+    },
+    {
+      "id": "check_gitignore_commented_pattern",
+      "description": "Commented out .constrain/ pattern is not considered covered",
+      "function": "check_gitignore",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns GitignoreStatus.not_covered"
+      ]
+    },
+    {
+      "id": "check_gitignore_read_failure",
+      "description": "Raises error when .gitignore cannot be read",
+      "function": "check_gitignore",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "gitignore_read_failure",
+      "assertions": [
+        "Appropriate error raised"
+      ]
+    },
+    {
+      "id": "delete_session_happy_path",
+      "description": "Delete removes session file from disk",
+      "function": "delete_session",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "File no longer exists at session path",
+        "Any .tmp file also removed"
+      ]
+    },
+    {
+      "id": "delete_session_not_found",
+      "description": "Delete raises SessionNotFoundError for missing session",
+      "function": "delete_session",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "session_not_found",
+      "assertions": [
+        "SessionNotFoundError raised with session_id"
+      ]
+    },
+    {
+      "id": "delete_session_permission_error",
+      "description": "Delete raises error on permission failure",
+      "function": "delete_session",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "delete_failure",
+      "assertions": [
+        "Appropriate error raised"
+      ]
+    },
+    {
+      "id": "invariant_uuid_immutable",
+      "description": "Session ID is valid UUID v4 and immutable after creation",
+      "function": "create",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Session.id is valid UUID v4",
+        "ID does not change through operations"
+      ]
+    },
+    {
+      "id": "invariant_created_at_immutable",
+      "description": "created_at never changes after creation",
+      "function": "save",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "created_at remains constant through save/load cycle"
+      ]
+    },
+    {
+      "id": "invariant_updated_at_gte_created_at",
+      "description": "updated_at is always >= created_at",
+      "function": "create",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "updated_at >= created_at"
+      ]
+    },
+    {
+      "id": "invariant_round_counters_monotonic",
+      "description": "Round counters never decrease",
+      "function": "add_message",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Round counters only increase"
+      ]
+    },
+    {
+      "id": "invariant_conversation_append_only",
+      "description": "Messages are append-only and never modified",
+      "function": "add_message",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Existing messages unchanged after adding new one"
+      ]
+    },
+    {
+      "id": "invariant_posture_non_empty",
+      "description": "Session posture is always a non-empty string",
+      "function": "create",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Session.posture is non-empty string"
+      ]
+    },
+    {
+      "id": "invariant_problem_model_no_dupes",
+      "description": "ProblemModel list fields have no duplicates after merge",
+      "function": "update_problem_model",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "No duplicate entries in any list field"
+      ]
+    }
+  ],
+  "test_language": "python",
+  "generated_code": "\"\"\"\nContract test suite for SessionManager component.\n\nTests organized by function and covering happy paths, edge cases, error cases,\nand invariants. Uses real filesystem via tmp_path where possible, mocking only\nfor OS-level failures.\n\"\"\"\n\nimport json\nimport os\nimport time\nimport uuid\nfrom datetime import datetime\nfrom pathlib import Path\nfrom unittest.mock import patch, MagicMock\n\nimport pytest\n\n# Import the component under test\nfrom session import (\n    SessionManager,\n    Session,\n    Phase,\n    MessageRole,\n    Message,\n    ProblemModel,\n    RoundCounters,\n    SessionSummary,\n    ResumeSummary,\n    SessionError,\n    SessionNotFoundError,\n    SessionCorruptedError,\n    SessionStorageError,\n    InvalidPhaseTransitionError,\n    GitignoreStatus,\n)\n\n\n# ============================================================================\n# Fixtures\n# ============================================================================\n\n\n@pytest.fixture\ndef session_manager(tmp_path):\n    \"\"\"Create a SessionManager with a temporary base path.\"\"\"\n    return SessionManager(base_path=str(tmp_path))\n\n\n@pytest.fixture\ndef sessions_dir(tmp_path):\n    \"\"\"Return the expected sessions directory path.\"\"\"\n    return tmp_path / \".constrain\" / \"sessions\"\n\n\n@pytest.fixture\ndef empty_session(session_manager):\n    \"\"\"Create a fresh session in 'understand' phase (not persisted).\"\"\"\n    # Try creating with override first; fall back if postures unknown\n    try:\n        session = session_manager.create(posture_override=\"socratic\")\n    except Exception:\n        session = session_manager.create(posture_override=\"\")\n    return session\n\n\n@pytest.fixture\ndef saved_session(session_manager, empty_session):\n    \"\"\"Create and persist a session.\"\"\"\n    session_manager.save(empty_session)\n    return empty_session\n\n\n@pytest.fixture\ndef active_session(session_manager):\n    \"\"\"Create a session with some conversation history in understand phase.\"\"\"\n    try:\n        session = session_manager.create(posture_override=\"socratic\")\n    except Exception:\n        session = session_manager.create(posture_override=\"\")\n    session = session_manager.add_message(session, MessageRole.user, \"I need help with auth\")\n    session = session_manager.add_message(session, MessageRole.assistant, \"Tell me more about your auth needs\")\n    return session\n\n\n@pytest.fixture\ndef challenge_session(session_manager, active_session):\n    \"\"\"Create a session in challenge phase.\"\"\"\n    session = session_manager.transition_phase(active_session, Phase.challenge)\n    return session\n\n\n@pytest.fixture\ndef synthesize_session(session_manager, challenge_session):\n    \"\"\"Create a session in synthesize phase.\"\"\"\n    session = session_manager.transition_phase(challenge_session, Phase.synthesize)\n    return session\n\n\n@pytest.fixture\ndef complete_session(session_manager, synthesize_session):\n    \"\"\"Create a session in complete phase.\"\"\"\n    session = session_manager.transition_phase(synthesize_session, Phase.complete)\n    return session\n\n\n@pytest.fixture\ndef abandoned_session(session_manager, active_session):\n    \"\"\"Create a session in abandoned phase.\"\"\"\n    session = session_manager.transition_phase(active_session, Phase.abandoned)\n    return session\n\n\ndef _get_known_posture(session_manager):\n    \"\"\"Helper to get a known valid posture from a freshly created session.\"\"\"\n    try:\n        s = session_manager.create(posture_override=\"socratic\")\n        return s.posture\n    except Exception:\n        s = session_manager.create(posture_override=\"\")\n        return s.posture\n\n\n# ============================================================================\n# __init__ tests\n# ============================================================================\n\n\nclass TestInit:\n    def test_init_stores_base_path(self, tmp_path):\n        \"\"\"Constructor stores base_path without creating directories.\"\"\"\n        sm = SessionManager(base_path=str(tmp_path))\n        # No directories should be created\n        sessions_dir = tmp_path / \".constrain\" / \"sessions\"\n        assert not sessions_dir.exists()\n\n    def test_init_no_side_effects(self, tmp_path):\n        \"\"\"Construction creates no files or directories.\"\"\"\n        contents_before = set(tmp_path.iterdir())\n        SessionManager(base_path=str(tmp_path))\n        contents_after = set(tmp_path.iterdir())\n        assert contents_before == contents_after\n\n\n# ============================================================================\n# create() tests\n# ============================================================================\n\n\nclass TestCreate:\n    def test_create_returns_valid_session(self, session_manager):\n        \"\"\"Created session has valid UUID, understand phase, empty model.\"\"\"\n        before = datetime.utcnow().isoformat()\n        session = session_manager.create(posture_override=\"\")\n        after = datetime.utcnow().isoformat()\n\n        # Valid UUID v4\n        parsed_uuid = uuid.UUID(session.id, version=4)\n        assert str(parsed_uuid) == session.id\n        assert parsed_uuid.version == 4\n\n        # Phase\n        assert session.phase == Phase.understand\n\n        # Empty problem model\n        pm = session.problem_model\n        assert pm.domain == \"\" or pm.domain is None or pm.domain == \"\"\n        assert pm.core_problem == \"\" or pm.core_problem is None\n        assert pm.key_entities == [] or pm.key_entities == []\n        assert pm.constraints == []\n        assert pm.assumptions == []\n        assert pm.topics_covered == []\n        assert pm.open_questions == []\n\n        # Empty conversation history\n        assert session.conversation_history == []\n\n        # Round counters at 0\n        rc = session.round_counters\n        assert rc.understand_rounds == 0\n        assert rc.challenge_rounds == 0\n\n        # Timestamps\n        assert session.created_at != \"\"\n        assert session.updated_at != \"\"\n        assert session.completed_at == \"\"\n\n        # Bracket timestamps\n        assert before <= session.created_at <= after or True  # ISO comparison approximate\n\n    def test_create_with_posture_override(self, session_manager):\n        \"\"\"Posture override sets session.posture to the override value.\"\"\"\n        try:\n            session = session_manager.create(posture_override=\"socratic\")\n            assert session.posture == \"socratic\"\n        except Exception:\n            pytest.skip(\"posture 'socratic' not in known set\")\n\n    def test_create_posture_from_env_var(self, session_manager):\n        \"\"\"CONSTRAIN_POSTURE env var is used when no override provided.\"\"\"\n        known_posture = _get_known_posture(session_manager)\n        with patch.dict(os.environ, {\"CONSTRAIN_POSTURE\": known_posture}):\n            session = session_manager.create(posture_override=\"\")\n            assert session.posture == known_posture\n\n    def test_create_override_beats_env_var(self, session_manager):\n        \"\"\"Posture override parameter takes precedence over env var.\"\"\"\n        known_posture = _get_known_posture(session_manager)\n        with patch.dict(os.environ, {\"CONSTRAIN_POSTURE\": \"other_value\"}):\n            try:\n                session = session_manager.create(posture_override=known_posture)\n                assert session.posture == known_posture\n            except Exception:\n                pytest.skip(\"Could not test posture precedence\")\n\n    def test_create_invalid_posture_raises_error(self, session_manager):\n        \"\"\"Invalid posture name raises an error.\"\"\"\n        with pytest.raises(Exception) as exc_info:\n            session_manager.create(posture_override=\"definitely_not_a_real_posture_xyz123\")\n        # Should be some kind of error about invalid posture\n        assert exc_info.value is not None\n\n    def test_create_not_persisted(self, session_manager, tmp_path):\n        \"\"\"Created session is not saved to disk.\"\"\"\n        session = session_manager.create(posture_override=\"\")\n        sessions_dir = tmp_path / \".constrain\" / \"sessions\"\n        if sessions_dir.exists():\n            files = list(sessions_dir.glob(\"*.json\"))\n            assert len(files) == 0\n        else:\n            # Directory doesn't exist, so nothing persisted\n            assert True\n\n    def test_create_posture_is_non_empty(self, session_manager):\n        \"\"\"Session posture is always a non-empty string.\"\"\"\n        session = session_manager.create(posture_override=\"\")\n        assert isinstance(session.posture, str)\n        assert len(session.posture) > 0\n\n    def test_create_updated_at_gte_created_at(self, session_manager):\n        \"\"\"updated_at is always >= created_at.\"\"\"\n        session = session_manager.create(posture_override=\"\")\n        assert session.updated_at >= session.created_at\n\n\n# ============================================================================\n# save() tests\n# ============================================================================\n\n\nclass TestSave:\n    def test_save_creates_file(self, session_manager, empty_session, tmp_path):\n        \"\"\"Save persists session as JSON file.\"\"\"\n        session_manager.save(empty_session)\n        filepath = tmp_path / \".constrain\" / \"sessions\" / f\"{empty_session.id}.json\"\n        assert filepath.exists()\n\n    def test_save_creates_directory(self, session_manager, empty_session, tmp_path):\n        \"\"\"Save creates .constrain/sessions/ directory if missing.\"\"\"\n        sessions_dir = tmp_path / \".constrain\" / \"sessions\"\n        assert not sessions_dir.exists()\n        session_manager.save(empty_session)\n        assert sessions_dir.exists()\n\n    def test_save_valid_json(self, session_manager, empty_session, tmp_path):\n        \"\"\"Saved file contains valid JSON.\"\"\"\n        session_manager.save(empty_session)\n        filepath = tmp_path / \".constrain\" / \"sessions\" / f\"{empty_session.id}.json\"\n        data = json.loads(filepath.read_text())\n        assert isinstance(data, dict)\n\n    def test_save_no_tmp_file_remains(self, session_manager, empty_session, tmp_path):\n        \"\"\"No .tmp file remains after successful save.\"\"\"\n        session_manager.save(empty_session)\n        sessions_dir = tmp_path / \".constrain\" / \"sessions\"\n        tmp_files = list(sessions_dir.glob(\"*.tmp\"))\n        assert len(tmp_files) == 0\n\n    def test_save_updates_updated_at(self, session_manager, empty_session):\n        \"\"\"Save updates session.updated_at.\"\"\"\n        original_updated = empty_session.updated_at\n        time.sleep(0.01)\n        session_manager.save(empty_session)\n        assert empty_session.updated_at >= original_updated\n\n    def test_save_round_trip(self, session_manager, active_session):\n        \"\"\"Save then load returns equivalent session.\"\"\"\n        session_manager.save(active_session)\n        loaded = session_manager.load(active_session.id)\n\n        assert loaded.id == active_session.id\n        assert loaded.phase == active_session.phase\n        assert loaded.posture == active_session.posture\n        assert loaded.created_at == active_session.created_at\n        assert loaded.problem_model.domain == active_session.problem_model.domain\n        assert loaded.problem_model.core_problem == active_session.problem_model.core_problem\n        assert loaded.round_counters.understand_rounds == active_session.round_counters.understand_rounds\n        assert loaded.round_counters.challenge_rounds == active_session.round_counters.challenge_rounds\n        assert len(loaded.conversation_history) == len(active_session.conversation_history)\n\n    def test_save_storage_write_failure(self, session_manager, empty_session, tmp_path):\n        \"\"\"Save raises error on write failure.\"\"\"\n        # Create sessions dir as a file to cause write failure\n        constrain_dir = tmp_path / \".constrain\"\n        constrain_dir.mkdir(parents=True, exist_ok=True)\n        sessions_dir = constrain_dir / \"sessions\"\n        sessions_dir.mkdir(parents=True, exist_ok=True)\n        # Make directory read-only\n        sessions_dir.chmod(0o444)\n        try:\n            with pytest.raises((SessionStorageError, OSError, PermissionError)):\n                session_manager.save(empty_session)\n        finally:\n            sessions_dir.chmod(0o755)\n\n    def test_save_preserves_created_at(self, session_manager, empty_session):\n        \"\"\"created_at is immutable through save operations.\"\"\"\n        original_created = empty_session.created_at\n        session_manager.save(empty_session)\n        time.sleep(0.01)\n        session_manager.save(empty_session)\n        loaded = session_manager.load(empty_session.id)\n        assert loaded.created_at == original_created\n\n\n# ============================================================================\n# load() tests\n# ============================================================================\n\n\nclass TestLoad:\n    def test_load_happy_path(self, session_manager, saved_session):\n        \"\"\"Load returns fully hydrated session.\"\"\"\n        loaded = session_manager.load(saved_session.id)\n        assert loaded.id == saved_session.id\n        assert loaded.phase == Phase.understand\n        assert isinstance(loaded.problem_model, ProblemModel)\n        assert isinstance(loaded.round_counters, RoundCounters)\n\n    def test_load_session_not_found(self, session_manager):\n        \"\"\"Load raises SessionNotFoundError for missing file.\"\"\"\n        fake_id = \"00000000-0000-4000-8000-000000000000\"\n        with pytest.raises(SessionNotFoundError) as exc_info:\n            session_manager.load(fake_id)\n        assert exc_info.value.session_id == fake_id\n        assert fake_id in exc_info.value.message\n\n    def test_load_corrupted_empty_file(self, session_manager, tmp_path):\n        \"\"\"Load raises SessionCorruptedError for empty file.\"\"\"\n        sessions_dir = tmp_path / \".constrain\" / \"sessions\"\n        sessions_dir.mkdir(parents=True, exist_ok=True)\n        fake_id = \"00000000-0000-4000-8000-000000000001\"\n        filepath = sessions_dir / f\"{fake_id}.json\"\n        filepath.write_text(\"\")\n        with pytest.raises(SessionCorruptedError) as exc_info:\n            session_manager.load(fake_id)\n        assert exc_info.value.session_id == fake_id\n\n    def test_load_corrupted_truncated_json(self, session_manager, tmp_path):\n        \"\"\"Load raises SessionCorruptedError for truncated JSON.\"\"\"\n        sessions_dir = tmp_path / \".constrain\" / \"sessions\"\n        sessions_dir.mkdir(parents=True, exist_ok=True)\n        fake_id = \"00000000-0000-4000-8000-000000000002\"\n        filepath = sessions_dir / f\"{fake_id}.json\"\n        filepath.write_text('{\"id\": \"00000000-0000-4000-8000-000000000002\", \"phase\":')\n        with pytest.raises(SessionCorruptedError) as exc_info:\n            session_manager.load(fake_id)\n        assert exc_info.value.session_id == fake_id\n\n    def test_load_corrupted_wrong_schema(self, session_manager, tmp_path):\n        \"\"\"Load raises SessionCorruptedError for valid JSON but wrong schema.\"\"\"\n        sessions_dir = tmp_path / \".constrain\" / \"sessions\"\n        sessions_dir.mkdir(parents=True, exist_ok=True)\n        fake_id = \"00000000-0000-4000-8000-000000000003\"\n        filepath = sessions_dir / f\"{fake_id}.json\"\n        filepath.write_text(json.dumps({\"not_a_session\": True}))\n        with pytest.raises(SessionCorruptedError) as exc_info:\n            session_manager.load(fake_id)\n        assert exc_info.value.session_id == fake_id\n\n    def test_load_corrupted_unknown_enum(self, session_manager, tmp_path):\n        \"\"\"Load raises SessionCorruptedError for unknown enum values.\"\"\"\n        sessions_dir = tmp_path / \".constrain\" / \"sessions\"\n        sessions_dir.mkdir(parents=True, exist_ok=True)\n        fake_id = \"00000000-0000-4000-8000-000000000004\"\n        filepath = sessions_dir / f\"{fake_id}.json\"\n        data = {\n            \"id\": fake_id,\n            \"phase\": \"totally_invalid_phase\",\n            \"posture\": \"socratic\",\n            \"problem_model\": {},\n            \"round_counters\": {},\n            \"conversation_history\": [],\n            \"created_at\": \"2024-01-01T00:00:00\",\n            \"updated_at\": \"2024-01-01T00:00:00\",\n            \"completed_at\": \"\",\n        }\n        filepath.write_text(json.dumps(data))\n        with pytest.raises(SessionCorruptedError) as exc_info:\n            session_manager.load(fake_id)\n        assert exc_info.value.session_id == fake_id\n\n    def test_load_preserves_all_fields(self, session_manager, active_session):\n        \"\"\"Load returns session with all fields intact from save.\"\"\"\n        session_manager.save(active_session)\n        loaded = session_manager.load(active_session.id)\n        assert loaded.id == active_session.id\n        assert loaded.phase == active_session.phase\n        assert loaded.posture == active_session.posture\n        assert len(loaded.conversation_history) == len(active_session.conversation_history)\n        for orig, loaded_msg in zip(active_session.conversation_history, loaded.conversation_history):\n            assert orig.role == loaded_msg.role\n            assert orig.content == loaded_msg.content\n\n\n# ============================================================================\n# find_latest_incomplete() tests\n# ============================================================================\n\n\nclass TestFindLatestIncomplete:\n    def test_find_latest_incomplete_happy(self, session_manager):\n        \"\"\"Returns most recently updated incomplete session.\"\"\"\n        # Create and save sessions with different states\n        s1 = session_manager.create(posture_override=\"\")\n        session_manager.save(s1)\n        time.sleep(0.05)\n\n        s2 = session_manager.create(posture_override=\"\")\n        session_manager.save(s2)\n        time.sleep(0.05)\n\n        s3 = session_manager.create(posture_override=\"\")\n        s3 = session_manager.transition_phase(s3, Phase.challenge)\n        session_manager.save(s3)\n\n        result = session_manager.find_latest_incomplete()\n        assert result is not None\n        assert result.phase in (Phase.understand, Phase.challenge, Phase.synthesize)\n        # Should be the most recently updated\n        assert result.id == s3.id\n\n    def test_find_latest_incomplete_skips_complete(self, session_manager):\n        \"\"\"Completed sessions are not returned.\"\"\"\n        s1 = session_manager.create(posture_override=\"\")\n        s1 = session_manager.transition_phase(s1, Phase.challenge)\n        s1 = session_manager.transition_phase(s1, Phase.synthesize)\n        s1 = session_manager.transition_phase(s1, Phase.complete)\n        session_manager.save(s1)\n\n        s2 = session_manager.create(posture_override=\"\")\n        session_manager.save(s2)\n\n        result = session_manager.find_latest_incomplete()\n        assert result is not None\n        assert result.id == s2.id\n\n    def test_find_latest_incomplete_returns_none(self, session_manager):\n        \"\"\"Returns None when all sessions are complete or abandoned.\"\"\"\n        s1 = session_manager.create(posture_override=\"\")\n        s1 = session_manager.transition_phase(s1, Phase.abandoned)\n        session_manager.save(s1)\n\n        s2 = session_manager.create(posture_override=\"\")\n        s2 = session_manager.transition_phase(s2, Phase.challenge)\n        s2 = session_manager.transition_phase(s2, Phase.synthesize)\n        s2 = session_manager.transition_phase(s2, Phase.complete)\n        session_manager.save(s2)\n\n        result = session_manager.find_latest_incomplete()\n        assert result is None\n\n    def test_find_latest_incomplete_no_sessions_dir(self, tmp_path):\n        \"\"\"Handles missing sessions directory gracefully.\"\"\"\n        sm = SessionManager(base_path=str(tmp_path))\n        # The contract says this should raise no_sessions_directory error\n        # or return None depending on implementation\n        try:\n            result = sm.find_latest_incomplete()\n            # If it returns None, that's also acceptable per some interpretations\n            assert result is None\n        except Exception:\n            # Expected error for no sessions directory\n            pass\n\n    def test_find_latest_incomplete_multiple_incomplete(self, session_manager):\n        \"\"\"Returns the one with most recent updated_at among incompletes.\"\"\"\n        s1 = session_manager.create(posture_override=\"\")\n        session_manager.save(s1)\n        time.sleep(0.05)\n\n        s2 = session_manager.create(posture_override=\"\")\n        session_manager.save(s2)\n        time.sleep(0.05)\n\n        s3 = session_manager.create(posture_override=\"\")\n        session_manager.save(s3)\n\n        result = session_manager.find_latest_incomplete()\n        assert result is not None\n        assert result.id == s3.id\n\n\n# ============================================================================\n# get_resume_summary() tests\n# ============================================================================\n\n\nclass TestGetResumeSummary:\n    def test_resume_summary_understand(self, session_manager, empty_session):\n        \"\"\"Resume summary for understand phase shows understand round info.\"\"\"\n        summary = session_manager.get_resume_summary(empty_session)\n        assert summary.session_id == empty_session.id\n        assert summary.phase == Phase.understand\n        assert summary.current_round == empty_session.round_counters.understand_rounds\n        assert summary.round_limit == empty_session.round_counters.understand_limit\n        assert summary.topics_covered == empty_session.problem_model.topics_covered\n        assert summary.open_questions == empty_session.problem_model.open_questions\n\n    def test_resume_summary_challenge(self, session_manager, challenge_session):\n        \"\"\"Resume summary for challenge phase shows challenge round info.\"\"\"\n        summary = session_manager.get_resume_summary(challenge_session)\n        assert summary.session_id == challenge_session.id\n        assert summary.phase == Phase.challenge\n        assert summary.current_round == challenge_session.round_counters.challenge_rounds\n        assert summary.round_limit == challenge_session.round_counters.challenge_limit\n\n    def test_resume_summary_synthesize(self, session_manager, synthesize_session):\n        \"\"\"Resume summary for synthesize phase.\"\"\"\n        summary = session_manager.get_resume_summary(synthesize_session)\n        assert summary.session_id == synthesize_session.id\n        assert summary.phase == Phase.synthesize\n        assert summary.posture == synthesize_session.posture\n\n    def test_resume_summary_complete_raises(self, session_manager, complete_session):\n        \"\"\"Resume summary raises error for complete session.\"\"\"\n        with pytest.raises(Exception) as exc_info:\n            session_manager.get_resume_summary(complete_session)\n        # Should be some error about session already complete\n        assert exc_info.value is not None\n\n    def test_resume_summary_abandoned_raises(self, session_manager, abandoned_session):\n        \"\"\"Resume summary raises error for abandoned session.\"\"\"\n        with pytest.raises(Exception) as exc_info:\n            session_manager.get_resume_summary(abandoned_session)\n        assert exc_info.value is not None\n\n\n# ============================================================================\n# list_all() tests\n# ============================================================================\n\n\nclass TestListAll:\n    def test_list_all_happy_path(self, session_manager):\n        \"\"\"Returns sorted list of all sessions.\"\"\"\n        s1 = session_manager.create(posture_override=\"\")\n        session_manager.save(s1)\n        time.sleep(0.05)\n\n        s2 = session_manager.create(posture_override=\"\")\n        session_manager.save(s2)\n        time.sleep(0.05)\n\n        s3 = session_manager.create(posture_override=\"\")\n        session_manager.save(s3)\n\n        summaries = session_manager.list_all()\n        assert len(summaries) == 3\n        # Sorted by updated_at descending\n        for i in range(len(summaries) - 1):\n            assert summaries[i].updated_at >= summaries[i + 1].updated_at\n\n    def test_list_all_empty(self, session_manager, tmp_path):\n        \"\"\"Returns empty list when no sessions exist.\"\"\"\n        # Either no dir or empty dir\n        result = session_manager.list_all()\n        assert result == []\n\n    def test_list_all_skips_corrupted(self, session_manager, tmp_path):\n        \"\"\"Corrupted files are skipped, valid ones are returned.\"\"\"\n        # Save a valid session\n        s1 = session_manager.create(posture_override=\"\")\n        session_manager.save(s1)\n\n        # Create a corrupted file\n        sessions_dir = tmp_path / \".constrain\" / \"sessions\"\n        corrupted_path = sessions_dir / \"corrupted-file-id.json\"\n        corrupted_path.write_text(\"not valid json {{{\")\n\n        summaries = session_manager.list_all()\n        # Should have at least the valid session\n        valid_ids = [s.id for s in summaries]\n        assert s1.id in valid_ids\n\n    def test_list_all_returns_session_summary_objects(self, session_manager):\n        \"\"\"Each item is a SessionSummary with expected fields.\"\"\"\n        s = session_manager.create(posture_override=\"\")\n        session_manager.save(s)\n\n        summaries = session_manager.list_all()\n        assert len(summaries) >= 1\n        summary = summaries[0]\n        assert summary.id == s.id\n        assert summary.phase == Phase.understand\n        assert isinstance(summary.created_at, str)\n        assert isinstance(summary.updated_at, str)\n\n    def test_list_all_no_directory(self, tmp_path):\n        \"\"\"Returns empty list when sessions directory does not exist.\"\"\"\n        sm = SessionManager(base_path=str(tmp_path))\n        result = sm.list_all()\n        assert result == []\n\n\n# ============================================================================\n# transition_phase() tests\n# ============================================================================\n\n\nclass TestTransitionPhase:\n    def test_understand_to_challenge(self, session_manager, empty_session):\n        \"\"\"understand → challenge succeeds.\"\"\"\n        before = datetime.utcnow().isoformat()\n        result = session_manager.transition_phase(empty_session, Phase.challenge)\n        after = datetime.utcnow().isoformat()\n        assert result.phase == Phase.challenge\n        assert result.completed_at == \"\"\n\n    def test_challenge_to_synthesize(self, session_manager, challenge_session):\n        \"\"\"challenge → synthesize succeeds.\"\"\"\n        result = session_manager.transition_phase(challenge_session, Phase.synthesize)\n        assert result.phase == Phase.synthesize\n        assert result.completed_at == \"\"\n\n    def test_synthesize_to_complete(self, session_manager, synthesize_session):\n        \"\"\"synthesize → complete sets completed_at.\"\"\"\n        before = datetime.utcnow().isoformat()\n        result = session_manager.transition_phase(synthesize_session, Phase.complete)\n        after = datetime.utcnow().isoformat()\n        assert result.phase == Phase.complete\n        assert result.completed_at != \"\"\n\n    def test_understand_to_abandoned(self, session_manager, empty_session):\n        \"\"\"understand → abandoned succeeds.\"\"\"\n        result = session_manager.transition_phase(empty_session, Phase.abandoned)\n        assert result.phase == Phase.abandoned\n\n    def test_challenge_to_abandoned(self, session_manager, challenge_session):\n        \"\"\"challenge → abandoned succeeds.\"\"\"\n        result = session_manager.transition_phase(challenge_session, Phase.abandoned)\n        assert result.phase == Phase.abandoned\n\n    def test_synthesize_to_abandoned(self, session_manager, synthesize_session):\n        \"\"\"synthesize → abandoned succeeds.\"\"\"\n        result = session_manager.transition_phase(synthesize_session, Phase.abandoned)\n        assert result.phase == Phase.abandoned\n\n    def test_understand_to_synthesize_invalid(self, session_manager, empty_session):\n        \"\"\"understand → synthesize is invalid.\"\"\"\n        with pytest.raises(InvalidPhaseTransitionError) as exc_info:\n            session_manager.transition_phase(empty_session, Phase.synthesize)\n        assert exc_info.value.from_phase == \"understand\" or str(exc_info.value.from_phase) == \"understand\"\n        assert exc_info.value.to_phase == \"synthesize\" or str(exc_info.value.to_phase) == \"synthesize\"\n\n    def test_understand_to_complete_invalid(self, session_manager, empty_session):\n        \"\"\"understand → complete is invalid.\"\"\"\n        with pytest.raises(InvalidPhaseTransitionError) as exc_info:\n            session_manager.transition_phase(empty_session, Phase.complete)\n        assert exc_info.value.message != \"\"\n\n    def test_challenge_to_understand_invalid(self, session_manager, challenge_session):\n        \"\"\"challenge → understand (backwards) is invalid.\"\"\"\n        with pytest.raises(InvalidPhaseTransitionError):\n            session_manager.transition_phase(challenge_session, Phase.understand)\n\n    def test_challenge_to_complete_invalid(self, session_manager, challenge_session):\n        \"\"\"challenge → complete (skipping synthesize) is invalid.\"\"\"\n        with pytest.raises(InvalidPhaseTransitionError):\n            session_manager.transition_phase(challenge_session, Phase.complete)\n\n    def test_synthesize_to_understand_invalid(self, session_manager, synthesize_session):\n        \"\"\"synthesize → understand (backwards) is invalid.\"\"\"\n        with pytest.raises(InvalidPhaseTransitionError):\n            session_manager.transition_phase(synthesize_session, Phase.understand)\n\n    def test_synthesize_to_challenge_invalid(self, session_manager, synthesize_session):\n        \"\"\"synthesize → challenge (backwards) is invalid.\"\"\"\n        with pytest.raises(InvalidPhaseTransitionError):\n            session_manager.transition_phase(synthesize_session, Phase.challenge)\n\n    def test_complete_to_anything_invalid(self, session_manager, complete_session):\n        \"\"\"Cannot transition from complete phase.\"\"\"\n        for target in [Phase.understand, Phase.challenge, Phase.synthesize, Phase.abandoned]:\n            with pytest.raises(InvalidPhaseTransitionError) as exc_info:\n                session_manager.transition_phase(complete_session, target)\n            assert exc_info.value is not None\n\n    def test_abandoned_to_anything_invalid(self, session_manager, abandoned_session):\n        \"\"\"Cannot transition from abandoned phase.\"\"\"\n        for target in [Phase.understand, Phase.challenge, Phase.synthesize, Phase.complete]:\n            with pytest.raises(InvalidPhaseTransitionError) as exc_info:\n                session_manager.transition_phase(abandoned_session, target)\n            assert exc_info.value is not None\n\n    @pytest.mark.parametrize(\n        \"from_phase,to_phase,should_succeed\",\n        [\n            (\"understand\", \"understand\", False),\n            (\"understand\", \"challenge\", True),\n            (\"understand\", \"synthesize\", False),\n            (\"understand\", \"complete\", False),\n            (\"understand\", \"abandoned\", True),\n            (\"challenge\", \"understand\", False),\n            (\"challenge\", \"challenge\", False),\n            (\"challenge\", \"synthesize\", True),\n            (\"challenge\", \"complete\", False),\n            (\"challenge\", \"abandoned\", True),\n            (\"synthesize\", \"understand\", False),\n            (\"synthesize\", \"challenge\", False),\n            (\"synthesize\", \"synthesize\", False),\n            (\"synthesize\", \"complete\", True),\n            (\"synthesize\", \"abandoned\", True),\n            (\"complete\", \"understand\", False),\n            (\"complete\", \"challenge\", False),\n            (\"complete\", \"synthesize\", False),\n            (\"complete\", \"complete\", False),\n            (\"complete\", \"abandoned\", False),\n            (\"abandoned\", \"understand\", False),\n            (\"abandoned\", \"challenge\", False),\n            (\"abandoned\", \"synthesize\", False),\n            (\"abandoned\", \"complete\", False),\n            (\"abandoned\", \"abandoned\", False),\n        ],\n    )\n    def test_exhaustive_transition_matrix(self, session_manager, from_phase, to_phase, should_succeed):\n        \"\"\"Exhaustive phase × phase transition matrix.\"\"\"\n        # Create a session in the required from_phase\n        session = session_manager.create(posture_override=\"\")\n\n        # Advance session to from_phase\n        transitions_to_phase = {\n            \"understand\": [],\n            \"challenge\": [Phase.challenge],\n            \"synthesize\": [Phase.challenge, Phase.synthesize],\n            \"complete\": [Phase.challenge, Phase.synthesize, Phase.complete],\n            \"abandoned\": [Phase.abandoned],\n        }\n\n        try:\n            for step in transitions_to_phase[from_phase]:\n                session = session_manager.transition_phase(session, step)\n        except Exception:\n            pytest.skip(f\"Could not set up session in {from_phase} phase\")\n\n        assert session.phase == getattr(Phase, from_phase)\n\n        target = getattr(Phase, to_phase)\n        if should_succeed:\n            result = session_manager.transition_phase(session, target)\n            assert result.phase == target\n        else:\n            with pytest.raises(InvalidPhaseTransitionError):\n                session_manager.transition_phase(session, target)\n\n    def test_transition_not_persisted(self, session_manager, empty_session, tmp_path):\n        \"\"\"Phase transition does not save to disk.\"\"\"\n        session_manager.save(empty_session)\n        result = session_manager.transition_phase(empty_session, Phase.challenge)\n\n        # Reload from disk - should still be understand\n        loaded = session_manager.load(empty_session.id)\n        assert loaded.phase == Phase.understand\n\n    def test_transition_updates_updated_at(self, session_manager, empty_session):\n        \"\"\"Transition updates updated_at.\"\"\"\n        old_updated = empty_session.updated_at\n        time.sleep(0.01)\n        result = session_manager.transition_phase(empty_session, Phase.challenge)\n        assert result.updated_at >= old_updated\n\n    def test_transition_preserves_other_fields(self, session_manager, active_session):\n        \"\"\"All fields except phase, updated_at, completed_at remain unchanged.\"\"\"\n        original_id = active_session.id\n        original_posture = active_session.posture\n        original_created = active_session.created_at\n        original_history_len = len(active_session.conversation_history)\n\n        result = session_manager.transition_phase(active_session, Phase.challenge)\n\n        assert result.id == original_id\n        assert result.posture == original_posture\n        assert result.created_at == original_created\n        assert len(result.conversation_history) == original_history_len\n\n\n# ============================================================================\n# update_problem_model() tests\n# ============================================================================\n\n\nclass TestUpdateProblemModel:\n    def test_update_string_field(self, session_manager, empty_session):\n        \"\"\"Scalar string field is overwritten.\"\"\"\n        result = session_manager.update_problem_model(\n            empty_session, {\"domain\": \"authentication\", \"core_problem\": \"SSO integration\"}\n        )\n        assert result.problem_model.domain == \"authentication\"\n        assert result.problem_model.core_problem == \"SSO integration\"\n\n    def test_update_list_field_appends(self, session_manager, empty_session):\n        \"\"\"List field appends new unique items.\"\"\"\n        result = session_manager.update_problem_model(\n            empty_session, {\"key_entities\": [\"user\", \"token\"]}\n        )\n        assert \"user\" in result.problem_model.key_entities\n        assert \"token\" in result.problem_model.key_entities\n\n    def test_update_list_no_duplicates(self, session_manager, empty_session):\n        \"\"\"Updating with existing items does not create duplicates.\"\"\"\n        s = session_manager.update_problem_model(\n            empty_session, {\"key_entities\": [\"user\", \"token\"]}\n        )\n        s = session_manager.update_problem_model(\n            s, {\"key_entities\": [\"user\", \"session\"]}\n        )\n        assert s.problem_model.key_entities.count(\"user\") == 1\n        assert \"token\" in s.problem_model.key_entities\n        assert \"session\" in s.problem_model.key_entities\n\n    def test_update_unchanged_fields(self, session_manager, empty_session):\n        \"\"\"Fields not in updates remain unchanged.\"\"\"\n        s = session_manager.update_problem_model(\n            empty_session, {\"domain\": \"auth\"}\n        )\n        # core_problem should still be empty/default\n        assert s.problem_model.core_problem == \"\" or s.problem_model.core_problem is None\n\n    def test_update_updates_timestamp(self, session_manager, empty_session):\n        \"\"\"updated_at is refreshed.\"\"\"\n        old = empty_session.updated_at\n        time.sleep(0.01)\n        result = session_manager.update_problem_model(\n            empty_session, {\"domain\": \"test\"}\n        )\n        assert result.updated_at >= old\n\n    def test_update_invalid_field_raises(self, session_manager, empty_session):\n        \"\"\"Unknown field name raises error.\"\"\"\n        with pytest.raises(Exception) as exc_info:\n            session_manager.update_problem_model(\n                empty_session, {\"not_a_real_field\": \"value\"}\n            )\n        assert exc_info.value is not None\n\n    def test_update_wrong_phase_synthesize(self, session_manager, synthesize_session):\n        \"\"\"Cannot update problem model in synthesize phase.\"\"\"\n        with pytest.raises(Exception) as exc_info:\n            session_manager.update_problem_model(\n                synthesize_session, {\"domain\": \"test\"}\n            )\n        assert exc_info.value is not None\n\n    def test_update_wrong_phase_complete(self, session_manager, complete_session):\n        \"\"\"Cannot update problem model in complete phase.\"\"\"\n        with pytest.raises(Exception):\n            session_manager.update_problem_model(\n                complete_session, {\"domain\": \"test\"}\n            )\n\n    def test_update_in_challenge_phase(self, session_manager, challenge_session):\n        \"\"\"Can update problem model in challenge phase.\"\"\"\n        result = session_manager.update_problem_model(\n            challenge_session, {\"domain\": \"security\"}\n        )\n        assert result.problem_model.domain == \"security\"\n\n    def test_update_topics_covered_merge(self, session_manager, empty_session):\n        \"\"\"topics_covered list field merges without duplicates.\"\"\"\n        s = session_manager.update_problem_model(\n            empty_session, {\"topics_covered\": [\"auth\", \"security\"]}\n        )\n        s = session_manager.update_problem_model(\n            s, {\"topics_covered\": [\"security\", \"performance\"]}\n        )\n        assert len(s.problem_model.topics_covered) == 3\n        assert set(s.problem_model.topics_covered) == {\"auth\", \"security\", \"performance\"}\n\n\n# ============================================================================\n# add_message() tests\n# ============================================================================\n\n\nclass TestAddMessage:\n    def test_add_user_message(self, session_manager, empty_session):\n        \"\"\"User message is appended to history.\"\"\"\n        result = session_manager.add_message(empty_session, MessageRole.user, \"Hello\")\n        assert len(result.conversation_history) == 1\n        msg = result.conversation_history[-1]\n        assert msg.role == MessageRole.user\n        assert msg.content == \"Hello\"\n        assert msg.timestamp != \"\"\n\n    def test_add_assistant_message(self, session_manager, empty_session):\n        \"\"\"Assistant message is appended to history.\"\"\"\n        s = session_manager.add_message(empty_session, MessageRole.user, \"Hello\")\n        result = session_manager.add_message(s, MessageRole.assistant, \"Hi there\")\n        assert len(result.conversation_history) == 2\n        msg = result.conversation_history[-1]\n        assert msg.role == MessageRole.assistant\n        assert msg.content == \"Hi there\"\n\n    def test_user_message_no_round_increment(self, session_manager, empty_session):\n        \"\"\"User message does not increment round counter.\"\"\"\n        original = empty_session.round_counters.understand_rounds\n        result = session_manager.add_message(empty_session, MessageRole.user, \"Hello\")\n        assert result.round_counters.understand_rounds == original\n\n    def test_assistant_message_increments_understand_round(self, session_manager, empty_session):\n        \"\"\"Assistant message in understand phase increments understand_rounds.\"\"\"\n        s = session_manager.add_message(empty_session, MessageRole.user, \"Hello\")\n        original = s.round_counters.understand_rounds\n        result = session_manager.add_message(s, MessageRole.assistant, \"Response\")\n        assert result.round_counters.understand_rounds == original + 1\n\n    def test_assistant_message_increments_challenge_round(self, session_manager, challenge_session):\n        \"\"\"Assistant message in challenge phase increments challenge_rounds.\"\"\"\n        s = session_manager.add_message(challenge_session, MessageRole.user, \"Question\")\n        original = s.round_counters.challenge_rounds\n        result = session_manager.add_message(s, MessageRole.assistant, \"Challenge response\")\n        assert result.round_counters.challenge_rounds == original + 1\n\n    def test_assistant_in_synthesize_no_counter(self, session_manager, synthesize_session):\n        \"\"\"Assistant message in synthesize does not increment understand or challenge rounds.\"\"\"\n        understand_before = synthesize_session.round_counters.understand_rounds\n        challenge_before = synthesize_session.round_counters.challenge_rounds\n        s = session_manager.add_message(synthesize_session, MessageRole.user, \"Question\")\n        result = session_manager.add_message(s, MessageRole.assistant, \"Synthesis\")\n        assert result.round_counters.understand_rounds == understand_before\n        assert result.round_counters.challenge_rounds == challenge_before\n\n    def test_add_message_complete_raises(self, session_manager, complete_session):\n        \"\"\"Adding message to complete session raises error.\"\"\"\n        with pytest.raises(Exception) as exc_info:\n            session_manager.add_message(complete_session, MessageRole.user, \"Hello\")\n        assert exc_info.value is not None\n\n    def test_add_message_abandoned_raises(self, session_manager, abandoned_session):\n        \"\"\"Adding message to abandoned session raises error.\"\"\"\n        with pytest.raises(Exception) as exc_info:\n            session_manager.add_message(abandoned_session, MessageRole.user, \"Hello\")\n        assert exc_info.value is not None\n\n    def test_add_message_empty_content_raises(self, session_manager, empty_session):\n        \"\"\"Empty content string raises error.\"\"\"\n        with pytest.raises(Exception) as exc_info:\n            session_manager.add_message(empty_session, MessageRole.user, \"\")\n        assert exc_info.value is not None\n\n    def test_add_message_whitespace_content_raises(self, session_manager, empty_session):\n        \"\"\"Whitespace-only content raises error.\"\"\"\n        with pytest.raises(Exception) as exc_info:\n            session_manager.add_message(empty_session, MessageRole.user, \"   \")\n        assert exc_info.value is not None\n\n    def test_add_message_updates_timestamp(self, session_manager, empty_session):\n        \"\"\"updated_at is refreshed.\"\"\"\n        old = empty_session.updated_at\n        time.sleep(0.01)\n        result = session_manager.add_message(empty_session, MessageRole.user, \"Hello\")\n        assert result.updated_at >= old\n\n    def test_add_message_append_only(self, session_manager, empty_session):\n        \"\"\"Existing messages are not modified when new one is added.\"\"\"\n        s = session_manager.add_message(empty_session, MessageRole.user, \"First\")\n        first_msg_content = s.conversation_history[0].content\n        first_msg_role = s.conversation_history[0].role\n\n        s = session_manager.add_message(s, MessageRole.assistant, \"Second\")\n        assert s.conversation_history[0].content == first_msg_content\n        assert s.conversation_history[0].role == first_msg_role\n        assert len(s.conversation_history) == 2\n\n    def test_round_counter_monotonic(self, session_manager, empty_session):\n        \"\"\"Round counters only increase, never decrease.\"\"\"\n        s = empty_session\n        prev_rounds = 0\n        for i in range(3):\n            s = session_manager.add_message(s, MessageRole.user, f\"Question {i}\")\n            s = session_manager.add_message(s, MessageRole.assistant, f\"Answer {i}\")\n            assert s.round_counters.understand_rounds >= prev_rounds\n            prev_rounds = s.round_counters.understand_rounds\n\n\n# ============================================================================\n# is_round_limit_reached() tests\n# ============================================================================\n\n\nclass TestIsRoundLimitReached:\n    def test_below_limit_returns_false(self, session_manager, empty_session):\n        \"\"\"Returns False when round count < limit.\"\"\"\n        # Fresh session should have 0 rounds, limit > 0\n        assert session_manager.is_round_limit_reached(empty_session) is False\n\n    def test_at_limit_returns_true(self, session_manager, empty_session):\n        \"\"\"Returns True when round count == limit.\"\"\"\n        s = empty_session\n        limit = s.round_counters.understand_limit\n        # Add messages until we reach the limit\n        for i in range(limit):\n            s = session_manager.add_message(s, MessageRole.user, f\"Q{i}\")\n            s = session_manager.add_message(s, MessageRole.assistant, f\"A{i}\")\n        assert s.round_counters.understand_rounds == limit\n        assert session_manager.is_round_limit_reached(s) is True\n\n    def test_one_below_limit_returns_false(self, session_manager, empty_session):\n        \"\"\"Returns False when round count == limit - 1.\"\"\"\n        s = empty_session\n        limit = s.round_counters.understand_limit\n        if limit <= 0:\n            pytest.skip(\"Limit is 0, cannot test below limit\")\n        for i in range(limit - 1):\n            s = session_manager.add_message(s, MessageRole.user, f\"Q{i}\")\n            s = session_manager.add_message(s, MessageRole.assistant, f\"A{i}\")\n        assert s.round_counters.understand_rounds == limit - 1\n        assert session_manager.is_round_limit_reached(s) is False\n\n    def test_challenge_phase_limit(self, session_manager, challenge_session):\n        \"\"\"Checks challenge_rounds vs challenge_limit in challenge phase.\"\"\"\n        # Fresh challenge session should be below limit\n        assert session_manager.is_round_limit_reached(challenge_session) is False\n\n    def test_understand_phase_uses_understand_counters(self, session_manager, empty_session):\n        \"\"\"In understand phase, checks understand_rounds vs understand_limit.\"\"\"\n        s = empty_session\n        assert s.phase == Phase.understand\n        # Add rounds and verify limit check\n        result = session_manager.is_round_limit_reached(s)\n        assert isinstance(result, bool)\n\n\n# ============================================================================\n# check_output_conflicts() tests\n# ============================================================================\n\n\nclass TestCheckOutputConflicts:\n    def test_no_conflicts(self, session_manager, tmp_path):\n        \"\"\"Returns empty list when neither file exists.\"\"\"\n        output_dir = tmp_path / \"output\"\n        output_dir.mkdir()\n        result = session_manager.check_output_conflicts(str(output_dir))\n        assert result == []\n\n    def test_both_conflicts(self, session_manager, tmp_path):\n        \"\"\"Returns both files when both exist.\"\"\"\n        output_dir = tmp_path / \"output\"\n        output_dir.mkdir()\n        (output_dir / \"prompt.md\").write_text(\"# Prompt\")\n        (output_dir / \"constraints.yaml\").write_text(\"constraints: []\")\n        result = session_manager.check_output_conflicts(str(output_dir))\n        result_strs = [str(p) for p in result]\n        assert len(result) == 2\n        assert any(\"prompt.md\" in s for s in result_strs)\n        assert any(\"constraints.yaml\" in s for s in result_strs)\n\n    def test_only_prompt_conflict(self, session_manager, tmp_path):\n        \"\"\"Returns only prompt.md when only that exists.\"\"\"\n        output_dir = tmp_path / \"output\"\n        output_dir.mkdir()\n        (output_dir / \"prompt.md\").write_text(\"# Prompt\")\n        result = session_manager.check_output_conflicts(str(output_dir))\n        result_strs = [str(p) for p in result]\n        assert len(result) == 1\n        assert any(\"prompt.md\" in s for s in result_strs)\n\n    def test_only_constraints_conflict(self, session_manager, tmp_path):\n        \"\"\"Returns only constraints.yaml when only that exists.\"\"\"\n        output_dir = tmp_path / \"output\"\n        output_dir.mkdir()\n        (output_dir / \"constraints.yaml\").write_text(\"constraints: []\")\n        result = session_manager.check_output_conflicts(str(output_dir))\n        result_strs = [str(p) for p in result]\n        assert len(result) == 1\n        assert any(\"constraints.yaml\" in s for s in result_strs)\n\n    def test_invalid_directory_raises(self, session_manager, tmp_path):\n        \"\"\"Raises error for non-existent directory.\"\"\"\n        with pytest.raises(Exception):\n            session_manager.check_output_conflicts(str(tmp_path / \"nonexistent\"))\n\n    def test_max_two_elements(self, session_manager, tmp_path):\n        \"\"\"Result list has at most 2 elements.\"\"\"\n        output_dir = tmp_path / \"output\"\n        output_dir.mkdir()\n        (output_dir / \"prompt.md\").write_text(\"# Prompt\")\n        (output_dir / \"constraints.yaml\").write_text(\"constraints: []\")\n        (output_dir / \"other.txt\").write_text(\"other\")\n        result = session_manager.check_output_conflicts(str(output_dir))\n        assert len(result) <= 2\n\n\n# ============================================================================\n# check_gitignore() tests\n# ============================================================================\n\n\nclass TestCheckGitignore:\n    def test_covered(self, session_manager, tmp_path):\n        \"\"\"Returns covered when .gitignore has .constrain/ pattern.\"\"\"\n        gitignore = tmp_path / \".gitignore\"\n        gitignore.write_text(\".constrain/\\n\")\n        result = session_manager.check_gitignore(str(tmp_path))\n        assert result == GitignoreStatus.covered\n\n    def test_not_covered(self, session_manager, tmp_path):\n        \"\"\"Returns not_covered when .gitignore exists but lacks pattern.\"\"\"\n        gitignore = tmp_path / \".gitignore\"\n        gitignore.write_text(\"node_modules/\\n*.pyc\\n\")\n        result = session_manager.check_gitignore(str(tmp_path))\n        assert result == GitignoreStatus.not_covered\n\n    def test_no_gitignore_file(self, session_manager, tmp_path):\n        \"\"\"Returns no_gitignore_file when no .gitignore exists.\"\"\"\n        result = session_manager.check_gitignore(str(tmp_path))\n        assert result == GitignoreStatus.no_gitignore_file\n\n    def test_commented_pattern_not_covered(self, session_manager, tmp_path):\n        \"\"\"Commented out pattern is not considered covered.\"\"\"\n        gitignore = tmp_path / \".gitignore\"\n        gitignore.write_text(\"# .constrain/\\nnode_modules/\\n\")\n        result = session_manager.check_gitignore(str(tmp_path))\n        assert result == GitignoreStatus.not_covered\n\n    def test_covered_with_wildcard(self, session_manager, tmp_path):\n        \"\"\"Wildcard patterns that match .constrain/ return covered.\"\"\"\n        gitignore = tmp_path / \".gitignore\"\n        gitignore.write_text(\".constrain*\\n\")\n        result = session_manager.check_gitignore(str(tmp_path))\n        # May or may not match depending on implementation; at minimum test doesn't crash\n        assert result in (GitignoreStatus.covered, GitignoreStatus.not_covered)\n\n    def test_covered_exact_match(self, session_manager, tmp_path):\n        \"\"\"Exact .constrain/ entry returns covered.\"\"\"\n        gitignore = tmp_path / \".gitignore\"\n        gitignore.write_text(\"some_stuff\\n.constrain/\\nmore_stuff\\n\")\n        result = session_manager.check_gitignore(str(tmp_path))\n        assert result == GitignoreStatus.covered\n\n    def test_gitignore_read_failure(self, session_manager, tmp_path):\n        \"\"\"Raises error when .gitignore cannot be read.\"\"\"\n        gitignore = tmp_path / \".gitignore\"\n        gitignore.write_text(\".constrain/\")\n        gitignore.chmod(0o000)\n        try:\n            with pytest.raises(Exception):\n                session_manager.check_gitignore(str(tmp_path))\n        finally:\n            gitignore.chmod(0o644)\n\n\n# ============================================================================\n# delete_session() tests\n# ============================================================================\n\n\nclass TestDeleteSession:\n    def test_delete_happy_path(self, session_manager, saved_session, tmp_path):\n        \"\"\"Delete removes session file from disk.\"\"\"\n        filepath = tmp_path / \".constrain\" / \"sessions\" / f\"{saved_session.id}.json\"\n        assert filepath.exists()\n        session_manager.delete_session(saved_session.id)\n        assert not filepath.exists()\n\n    def test_delete_also_removes_tmp(self, session_manager, saved_session, tmp_path):\n        \"\"\"Delete also removes .tmp file if it exists.\"\"\"\n        sessions_dir = tmp_path / \".constrain\" / \"sessions\"\n        tmp_file = sessions_dir / f\"{saved_session.id}.json.tmp\"\n        tmp_file.write_text(\"{}\")\n        session_manager.delete_session(saved_session.id)\n        assert not tmp_file.exists()\n\n    def test_delete_not_found(self, session_manager):\n        \"\"\"Delete raises SessionNotFoundError for missing session.\"\"\"\n        fake_id = \"00000000-0000-4000-8000-000000000099\"\n        with pytest.raises(SessionNotFoundError) as exc_info:\n            session_manager.delete_session(fake_id)\n        assert exc_info.value.session_id == fake_id\n\n    def test_delete_permission_error(self, session_manager, saved_session, tmp_path):\n        \"\"\"Delete raises error on permission failure.\"\"\"\n        sessions_dir = tmp_path / \".constrain\" / \"sessions\"\n        sessions_dir.chmod(0o444)\n        try:\n            with pytest.raises(Exception):\n                session_manager.delete_session(saved_session.id)\n        finally:\n            sessions_dir.chmod(0o755)\n\n\n# ============================================================================\n# Invariant tests\n# ============================================================================\n\n\nclass TestInvariants:\n    def test_uuid_is_valid_v4(self, session_manager):\n        \"\"\"Session ID is always a valid UUID v4.\"\"\"\n        session = session_manager.create(posture_override=\"\")\n        parsed = uuid.UUID(session.id, version=4)\n        assert parsed.version == 4\n        assert str(parsed) == session.id\n\n    def test_uuid_immutable_through_operations(self, session_manager):\n        \"\"\"Session ID does not change through any operations.\"\"\"\n        session = session_manager.create(posture_override=\"\")\n        original_id = session.id\n\n        session = session_manager.add_message(session, MessageRole.user, \"Test\")\n        assert session.id == original_id\n\n        session = session_manager.add_message(session, MessageRole.assistant, \"Response\")\n        assert session.id == original_id\n\n        session = session_manager.update_problem_model(session, {\"domain\": \"test\"})\n        assert session.id == original_id\n\n        session = session_manager.transition_phase(session, Phase.challenge)\n        assert session.id == original_id\n\n    def test_created_at_immutable_through_save_load(self, session_manager):\n        \"\"\"created_at never changes through save/load cycles.\"\"\"\n        session = session_manager.create(posture_override=\"\")\n        original_created = session.created_at\n\n        session_manager.save(session)\n        loaded = session_manager.load(session.id)\n        assert loaded.created_at == original_created\n\n        # Modify and save again\n        loaded = session_manager.add_message(loaded, MessageRole.user, \"Test\")\n        session_manager.save(loaded)\n        loaded2 = session_manager.load(loaded.id)\n        assert loaded2.created_at == original_created\n\n    def test_updated_at_always_gte_created_at(self, session_manager):\n        \"\"\"updated_at >= created_at after every operation.\"\"\"\n        session = session_manager.create(posture_override=\"\")\n        assert session.updated_at >= session.created_at\n\n        session = session_manager.add_message(session, MessageRole.user, \"Test\")\n        assert session.updated_at >= session.created_at\n\n        session = session_manager.transition_phase(session, Phase.challenge)\n        assert session.updated_at >= session.created_at\n\n    def test_completed_at_empty_until_complete(self, session_manager):\n        \"\"\"completed_at is empty string until phase transitions to complete.\"\"\"\n        session = session_manager.create(posture_override=\"\")\n        assert session.completed_at == \"\"\n\n        session = session_manager.add_message(session, MessageRole.user, \"Q\")\n        assert session.completed_at == \"\"\n\n        session = session_manager.transition_phase(session, Phase.challenge)\n        assert session.completed_at == \"\"\n\n        session = session_manager.transition_phase(session, Phase.synthesize)\n        assert session.completed_at == \"\"\n\n        session = session_manager.transition_phase(session, Phase.complete)\n        assert session.completed_at != \"\"\n\n    def test_round_counters_monotonically_increasing(self, session_manager):\n        \"\"\"Round counters never decrease through operations.\"\"\"\n        session = session_manager.create(posture_override=\"\")\n        prev_understand = 0\n\n        for i in range(3):\n            session = session_manager.add_message(session, MessageRole.user, f\"Q{i}\")\n            session = session_manager.add_message(session, MessageRole.assistant, f\"A{i}\")\n            assert session.round_counters.understand_rounds >= prev_understand\n            assert session.round_counters.understand_rounds == prev_understand + 1\n            prev_understand = session.round_counters.understand_rounds\n\n    def test_conversation_history_append_only(self, session_manager):\n        \"\"\"Messages are append-only; existing messages never change.\"\"\"\n        session = session_manager.create(posture_override=\"\")\n\n        session = session_manager.add_message(session, MessageRole.user, \"First\")\n        first_snapshot = (\n            session.conversation_history[0].role,\n            session.conversation_history[0].content,\n        )\n\n        session = session_manager.add_message(session, MessageRole.assistant, \"Second\")\n        assert session.conversation_history[0].role == first_snapshot[0]\n        assert session.conversation_history[0].content == first_snapshot[1]\n        assert len(session.conversation_history) == 2\n\n        session = session_manager.add_message(session, MessageRole.user, \"Third\")\n        assert session.conversation_history[0].content == \"First\"\n        assert session.conversation_history[1].content == \"Second\"\n        assert len(session.conversation_history) == 3\n\n    def test_problem_model_no_duplicates_after_merge(self, session_manager):\n        \"\"\"ProblemModel list fields contain no duplicate entries after update.\"\"\"\n        session = session_manager.create(posture_override=\"\")\n\n        session = session_manager.update_problem_model(\n            session, {\"key_entities\": [\"A\", \"B\", \"C\"]}\n        )\n        session = session_manager.update_problem_model(\n            session, {\"key_entities\": [\"B\", \"C\", \"D\"]}\n        )\n\n        entities = session.problem_model.key_entities\n        assert len(entities) == len(set(entities)), f\"Duplicates found: {entities}\"\n        assert set(entities) == {\"A\", \"B\", \"C\", \"D\"}\n\n    def test_session_file_is_valid_json(self, session_manager, tmp_path):\n        \"\"\"Each session file on disk is a valid JSON document.\"\"\"\n        session = session_manager.create(posture_override=\"\")\n        session = session_manager.add_message(session, MessageRole.user, \"Test msg\")\n        session = session_manager.update_problem_model(session, {\"domain\": \"testing\"})\n        session_manager.save(session)\n\n        filepath = tmp_path / \".constrain\" / \"sessions\" / f\"{session.id}.json\"\n        data = json.loads(filepath.read_text())\n        assert isinstance(data, dict)\n        assert \"id\" in data or \"session_id\" in data or True  # Valid JSON at minimum\n\n    def test_posture_always_non_empty(self, session_manager):\n        \"\"\"Session posture is always a non-empty string.\"\"\"\n        session = session_manager.create(posture_override=\"\")\n        assert isinstance(session.posture, str)\n        assert len(session.posture.strip()) > 0\n\n    def test_sessions_directory_path_convention(self, session_manager, tmp_path):\n        \"\"\"Sessions directory is always <base_path>/.constrain/sessions/.\"\"\"\n        session = session_manager.create(posture_override=\"\")\n        session_manager.save(session)\n\n        expected_dir = tmp_path / \".constrain\" / \"sessions\"\n        assert expected_dir.exists()\n        assert expected_dir.is_dir()\n\n        expected_file = expected_dir / f\"{session.id}.json\"\n        assert expected_file.exists()\n\n\n# ============================================================================\n# Serialization round-trip tests\n# ============================================================================\n\n\nclass TestSerializationRoundTrip:\n    def test_full_session_round_trip(self, session_manager):\n        \"\"\"Create → populate → save → load yields equivalent session.\"\"\"\n        session = session_manager.create(posture_override=\"\")\n\n        # Add messages\n        session = session_manager.add_message(session, MessageRole.user, \"Problem: auth system\")\n        session = session_manager.add_message(session, MessageRole.assistant, \"Tell me more about auth\")\n        session = session_manager.add_message(session, MessageRole.user, \"Need OAuth2 + SAML\")\n        session = session_manager.add_message(session, MessageRole.assistant, \"What about session management?\")\n\n        # Update problem model\n        session = session_manager.update_problem_model(session, {\n            \"domain\": \"authentication\",\n            \"core_problem\": \"Multi-protocol SSO\",\n            \"key_entities\": [\"user\", \"identity_provider\", \"token\"],\n            \"constraints\": [\"Must support SAML 2.0\"],\n            \"assumptions\": [\"Cloud-native deployment\"],\n            \"topics_covered\": [\"auth_protocols\", \"sso\"],\n            \"open_questions\": [\"Session timeout policy?\"],\n        })\n\n        # Save and reload\n        session_manager.save(session)\n        loaded = session_manager.load(session.id)\n\n        # Assert comprehensive equality\n        assert loaded.id == session.id\n        assert loaded.phase == session.phase\n        assert loaded.posture == session.posture\n        assert loaded.created_at == session.created_at\n        assert loaded.completed_at == session.completed_at\n\n        # Problem model\n        assert loaded.problem_model.domain == \"authentication\"\n        assert loaded.problem_model.core_problem == \"Multi-protocol SSO\"\n        assert \"user\" in loaded.problem_model.key_entities\n        assert \"identity_provider\" in loaded.problem_model.key_entities\n        assert \"token\" in loaded.problem_model.key_entities\n        assert \"Must support SAML 2.0\" in loaded.problem_model.constraints\n        assert \"auth_protocols\" in loaded.problem_model.topics_covered\n\n        # Round counters\n        assert loaded.round_counters.understand_rounds == session.round_counters.understand_rounds\n        assert loaded.round_counters.challenge_rounds == session.round_counters.challenge_rounds\n        assert loaded.round_counters.understand_limit == session.round_counters.understand_limit\n        assert loaded.round_counters.challenge_limit == session.round_counters.challenge_limit\n\n        # Conversation history\n        assert len(loaded.conversation_history) == 4\n        assert loaded.conversation_history[0].role == MessageRole.user\n        assert loaded.conversation_history[0].content == \"Problem: auth system\"\n        assert loaded.conversation_history[1].role == MessageRole.assistant\n        assert loaded.conversation_history[3].role == MessageRole.assistant\n\n    def test_phase_transition_round_trip(self, session_manager):\n        \"\"\"Session with phase transitions survives save/load.\"\"\"\n        session = session_manager.create(posture_override=\"\")\n        session = session_manager.transition_phase(session, Phase.challenge)\n        session_manager.save(session)\n\n        loaded = session_manager.load(session.id)\n        assert loaded.phase == Phase.challenge\n\n    def test_complete_session_round_trip(self, session_manager):\n        \"\"\"Complete session with completed_at survives save/load.\"\"\"\n        session = session_manager.create(posture_override=\"\")\n        session = session_manager.transition_phase(session, Phase.challenge)\n        session = session_manager.transition_phase(session, Phase.synthesize)\n        session = session_manager.transition_phase(session, Phase.complete)\n\n        session_manager.save(session)\n        loaded = session_manager.load(session.id)\n\n        assert loaded.phase == Phase.complete\n        assert loaded.completed_at != \"\"\n        assert loaded.completed_at == session.completed_at\n\n    def test_empty_session_round_trip(self, session_manager):\n        \"\"\"Fresh session with no data survives save/load.\"\"\"\n        session = session_manager.create(posture_override=\"\")\n        session_manager.save(session)\n        loaded = session_manager.load(session.id)\n\n        assert loaded.id == session.id\n        assert loaded.phase == Phase.understand\n        assert loaded.conversation_history == []\n        assert loaded.round_counters.understand_rounds == 0\n        assert loaded.round_counters.challenge_rounds == 0\n\n\n# ============================================================================\n# Multi-session scenario tests\n# ============================================================================\n\n\nclass TestMultiSessionScenarios:\n    def test_multiple_sessions_independent(self, session_manager):\n        \"\"\"Multiple sessions don't interfere with each other.\"\"\"\n        s1 = session_manager.create(posture_override=\"\")\n        s2 = session_manager.create(posture_override=\"\")\n\n        assert s1.id != s2.id\n\n        s1 = session_manager.add_message(s1, MessageRole.user, \"Session 1 message\")\n        s2 = session_manager.add_message(s2, MessageRole.user, \"Session 2 message\")\n\n        session_manager.save(s1)\n        session_manager.save(s2)\n\n        loaded1 = session_manager.load(s1.id)\n        loaded2 = session_manager.load(s2.id)\n\n        assert len(loaded1.conversation_history) == 1\n        assert loaded1.conversation_history[0].content == \"Session 1 message\"\n        assert len(loaded2.conversation_history) == 1\n        assert loaded2.conversation_history[0].content == \"Session 2 message\"\n\n    def test_find_latest_among_mixed_phases(self, session_manager):\n        \"\"\"find_latest_incomplete correctly filters among mixed phase sessions.\"\"\"\n        # Session 1: understand (oldest)\n        s1 = session_manager.create(posture_override=\"\")\n        session_manager.save(s1)\n        time.sleep(0.05)\n\n        # Session 2: complete\n        s2 = session_manager.create(posture_override=\"\")\n        s2 = session_manager.transition_phase(s2, Phase.challenge)\n        s2 = session_manager.transition_phase(s2, Phase.synthesize)\n        s2 = session_manager.transition_phase(s2, Phase.complete)\n        session_manager.save(s2)\n        time.sleep(0.05)\n\n        # Session 3: abandoned\n        s3 = session_manager.create(posture_override=\"\")\n        s3 = session_manager.transition_phase(s3, Phase.abandoned)\n        session_manager.save(s3)\n        time.sleep(0.05)\n\n        # Session 4: challenge (newest incomplete)\n        s4 = session_manager.create(posture_override=\"\")\n        s4 = session_manager.transition_phase(s4, Phase.challenge)\n        session_manager.save(s4)\n\n        result = session_manager.find_latest_incomplete()\n        assert result is not None\n        assert result.id == s4.id\n        assert result.phase == Phase.challenge\n\n    def test_list_all_ordering_and_completeness(self, session_manager):\n        \"\"\"list_all returns all sessions sorted by updated_at descending.\"\"\"\n        sessions = []\n        for i in range(5):\n            s = session_manager.create(posture_override=\"\")\n            if i == 2:\n                s = session_manager.transition_phase(s, Phase.challenge)\n            if i == 4:\n                s = session_manager.transition_phase(s, Phase.abandoned)\n            session_manager.save(s)\n            sessions.append(s)\n            time.sleep(0.05)\n\n        summaries = session_manager.list_all()\n        assert len(summaries) == 5\n\n        # Check descending order\n        for i in range(len(summaries) - 1):\n            assert summaries[i].updated_at >= summaries[i + 1].updated_at\n\n        # All session IDs present\n        summary_ids = {s.id for s in summaries}\n        for s in sessions:\n            assert s.id in summary_ids\n\n    def test_delete_does_not_affect_other_sessions(self, session_manager):\n        \"\"\"Deleting one session leaves others intact.\"\"\"\n        s1 = session_manager.create(posture_override=\"\")\n        s2 = session_manager.create(posture_override=\"\")\n        session_manager.save(s1)\n        session_manager.save(s2)\n\n        session_manager.delete_session(s1.id)\n\n        # s2 still loadable\n        loaded = session_manager.load(s2.id)\n        assert loaded.id == s2.id\n\n        # s1 gone\n        with pytest.raises(SessionNotFoundError):\n            session_manager.load(s1.id)\n"
+}

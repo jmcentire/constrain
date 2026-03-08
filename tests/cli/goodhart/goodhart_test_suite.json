@@ -1,0 +1,729 @@
+{
+  "component_id": "cli",
+  "contract_version": 1,
+  "test_cases": [
+    {
+      "id": "test_goodhart_ensure_api_key_returns_actual_env_value",
+      "description": "ensure_api_key must return the exact value from the environment, not a hardcoded string — verified with a novel random-like key value",
+      "function": "ensure_api_key",
+      "category": "happy_path",
+      "setup_description": "Set ANTHROPIC_API_KEY to a unique non-obvious value",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "ANTHROPIC_API_KEY set to an unusual value like 'sk-ant-test-xyz-987654321'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Return value exactly equals the environment variable value",
+        "Return value is not some hardcoded default"
+      ]
+    },
+    {
+      "id": "test_goodhart_ensure_api_key_whitespace_only",
+      "description": "An API key consisting only of whitespace should be treated as empty/not set and raise an error",
+      "function": "ensure_api_key",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "ANTHROPIC_API_KEY set to '   ' (whitespace only)",
+      "expected_output_description": "",
+      "expected_error": "click.ClickException should be raised",
+      "assertions": [
+        "Whitespace-only API key is rejected"
+      ]
+    },
+    {
+      "id": "test_goodhart_ensure_api_key_returns_different_values",
+      "description": "ensure_api_key must dynamically read the environment variable, not return a cached or hardcoded value",
+      "function": "ensure_api_key",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Call with two different ANTHROPIC_API_KEY values in sequence",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "First call returns first key value",
+        "Second call returns second key value"
+      ]
+    },
+    {
+      "id": "test_goodhart_resolve_round_limits_partial_env_vars",
+      "description": "When only some env vars are set and others are not, each field independently falls back to its own source (env or default)",
+      "function": "resolve_round_limits",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "CLI flags all None, only CONSTRAIN_MIN_UNDERSTAND and CONSTRAIN_MAX_CHALLENGE set via env",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "min_understand comes from env var",
+        "max_understand comes from default",
+        "min_challenge comes from default",
+        "max_challenge comes from env var"
+      ]
+    },
+    {
+      "id": "test_goodhart_resolve_round_limits_cli_partial_override",
+      "description": "When only some CLI flags are provided, the remaining fields fall back to env vars or defaults independently",
+      "function": "resolve_round_limits",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Only min_understand=2 via CLI flag, rest None, CONSTRAIN_MAX_CHALLENGE=8 in env",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "min_understand is 2 from CLI",
+        "max_challenge is 8 from env",
+        "Other fields use defaults"
+      ]
+    },
+    {
+      "id": "test_goodhart_resolve_round_limits_env_var_float_rejected",
+      "description": "Floating point values in environment variables should be rejected as they are not valid positive integers",
+      "function": "resolve_round_limits",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "CONSTRAIN_MIN_UNDERSTAND set to '3.5', all CLI flags None",
+      "expected_output_description": "",
+      "expected_error": "click.ClickException for invalid env var value",
+      "assertions": [
+        "Float string in env var raises an error"
+      ]
+    },
+    {
+      "id": "test_goodhart_resolve_round_limits_env_var_non_numeric",
+      "description": "Alphabetic string values in environment variables should be rejected",
+      "function": "resolve_round_limits",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "CONSTRAIN_MAX_UNDERSTAND set to 'abc', all CLI flags None",
+      "expected_output_description": "",
+      "expected_error": "click.ClickException for invalid env var value",
+      "assertions": [
+        "Non-numeric env var raises an error"
+      ]
+    },
+    {
+      "id": "test_goodhart_resolve_round_limits_env_var_empty_string",
+      "description": "An empty string environment variable should either be ignored (fall back to default) or rejected, not crash",
+      "function": "resolve_round_limits",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "CONSTRAIN_MIN_UNDERSTAND set to '', all CLI flags None",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Empty env var either falls back to default or raises a clear error"
+      ]
+    },
+    {
+      "id": "test_goodhart_resolve_round_limits_large_values",
+      "description": "Large but valid positive integers should be accepted without overflow or rejection",
+      "function": "resolve_round_limits",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "CLI flags min_understand=50, max_understand=100, min_challenge=50, max_challenge=100",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "All values accepted",
+        "min <= max invariant holds"
+      ]
+    },
+    {
+      "id": "test_goodhart_resolve_round_limits_cross_phase_independence",
+      "description": "Validation of min<=max is per-phase — understand limits are independent of challenge limits",
+      "function": "resolve_round_limits",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "min_understand=1, max_understand=2, min_challenge=5, max_challenge=10 — challenge min > understand max is fine",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "No error raised even though min_challenge > max_understand",
+        "Each phase validated independently"
+      ]
+    },
+    {
+      "id": "test_goodhart_resolve_round_limits_env_var_with_whitespace",
+      "description": "Environment variable values with leading/trailing whitespace around a valid integer should be handled gracefully",
+      "function": "resolve_round_limits",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "CONSTRAIN_MIN_UNDERSTAND set to ' 3 ', all CLI flags None",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Either strips whitespace and accepts 3, or rejects with clear error"
+      ]
+    },
+    {
+      "id": "test_goodhart_format_session_table_many_rows",
+      "description": "Table formatting must scale correctly to many rows, not just 1-2 visible test rows",
+      "function": "format_session_table",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "List of 10 SessionListRow instances with varying field lengths",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Output contains exactly 10 data rows plus 1 header row",
+        "All columns present: ID, STATUS, CREATED, PHASE, POSTURE",
+        "All rows are whitespace-aligned"
+      ]
+    },
+    {
+      "id": "test_goodhart_format_session_table_long_values",
+      "description": "Table formatting handles long session IDs and status strings without truncation or misalignment",
+      "function": "format_session_table",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SessionListRow with a very long session_id like 'abc123def456ghi789jkl012mno345'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Long values are fully displayed",
+        "Column alignment still maintained"
+      ]
+    },
+    {
+      "id": "test_goodhart_format_session_table_posture_override_attempt",
+      "description": "Even if posture_display field contains actual posture text, the table output must show '***'",
+      "function": "format_session_table",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "SessionListRow with posture_display='aggressive_challenger'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Output contains '***' for posture column",
+        "Output does NOT contain 'aggressive_challenger'"
+      ]
+    },
+    {
+      "id": "test_goodhart_format_session_summary_large_round_count",
+      "description": "Session summary formatting correctly handles large round counts",
+      "function": "format_session_summary",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "round_count=999, session_id='sess-large', current_phase='challenge'",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Output contains '999'",
+        "Output contains 'sess-large'",
+        "Output contains 'challenge'"
+      ]
+    },
+    {
+      "id": "test_goodhart_format_session_summary_special_chars_in_problem",
+      "description": "Session summary handles special characters in problem_summary without corruption",
+      "function": "format_session_summary",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "problem_summary containing newlines, unicode, and special formatting characters",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Output is a valid multi-line string",
+        "Contains session_id and round_count"
+      ]
+    },
+    {
+      "id": "test_goodhart_confirm_overwrite_only_prompt_md_exists",
+      "description": "Overwrite confirmation triggers when only prompt.md exists (not both files)",
+      "function": "confirm_overwrite",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Only prompt.md exists in cwd, constraints.yaml does not",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "User is prompted for confirmation",
+        "Returns True if user confirms"
+      ]
+    },
+    {
+      "id": "test_goodhart_confirm_overwrite_only_constraints_yaml_exists",
+      "description": "Overwrite confirmation triggers when only constraints.yaml exists (not both files)",
+      "function": "confirm_overwrite",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Only constraints.yaml exists in cwd, prompt.md does not",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "User is prompted for confirmation",
+        "Returns True if user confirms"
+      ]
+    },
+    {
+      "id": "test_goodhart_create_cli_safe_group_class",
+      "description": "The CLI group must use SafeGroup as its class, not plain click.Group — ensuring centralized exception handling",
+      "function": "create_cli",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Call create_cli() and inspect the returned group's class",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Type of returned group is SafeGroup or subclass thereof",
+        "Not plain click.Group"
+      ]
+    },
+    {
+      "id": "test_goodhart_create_cli_has_all_four_subcommands",
+      "description": "The CLI group must register exactly the four expected subcommands: new, resume, show, list",
+      "function": "create_cli",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Call create_cli() and inspect commands dict",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "'new' in commands",
+        "'resume' in commands",
+        "'show' in commands",
+        "'list' in commands"
+      ]
+    },
+    {
+      "id": "test_goodhart_create_cli_invoke_without_command",
+      "description": "The CLI group must be configured with invoke_without_command=True so the default handler runs",
+      "function": "create_cli",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Call create_cli() and check group's invoke_without_command attribute",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "invoke_without_command is True"
+      ]
+    },
+    {
+      "id": "test_goodhart_safe_group_unexpected_error_message_format",
+      "description": "Unexpected error messages must include the exception type and message in the prescribed format without stack traces",
+      "function": "safe_group_invoke",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Command raises ValueError('something broke')",
+      "expected_output_description": "",
+      "expected_error": "sys.exit(1)",
+      "assertions": [
+        "stderr output contains 'An unexpected error occurred'",
+        "stderr contains 'ValueError'",
+        "stderr contains 'something broke'",
+        "No traceback in output"
+      ]
+    },
+    {
+      "id": "test_goodhart_safe_group_keyboard_interrupt_stderr_messages",
+      "description": "KeyboardInterrupt handler must echo both a newline and 'Interrupted.' to stderr before exit 130",
+      "function": "safe_group_invoke",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Command raises KeyboardInterrupt",
+      "expected_output_description": "",
+      "expected_error": "sys.exit(130)",
+      "assertions": [
+        "stderr contains 'Interrupted.'",
+        "Exit code is 130"
+      ]
+    },
+    {
+      "id": "test_goodhart_safe_group_runtime_error",
+      "description": "RuntimeError (a non-Click exception type different from visible tests) is caught and handled generically",
+      "function": "safe_group_invoke",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Command raises RuntimeError('unexpected runtime failure')",
+      "expected_output_description": "",
+      "expected_error": "sys.exit(1)",
+      "assertions": [
+        "stderr contains 'RuntimeError'",
+        "stderr contains 'unexpected runtime failure'",
+        "Exit code is 1"
+      ]
+    },
+    {
+      "id": "test_goodhart_cmd_resume_displays_summary_before_engine",
+      "description": "When resuming a session, a human-readable summary must be displayed before the engine starts running",
+      "function": "cmd_resume",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "session": "mock with valid incomplete session",
+        "engine": "mock run() to verify call order"
+      },
+      "input_values": {},
+      "input_description": "Valid incomplete session exists, mock engine.run",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Session summary output occurs before engine.run() is called"
+      ]
+    },
+    {
+      "id": "test_goodhart_cmd_resume_calls_engine_with_resume_true",
+      "description": "cmd_resume must call engine.run() with resume=True to avoid replaying conversation history",
+      "function": "cmd_resume",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "session": "mock with valid incomplete session",
+        "engine": "mock run()"
+      },
+      "input_values": {},
+      "input_description": "Valid incomplete session, mock engine.run",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "engine.run() called with resume=True"
+      ]
+    },
+    {
+      "id": "test_goodhart_cmd_new_checks_gitignore_on_new_dir",
+      "description": "cmd_new must check for .gitignore suggestion when .constrain/ directory is newly created",
+      "function": "cmd_new",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "session": "mock create()",
+        "engine": "mock run()"
+      },
+      "input_values": {},
+      "input_description": "First run scenario where .constrain/ does not exist yet",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "check_gitignore_suggestion is called after session creation"
+      ]
+    },
+    {
+      "id": "test_goodhart_cmd_new_validates_api_key_before_session_create",
+      "description": "API key validation must occur before any session creation or engine interaction in cmd_new",
+      "function": "cmd_new",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "session": "mock create() to track if called",
+        "engine": "mock run() to track if called"
+      },
+      "input_values": {},
+      "input_description": "No API key set, mock session and engine",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Error raised before session.create() is called",
+        "engine.run() never called"
+      ]
+    },
+    {
+      "id": "test_goodhart_cmd_new_overwrite_check_before_writing",
+      "description": "When session completes, cmd_new must check for existing output files and confirm overwrite before writing artifacts",
+      "function": "cmd_new",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "session": "mock",
+        "engine": "mock run() returns completed session"
+      },
+      "input_values": {},
+      "input_description": "Existing prompt.md and constraints.yaml in cwd, mock user declining",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "confirm_overwrite is called",
+        "If user declines, artifacts are not written"
+      ]
+    },
+    {
+      "id": "test_goodhart_cmd_default_user_chooses_quit",
+      "description": "When user is offered to resume and chooses quit, neither resume nor new session should proceed",
+      "function": "cmd_default",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "session": "mock with incomplete session",
+        "engine": "mock run() to verify not called"
+      },
+      "input_values": {},
+      "input_description": "Incomplete session exists, user input selects quit option",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "engine.run() is not called",
+        "No new session created"
+      ]
+    },
+    {
+      "id": "test_goodhart_cmd_default_user_chooses_new",
+      "description": "When user declines resume and chooses to start new, a new session is created instead of resuming",
+      "function": "cmd_default",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "session": "mock with incomplete session and create()",
+        "engine": "mock run()"
+      },
+      "input_values": {},
+      "input_description": "Incomplete session exists, user input selects new session option",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "session.create() called for new session",
+        "engine.run() called without resume=True"
+      ]
+    },
+    {
+      "id": "test_goodhart_cmd_show_displays_both_artifacts_with_headers",
+      "description": "cmd_show must display both prompt.md and constraints.yaml content, each with a distinguishing header separator",
+      "function": "cmd_show",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Completed session with known prompt.md and constraints.yaml content",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Output contains prompt.md content",
+        "Output contains constraints.yaml content",
+        "Two distinct header separators present"
+      ]
+    },
+    {
+      "id": "test_goodhart_cmd_list_reverse_chronological",
+      "description": "Sessions must be listed most-recent-first, verified with sessions created at distinct times",
+      "function": "cmd_list",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "session": "mock list returning 3 sessions with distinct created_at"
+      },
+      "input_values": {},
+      "input_description": "Three sessions created at different timestamps",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Most recent session appears first in output",
+        "Oldest session appears last"
+      ]
+    },
+    {
+      "id": "test_goodhart_resolve_round_limits_all_four_env_vars",
+      "description": "All four environment variables are independently respected when all CLI flags are None",
+      "function": "resolve_round_limits",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "All CLI flags None, all four env vars set to distinct valid values (e.g., 2, 7, 3, 9)",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result.min_understand equals CONSTRAIN_MIN_UNDERSTAND env value",
+        "result.max_understand equals CONSTRAIN_MAX_UNDERSTAND env value",
+        "result.min_challenge equals CONSTRAIN_MIN_CHALLENGE env value",
+        "result.max_challenge equals CONSTRAIN_MAX_CHALLENGE env value"
+      ]
+    },
+    {
+      "id": "test_goodhart_resolve_round_limits_env_var_max_challenge_invalid",
+      "description": "Invalid env var for max_challenge specifically (not just min_understand) is detected and rejected",
+      "function": "resolve_round_limits",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "CONSTRAIN_MAX_CHALLENGE set to 'notanumber', all CLI flags None, other env vars valid or unset",
+      "expected_output_description": "",
+      "expected_error": "click.ClickException for invalid env var",
+      "assertions": [
+        "Error raised for the max_challenge env var specifically"
+      ]
+    },
+    {
+      "id": "test_goodhart_resolve_round_limits_min_exceeds_max_via_mixed_sources",
+      "description": "min > max error is detected even when min comes from env var and max from default (cross-source validation)",
+      "function": "resolve_round_limits",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "CONSTRAIN_MIN_UNDERSTAND set to '99' via env, no CLI flag for max_understand (uses default which is smaller)",
+      "expected_output_description": "",
+      "expected_error": "click.ClickException for min > max",
+      "assertions": [
+        "Error raised because env-sourced min exceeds default max"
+      ]
+    },
+    {
+      "id": "test_goodhart_ensure_api_key_exception_type",
+      "description": "ensure_api_key must raise specifically click.ClickException (not a generic exception) when key is missing",
+      "function": "ensure_api_key",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "ANTHROPIC_API_KEY not set",
+      "expected_output_description": "",
+      "expected_error": "click.ClickException specifically",
+      "assertions": [
+        "Exception type is click.ClickException, not ValueError or generic Exception"
+      ]
+    },
+    {
+      "id": "test_goodhart_cmd_resume_api_key_checked",
+      "description": "cmd_resume must validate API key before loading or running any session",
+      "function": "cmd_resume",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "session": "mock to verify not called before error",
+        "engine": "mock"
+      },
+      "input_values": {},
+      "input_description": "ANTHROPIC_API_KEY not set, valid session exists",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Error raised for missing API key",
+        "session load not attempted"
+      ]
+    },
+    {
+      "id": "test_goodhart_format_session_table_column_headers",
+      "description": "Table header row must contain all five required column names: ID, STATUS, CREATED, PHASE, POSTURE",
+      "function": "format_session_table",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Single session row with arbitrary values",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Header contains 'ID'",
+        "Header contains 'STATUS'",
+        "Header contains 'CREATED'",
+        "Header contains 'PHASE'",
+        "Header contains 'POSTURE'"
+      ]
+    },
+    {
+      "id": "test_goodhart_safe_group_abort_message",
+      "description": "On click.Abort, the exact message 'Aborted.' must be output (not 'Aborted' without period or other variants)",
+      "function": "safe_group_invoke",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Command raises click.Abort",
+      "expected_output_description": "",
+      "expected_error": "sys.exit(1)",
+      "assertions": [
+        "Output contains exactly 'Aborted.'",
+        "Exit code is 1"
+      ]
+    },
+    {
+      "id": "test_goodhart_check_gitignore_new_dir_echoes_to_stderr",
+      "description": "When suggestion is warranted, the message must be echoed to stderr (not stdout)",
+      "function": "check_gitignore_suggestion",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "constrain_dir_existed_before=False, no .gitignore file",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Suggestion message appears on stderr",
+        "Nothing written to stdout for the suggestion"
+      ]
+    },
+    {
+      "id": "test_goodhart_cmd_resume_session_corrupted",
+      "description": "When a session state file exists but contains invalid/corrupted JSON, a clear error is raised",
+      "function": "cmd_resume",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "session": "mock load that raises deserialization error"
+      },
+      "input_values": {},
+      "input_description": "Session file contains invalid JSON",
+      "expected_output_description": "",
+      "expected_error": "click.ClickException for corrupted session",
+      "assertions": [
+        "Error message indicates session corruption or deserialization failure"
+      ]
+    },
+    {
+      "id": "test_goodhart_resolve_round_limits_positive_integers_only",
+      "description": "All resolved round limit fields must be positive integers (> 0), not just non-negative",
+      "function": "resolve_round_limits",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Various valid inputs producing the result",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result.min_understand > 0",
+        "result.max_understand > 0",
+        "result.min_challenge > 0",
+        "result.max_challenge > 0"
+      ]
+    }
+  ],
+  "test_language": "python",
+  "generated_code": "\"\"\"\nHidden adversarial acceptance tests for CLI Interface component.\nThese tests target gaps in visible test coverage to detect implementations\nthat hardcode returns or take shortcuts based on visible test inputs.\n\"\"\"\nimport os\nimport sys\nimport json\nimport click\nimport pytest\nfrom unittest.mock import patch, MagicMock, call, PropertyMock\nfrom pathlib import Path\n\nfrom src.cli import (\n    ensure_api_key,\n    resolve_round_limits,\n    check_gitignore_suggestion,\n    format_session_table,\n    format_session_summary,\n    confirm_overwrite,\n    create_cli,\n)\n\n# Try importing SafeGroup - it may be a class within cli module\ntry:\n    from src.cli import SafeGroup\nexcept ImportError:\n    SafeGroup = None\n\n\n# ============================================================\n# ensure_api_key tests\n# ============================================================\n\nclass TestGoodhartEnsureApiKey:\n    \"\"\"Tests to detect hardcoded returns or incomplete validation in ensure_api_key.\"\"\"\n\n    def test_goodhart_ensure_api_key_returns_actual_env_value(self, monkeypatch):\n        \"\"\"ensure_api_key must return the exact value from the environment, not a hardcoded string — verified with a novel random-like key value\"\"\"\n        novel_key = \"sk-ant-NOVEL-xq9z8w7v6u5t4s3r2q1p\"\n        monkeypatch.setenv(\"ANTHROPIC_API_KEY\", novel_key)\n        result = ensure_api_key()\n        assert result == novel_key\n\n    def test_goodhart_ensure_api_key_returns_different_values(self, monkeypatch):\n        \"\"\"ensure_api_key must dynamically read the environment variable, not return a cached or hardcoded value\"\"\"\n        key1 = \"sk-ant-first-key-aaa111\"\n        key2 = \"sk-ant-second-key-bbb222\"\n        \n        monkeypatch.setenv(\"ANTHROPIC_API_KEY\", key1)\n        result1 = ensure_api_key()\n        assert result1 == key1\n\n        monkeypatch.setenv(\"ANTHROPIC_API_KEY\", key2)\n        result2 = ensure_api_key()\n        assert result2 == key2\n        assert result1 != result2\n\n    def test_goodhart_ensure_api_key_whitespace_only(self, monkeypatch):\n        \"\"\"An API key consisting only of whitespace should be treated as empty/not set and raise an error\"\"\"\n        monkeypatch.setenv(\"ANTHROPIC_API_KEY\", \"   \")\n        with pytest.raises(click.ClickException):\n            ensure_api_key()\n\n    def test_goodhart_ensure_api_key_exception_type(self, monkeypatch):\n        \"\"\"ensure_api_key must raise specifically click.ClickException (not a generic exception) when key is missing\"\"\"\n        monkeypatch.delenv(\"ANTHROPIC_API_KEY\", raising=False)\n        with pytest.raises(click.ClickException) as exc_info:\n            ensure_api_key()\n        # Verify it's exactly ClickException, not some other exception caught by pytest\n        assert type(exc_info.value) == click.ClickException or isinstance(exc_info.value, click.ClickException)\n\n    def test_goodhart_ensure_api_key_long_key(self, monkeypatch):\n        \"\"\"ensure_api_key handles and returns arbitrarily long API key strings\"\"\"\n        long_key = \"sk-ant-\" + \"a\" * 500\n        monkeypatch.setenv(\"ANTHROPIC_API_KEY\", long_key)\n        result = ensure_api_key()\n        assert result == long_key\n        assert len(result) == 507\n\n\n# ============================================================\n# resolve_round_limits tests\n# ============================================================\n\nclass TestGoodhartResolveRoundLimits:\n    \"\"\"Tests to detect hardcoded defaults and incomplete env var handling.\"\"\"\n\n    def test_goodhart_resolve_round_limits_partial_env_vars(self, monkeypatch):\n        \"\"\"When only some env vars are set and others are not, each field independently falls back to its own source (env or default)\"\"\"\n        monkeypatch.setenv(\"CONSTRAIN_MIN_UNDERSTAND\", \"2\")\n        monkeypatch.setenv(\"CONSTRAIN_MAX_CHALLENGE\", \"9\")\n        monkeypatch.delenv(\"CONSTRAIN_MAX_UNDERSTAND\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MIN_CHALLENGE\", raising=False)\n        \n        result = resolve_round_limits(None, None, None, None)\n        assert result.min_understand == 2\n        assert result.max_challenge == 9\n        # max_understand and min_challenge should be defaults, and min <= max\n        assert result.min_understand <= result.max_understand\n        assert result.min_challenge <= result.max_challenge\n\n    def test_goodhart_resolve_round_limits_cli_partial_override(self, monkeypatch):\n        \"\"\"When only some CLI flags are provided, the remaining fields fall back to env vars or defaults independently\"\"\"\n        monkeypatch.setenv(\"CONSTRAIN_MAX_CHALLENGE\", \"8\")\n        monkeypatch.delenv(\"CONSTRAIN_MIN_UNDERSTAND\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MAX_UNDERSTAND\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MIN_CHALLENGE\", raising=False)\n\n        result = resolve_round_limits(2, None, None, None)\n        assert result.min_understand == 2\n        assert result.max_challenge == 8\n        assert result.min_understand <= result.max_understand\n        assert result.min_challenge <= result.max_challenge\n\n    def test_goodhart_resolve_round_limits_all_four_env_vars(self, monkeypatch):\n        \"\"\"All four environment variables are independently respected when all CLI flags are None\"\"\"\n        monkeypatch.setenv(\"CONSTRAIN_MIN_UNDERSTAND\", \"2\")\n        monkeypatch.setenv(\"CONSTRAIN_MAX_UNDERSTAND\", \"7\")\n        monkeypatch.setenv(\"CONSTRAIN_MIN_CHALLENGE\", \"3\")\n        monkeypatch.setenv(\"CONSTRAIN_MAX_CHALLENGE\", \"9\")\n\n        result = resolve_round_limits(None, None, None, None)\n        assert result.min_understand == 2\n        assert result.max_understand == 7\n        assert result.min_challenge == 3\n        assert result.max_challenge == 9\n\n    def test_goodhart_resolve_round_limits_env_var_float_rejected(self, monkeypatch):\n        \"\"\"Floating point values in environment variables should be rejected as they are not valid positive integers\"\"\"\n        monkeypatch.setenv(\"CONSTRAIN_MIN_UNDERSTAND\", \"3.5\")\n        monkeypatch.delenv(\"CONSTRAIN_MAX_UNDERSTAND\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MIN_CHALLENGE\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MAX_CHALLENGE\", raising=False)\n\n        with pytest.raises((click.ClickException, click.exceptions.Exit, SystemExit, ValueError)):\n            resolve_round_limits(None, None, None, None)\n\n    def test_goodhart_resolve_round_limits_env_var_non_numeric(self, monkeypatch):\n        \"\"\"Alphabetic string values in environment variables should be rejected\"\"\"\n        monkeypatch.setenv(\"CONSTRAIN_MAX_UNDERSTAND\", \"abc\")\n        monkeypatch.delenv(\"CONSTRAIN_MIN_UNDERSTAND\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MIN_CHALLENGE\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MAX_CHALLENGE\", raising=False)\n\n        with pytest.raises((click.ClickException, click.exceptions.Exit, SystemExit, ValueError)):\n            resolve_round_limits(None, None, None, None)\n\n    def test_goodhart_resolve_round_limits_env_var_max_challenge_invalid(self, monkeypatch):\n        \"\"\"Invalid env var for max_challenge specifically (not just min_understand) is detected and rejected\"\"\"\n        monkeypatch.setenv(\"CONSTRAIN_MAX_CHALLENGE\", \"notanumber\")\n        monkeypatch.delenv(\"CONSTRAIN_MIN_UNDERSTAND\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MAX_UNDERSTAND\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MIN_CHALLENGE\", raising=False)\n\n        with pytest.raises((click.ClickException, click.exceptions.Exit, SystemExit, ValueError)):\n            resolve_round_limits(None, None, None, None)\n\n    def test_goodhart_resolve_round_limits_env_var_empty_string(self, monkeypatch):\n        \"\"\"An empty string environment variable should either be ignored (fall back to default) or rejected, not crash\"\"\"\n        monkeypatch.setenv(\"CONSTRAIN_MIN_UNDERSTAND\", \"\")\n        monkeypatch.delenv(\"CONSTRAIN_MAX_UNDERSTAND\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MIN_CHALLENGE\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MAX_CHALLENGE\", raising=False)\n\n        # Should either fall back to defaults cleanly or raise a clear ClickException\n        try:\n            result = resolve_round_limits(None, None, None, None)\n            # If it succeeds, the defaults should be valid\n            assert result.min_understand <= result.max_understand\n            assert result.min_challenge <= result.max_challenge\n            assert result.min_understand > 0\n        except (click.ClickException, click.exceptions.Exit, SystemExit, ValueError):\n            pass  # Also acceptable: a clear error\n\n    def test_goodhart_resolve_round_limits_large_values(self, monkeypatch):\n        \"\"\"Large but valid positive integers should be accepted without overflow or rejection\"\"\"\n        monkeypatch.delenv(\"CONSTRAIN_MIN_UNDERSTAND\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MAX_UNDERSTAND\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MIN_CHALLENGE\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MAX_CHALLENGE\", raising=False)\n\n        result = resolve_round_limits(50, 100, 50, 100)\n        assert result.min_understand == 50\n        assert result.max_understand == 100\n        assert result.min_challenge == 50\n        assert result.max_challenge == 100\n\n    def test_goodhart_resolve_round_limits_cross_phase_independence(self, monkeypatch):\n        \"\"\"Validation of min<=max is per-phase — understand limits are independent of challenge limits\"\"\"\n        monkeypatch.delenv(\"CONSTRAIN_MIN_UNDERSTAND\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MAX_UNDERSTAND\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MIN_CHALLENGE\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MAX_CHALLENGE\", raising=False)\n\n        # min_challenge=5 > max_understand=2 should be fine\n        result = resolve_round_limits(1, 2, 5, 10)\n        assert result.min_understand == 1\n        assert result.max_understand == 2\n        assert result.min_challenge == 5\n        assert result.max_challenge == 10\n\n    def test_goodhart_resolve_round_limits_min_exceeds_max_via_mixed_sources(self, monkeypatch):\n        \"\"\"min > max error is detected even when min comes from env var and max from default (cross-source validation)\"\"\"\n        monkeypatch.setenv(\"CONSTRAIN_MIN_UNDERSTAND\", \"99\")\n        monkeypatch.delenv(\"CONSTRAIN_MAX_UNDERSTAND\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MIN_CHALLENGE\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MAX_CHALLENGE\", raising=False)\n\n        with pytest.raises((click.ClickException, click.exceptions.Exit, SystemExit)):\n            resolve_round_limits(None, None, None, None)\n\n    def test_goodhart_resolve_round_limits_positive_integers_only(self, monkeypatch):\n        \"\"\"All resolved round limit fields must be positive integers (> 0), not just non-negative\"\"\"\n        monkeypatch.delenv(\"CONSTRAIN_MIN_UNDERSTAND\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MAX_UNDERSTAND\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MIN_CHALLENGE\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MAX_CHALLENGE\", raising=False)\n\n        result = resolve_round_limits(None, None, None, None)\n        assert result.min_understand > 0\n        assert result.max_understand > 0\n        assert result.min_challenge > 0\n        assert result.max_challenge > 0\n        assert isinstance(result.min_understand, int)\n        assert isinstance(result.max_understand, int)\n        assert isinstance(result.min_challenge, int)\n        assert isinstance(result.max_challenge, int)\n\n    def test_goodhart_resolve_round_limits_env_var_with_whitespace(self, monkeypatch):\n        \"\"\"Environment variable values with leading/trailing whitespace around a valid integer should be handled gracefully\"\"\"\n        monkeypatch.setenv(\"CONSTRAIN_MIN_UNDERSTAND\", \" 3 \")\n        monkeypatch.delenv(\"CONSTRAIN_MAX_UNDERSTAND\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MIN_CHALLENGE\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MAX_CHALLENGE\", raising=False)\n\n        # Should either strip and accept 3, or raise clear error\n        try:\n            result = resolve_round_limits(None, None, None, None)\n            assert result.min_understand == 3\n        except (click.ClickException, click.exceptions.Exit, SystemExit, ValueError):\n            pass  # Also acceptable\n\n\n# ============================================================\n# format_session_table tests\n# ============================================================\n\nclass TestGoodhartFormatSessionTable:\n    \"\"\"Tests for table formatting with diverse inputs.\"\"\"\n\n    def _make_row(self, session_id=\"sess-1\", status=\"incomplete\", created_at=\"2024-01-01\", current_phase=\"understand\", posture_display=\"***\"):\n        \"\"\"Helper to create a session row. Tries different struct representations.\"\"\"\n        try:\n            from src.cli import SessionListRow\n            return SessionListRow(\n                session_id=session_id,\n                status=status,\n                created_at=created_at,\n                current_phase=current_phase,\n                posture_display=posture_display,\n            )\n        except ImportError:\n            try:\n                from src.models import SessionListRow\n                return SessionListRow(\n                    session_id=session_id,\n                    status=status,\n                    created_at=created_at,\n                    current_phase=current_phase,\n                    posture_display=posture_display,\n                )\n            except ImportError:\n                # Fall back to a simple namespace or dict-like object\n                from types import SimpleNamespace\n                return SimpleNamespace(\n                    session_id=session_id,\n                    status=status,\n                    created_at=created_at,\n                    current_phase=current_phase,\n                    posture_display=posture_display,\n                )\n\n    def test_goodhart_format_session_table_many_rows(self):\n        \"\"\"Table formatting must scale correctly to many rows, not just 1-2 visible test rows\"\"\"\n        rows = [\n            self._make_row(\n                session_id=f\"sess-{i:03d}\",\n                status=\"incomplete\" if i % 2 == 0 else \"completed\",\n                created_at=f\"2024-01-{i+1:02d}\",\n                current_phase=\"understand\" if i % 3 == 0 else \"challenge\",\n            )\n            for i in range(10)\n        ]\n        result = format_session_table(rows)\n        lines = [l for l in result.strip().split(\"\\n\") if l.strip()]\n        # Should have header + 10 data rows (possibly also a separator line)\n        data_lines = [l for l in lines if \"sess-\" in l]\n        assert len(data_lines) == 10\n\n    def test_goodhart_format_session_table_long_values(self):\n        \"\"\"Table formatting handles long session IDs and status strings without truncation or misalignment\"\"\"\n        row = self._make_row(session_id=\"abc123def456ghi789jkl012mno345pqr\")\n        result = format_session_table([row])\n        assert \"abc123def456ghi789jkl012mno345pqr\" in result\n\n    def test_goodhart_format_session_table_posture_override_attempt(self):\n        \"\"\"Even if posture_display field contains actual posture text, the table output must show '***'\"\"\"\n        row = self._make_row(posture_display=\"aggressive_challenger\")\n        result = format_session_table([row])\n        assert \"***\" in result\n        assert \"aggressive_challenger\" not in result\n\n    def test_goodhart_format_session_table_column_headers(self):\n        \"\"\"Table header row must contain all five required column names: ID, STATUS, CREATED, PHASE, POSTURE\"\"\"\n        row = self._make_row()\n        result = format_session_table([row])\n        header = result.strip().split(\"\\n\")[0].upper()\n        assert \"ID\" in header\n        assert \"STATUS\" in header\n        assert \"CREATED\" in header or \"CREATE\" in header\n        assert \"PHASE\" in header\n        assert \"POSTURE\" in header\n\n\n# ============================================================\n# format_session_summary tests\n# ============================================================\n\nclass TestGoodhartFormatSessionSummary:\n\n    def test_goodhart_format_session_summary_large_round_count(self):\n        \"\"\"Session summary formatting correctly handles large round counts\"\"\"\n        result = format_session_summary(\n            session_id=\"sess-large-test\",\n            status=\"incomplete\",\n            current_phase=\"challenge\",\n            round_count=999,\n            problem_summary=\"A complex problem\"\n        )\n        assert \"999\" in result\n        assert \"sess-large-test\" in result\n        assert \"challenge\" in result\n\n    def test_goodhart_format_session_summary_special_chars_in_problem(self):\n        \"\"\"Session summary handles special characters in problem_summary without corruption\"\"\"\n        result = format_session_summary(\n            session_id=\"sess-special\",\n            status=\"incomplete\",\n            current_phase=\"understand\",\n            round_count=3,\n            problem_summary=\"Line1\\nLine2\\n• Unicode: café résumé\"\n        )\n        assert \"sess-special\" in result\n        assert \"3\" in result\n        assert isinstance(result, str)\n        assert \"\\n\" in result  # Multi-line\n\n    def test_goodhart_format_session_summary_zero_rounds(self):\n        \"\"\"Session summary handles zero round count (session just created, no rounds yet)\"\"\"\n        result = format_session_summary(\n            session_id=\"sess-zero\",\n            status=\"incomplete\",\n            current_phase=\"understand\",\n            round_count=0,\n            problem_summary=\"\"\n        )\n        assert \"sess-zero\" in result\n        assert \"0\" in result\n\n\n# ============================================================\n# confirm_overwrite tests\n# ============================================================\n\nclass TestGoodhartConfirmOverwrite:\n\n    def test_goodhart_confirm_overwrite_only_prompt_md_exists(self, tmp_path):\n        \"\"\"Overwrite confirmation triggers when only prompt.md exists (not both files)\"\"\"\n        (tmp_path / \"prompt.md\").write_text(\"existing prompt\")\n        # constraints.yaml does NOT exist\n        with patch(\"click.confirm\", return_value=True) as mock_confirm:\n            result = confirm_overwrite(str(tmp_path))\n            assert result is True\n            mock_confirm.assert_called()\n\n    def test_goodhart_confirm_overwrite_only_constraints_yaml_exists(self, tmp_path):\n        \"\"\"Overwrite confirmation triggers when only constraints.yaml exists (not both files)\"\"\"\n        (tmp_path / \"constraints.yaml\").write_text(\"existing constraints\")\n        # prompt.md does NOT exist\n        with patch(\"click.confirm\", return_value=True) as mock_confirm:\n            result = confirm_overwrite(str(tmp_path))\n            assert result is True\n            mock_confirm.assert_called()\n\n\n# ============================================================\n# create_cli tests\n# ============================================================\n\nclass TestGoodhartCreateCli:\n\n    def test_goodhart_create_cli_safe_group_class(self):\n        \"\"\"The CLI group must use SafeGroup as its class, not plain click.Group — ensuring centralized exception handling\"\"\"\n        cli = create_cli()\n        # The class should be SafeGroup or a subclass, not plain click.Group\n        assert type(cli) is not click.Group\n        # Check it's still a Group-like object\n        assert isinstance(cli, click.Group)\n        # Class name should reference SafeGroup\n        assert \"SafeGroup\" in type(cli).__name__ or \"Safe\" in type(cli).__name__\n\n    def test_goodhart_create_cli_has_all_four_subcommands(self):\n        \"\"\"The CLI group must register exactly the four expected subcommands: new, resume, show, list\"\"\"\n        cli = create_cli()\n        commands = cli.commands if hasattr(cli, 'commands') else {}\n        assert \"new\" in commands, \"Missing 'new' subcommand\"\n        assert \"resume\" in commands, \"Missing 'resume' subcommand\"\n        assert \"show\" in commands, \"Missing 'show' subcommand\"\n        assert \"list\" in commands, \"Missing 'list' subcommand\"\n\n    def test_goodhart_create_cli_invoke_without_command(self):\n        \"\"\"The CLI group must be configured with invoke_without_command=True so the default handler runs\"\"\"\n        cli = create_cli()\n        assert cli.invoke_without_command is True\n\n    def test_goodhart_create_cli_round_limit_options_on_new(self):\n        \"\"\"The 'new' subcommand must have round limit options matching those on the group\"\"\"\n        cli = create_cli()\n        new_cmd = cli.commands.get(\"new\")\n        assert new_cmd is not None\n        option_names = [p.name for p in new_cmd.params]\n        assert \"min_understand\" in option_names\n        assert \"max_understand\" in option_names\n        assert \"min_challenge\" in option_names\n        assert \"max_challenge\" in option_names\n\n\n# ============================================================\n# safe_group_invoke tests\n# ============================================================\n\nclass TestGoodhartSafeGroupInvoke:\n\n    def _get_safe_group(self):\n        \"\"\"Get the SafeGroup class.\"\"\"\n        try:\n            from src.cli import SafeGroup\n            return SafeGroup\n        except ImportError:\n            cli = create_cli()\n            return type(cli)\n\n    def test_goodhart_safe_group_unexpected_error_message_format(self):\n        \"\"\"Unexpected error messages must include the exception type and message in the prescribed format without stack traces\"\"\"\n        cli = create_cli()\n\n        @cli.command(\"test_cmd\")\n        def test_cmd():\n            raise ValueError(\"something broke\")\n\n        from click.testing import CliRunner\n        runner = CliRunner()\n        result = runner.invoke(cli, [\"test_cmd\"])\n        assert result.exit_code == 1\n        # Check for prescribed format\n        assert \"unexpected error occurred\" in result.output.lower() or \"unexpected error occurred\" in (result.output + getattr(result, 'stderr', '')).lower() or \"ValueError\" in result.output or \"something broke\" in result.output\n\n    def test_goodhart_safe_group_runtime_error(self):\n        \"\"\"RuntimeError (a non-Click exception type different from visible tests) is caught and handled generically\"\"\"\n        cli = create_cli()\n\n        @cli.command(\"test_runtime\")\n        def test_runtime():\n            raise RuntimeError(\"unexpected runtime failure\")\n\n        from click.testing import CliRunner\n        runner = CliRunner()\n        result = runner.invoke(cli, [\"test_runtime\"])\n        assert result.exit_code == 1\n        full_output = result.output + getattr(result, 'stderr', '')\n        # Should contain the error type and message, but no traceback\n        assert \"Traceback\" not in full_output\n\n    def test_goodhart_safe_group_keyboard_interrupt_exit_code(self):\n        \"\"\"KeyboardInterrupt handler must exit with code 130\"\"\"\n        cli = create_cli()\n\n        @cli.command(\"test_interrupt\")\n        def test_interrupt():\n            raise KeyboardInterrupt()\n\n        from click.testing import CliRunner\n        runner = CliRunner()\n        result = runner.invoke(cli, [\"test_interrupt\"])\n        assert result.exit_code == 130\n\n    def test_goodhart_safe_group_abort_message(self):\n        \"\"\"On click.Abort, the exact message 'Aborted.' must be output\"\"\"\n        cli = create_cli()\n\n        @cli.command(\"test_abort\")\n        def test_abort():\n            raise click.Abort()\n\n        from click.testing import CliRunner\n        runner = CliRunner()\n        result = runner.invoke(cli, [\"test_abort\"])\n        assert result.exit_code == 1\n        full_output = result.output\n        assert \"Aborted.\" in full_output or \"Aborted\" in full_output\n\n\n# ============================================================\n# check_gitignore_suggestion tests\n# ============================================================\n\nclass TestGoodhartCheckGitignoreSuggestion:\n\n    def test_goodhart_check_gitignore_new_dir_echoes_to_stderr(self, tmp_path, monkeypatch):\n        \"\"\"When suggestion is warranted, the message must be echoed to stderr (not stdout)\"\"\"\n        monkeypatch.chdir(tmp_path)\n        # No .gitignore file exists\n        captured_stderr = []\n        original_echo = click.echo\n\n        def mock_echo(*args, **kwargs):\n            if kwargs.get('err', False):\n                captured_stderr.append(args[0] if args else '')\n            original_echo(*args, **kwargs)\n\n        with patch(\"click.echo\", side_effect=mock_echo):\n            result = check_gitignore_suggestion(constrain_dir_existed_before=False)\n\n        if result.should_suggest:\n            assert len(captured_stderr) > 0, \"Suggestion should be echoed to stderr\"\n\n\n# ============================================================\n# Integration-level adversarial tests\n# ============================================================\n\nclass TestGoodhartIntegration:\n\n    def test_goodhart_cmd_resume_calls_engine_with_resume_true(self, monkeypatch):\n        \"\"\"cmd_resume must call engine.run() with resume=True to avoid replaying conversation history\"\"\"\n        monkeypatch.setenv(\"ANTHROPIC_API_KEY\", \"sk-ant-test-key\")\n\n        from click.testing import CliRunner\n        cli = create_cli()\n        runner = CliRunner()\n\n        mock_session_data = MagicMock()\n        mock_session_data.session_id = \"test-sess-123\"\n        mock_session_data.status = \"incomplete\"\n        mock_session_data.current_phase = \"understand\"\n\n        with patch(\"src.cli.session\") as mock_session_mod, \\\n             patch(\"src.cli.engine\") as mock_engine_mod:\n            mock_session_mod.get_most_recent_incomplete.return_value = mock_session_data\n            mock_session_mod.load.return_value = mock_session_data\n            mock_engine_mod.run.return_value = None\n\n            try:\n                result = runner.invoke(cli, [\"resume\"])\n            except (SystemExit, Exception):\n                pass\n\n            # Verify engine.run was called with resume=True\n            if mock_engine_mod.run.called:\n                call_kwargs = mock_engine_mod.run.call_args\n                if call_kwargs:\n                    # Check positional or keyword args for resume=True\n                    kwargs = call_kwargs.kwargs if hasattr(call_kwargs, 'kwargs') else call_kwargs[1]\n                    assert kwargs.get('resume') is True or \\\n                           (len(call_kwargs.args) > 1 and call_kwargs.args[-1] is True), \\\n                           \"engine.run() must be called with resume=True\"\n"
+}

@@ -1,0 +1,37 @@
+[
+  {
+    "ambiguity": "",
+    "decision": "Problem model as Pydantic model with defined fields, not freeform dict",
+    "rationale": "The interview answers specify concrete fields (system_description, stakeholders, failure_modes, etc.). Using a Pydantic model ensures consistency across sessions and compatibility with synthesis prompts. Incremental updates use shallow merge: overwrite scalars, append to lists, merge nested dicts."
+  },
+  {
+    "ambiguity": "",
+    "decision": "Synthesizer as a separate component from the engine",
+    "rationale": "The engine handles the multi-turn conversation loop and LLM interaction. The synthesizer handles artifact parsing, formatting, validation, YAML serialization, and file I/O. These are genuinely different responsibilities \u2014 the engine produces raw LLM output, the synthesizer structures it into deliverables. The engine calls the synthesizer but doesn't own artifact concerns."
+  },
+  {
+    "ambiguity": "",
+    "decision": "Round limits configurable via CLI flags and env vars with hard enforcement",
+    "rationale": "Per interview answers: configurable with sensible defaults, via CLI flags or env vars. Hard-enforced means the engine ignores LLM's ready_to_proceed below minimum and forces transition at maximum. This prevents both premature and runaway phases."
+  },
+  {
+    "ambiguity": "",
+    "decision": "Resume shows summary, does not replay history to LLM",
+    "rationale": "Per interview answer #4: no replay. On resume, the engine reconstructs context by injecting the current problem model state into the system prompt. The conversation history is NOT re-sent as user/assistant turns \u2014 only the problem model summary is provided, keeping token usage manageable."
+  },
+  {
+    "ambiguity": "",
+    "decision": "Synthesis uses a fresh message array, not continued conversation",
+    "rationale": "Per assumptions: synthesis is a separate LLM call where the full conversation history and problem model are injected into the system prompt, not replayed as turns. This gives the synthesis prompt full control over framing and avoids context window issues from long conversations."
+  },
+  {
+    "ambiguity": "",
+    "decision": "Single model (claude-sonnet-4-20250514) for all phases",
+    "rationale": "Per interview answer #10: keep it simple, one model for everything. The spec text originally may have intended different models but was clarified to use the same one."
+  },
+  {
+    "ambiguity": "",
+    "decision": ".gitignore suggestion on first run, not auto-modification",
+    "rationale": "Per interview answer #8: suggest adding .constrain/ to .gitignore but don't auto-modify. The session manager checks on first directory creation and prints a one-time suggestion."
+  }
+]

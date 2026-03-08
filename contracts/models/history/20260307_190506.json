@@ -1,0 +1,790 @@
+{
+  "component_id": "models",
+  "name": "Data Models",
+  "description": "Pure data-definition module providing Pydantic models and type aliases that define the shared data structures for the entire Constrain application. Zero internal project imports — serves as the leaf dependency for all other components. Includes: Posture (StrEnum), Phase/Status/Severity (Literal type aliases), FailureMode, ProblemModel (with incremental update), Message, Constraint, LLMResponseMeta (with safe parsing), and Session (full state container with serialization). All file I/O is excluded; serialization stops at string boundaries.",
+  "version": 1,
+  "types": [
+    {
+      "name": "Posture",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "adversarial",
+        "contrarian",
+        "critic",
+        "skeptic",
+        "collaborator"
+      ],
+      "inner_types": [],
+      "description": "Interview posture that controls system prompt tone. Implemented as Python enum.StrEnum for clean serialization and CLI integration."
+    },
+    {
+      "name": "Phase",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "understand",
+        "challenge",
+        "synthesize",
+        "complete"
+      ],
+      "inner_types": [],
+      "description": "Type alias: Literal['understand', 'challenge', 'synthesize', 'complete']. Constrains session progression through the interview pipeline."
+    },
+    {
+      "name": "Status",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "incomplete",
+        "complete"
+      ],
+      "inner_types": [],
+      "description": "Type alias: Literal['incomplete', 'complete']. Tracks whether a session has produced final artifacts."
+    },
+    {
+      "name": "Severity",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "must",
+        "should"
+      ],
+      "inner_types": [],
+      "description": "Type alias: Literal['must', 'should']. Constraint severity level indicating hard requirement vs recommendation."
+    },
+    {
+      "name": "Role",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "user",
+        "assistant"
+      ],
+      "inner_types": [],
+      "description": "Type alias: Literal['user', 'assistant']. Conversation message role."
+    },
+    {
+      "name": "FailureMode",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "description",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable description of the failure mode.",
+          "validators": []
+        },
+        {
+          "name": "severity",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Severity classification of this failure mode (e.g., 'critical', 'major', 'minor').",
+          "validators": []
+        },
+        {
+          "name": "historical",
+          "type_ref": "bool",
+          "required": false,
+          "default": "False",
+          "description": "Whether this failure mode has been observed historically.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A typed failure mode replacing raw dict. Provides validation at the LLM output boundary. Represents a way the system under discussion can fail."
+    },
+    {
+      "name": "ProblemModel",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "system_description",
+          "type_ref": "str",
+          "required": false,
+          "default": "",
+          "description": "High-level description of the system under discussion.",
+          "validators": []
+        },
+        {
+          "name": "stakeholders",
+          "type_ref": "list",
+          "required": false,
+          "default": "[]",
+          "description": "People or roles affected by or interested in the system.",
+          "validators": []
+        },
+        {
+          "name": "failure_modes",
+          "type_ref": "list",
+          "required": false,
+          "default": "[]",
+          "description": "Ways the system can fail, each as a typed FailureMode.",
+          "validators": []
+        },
+        {
+          "name": "dependencies",
+          "type_ref": "list",
+          "required": false,
+          "default": "[]",
+          "description": "External systems, services, or components this system depends on.",
+          "validators": []
+        },
+        {
+          "name": "assumptions",
+          "type_ref": "list",
+          "required": false,
+          "default": "[]",
+          "description": "Assumptions made about the system or its environment.",
+          "validators": []
+        },
+        {
+          "name": "boundaries",
+          "type_ref": "list",
+          "required": false,
+          "default": "[]",
+          "description": "Explicit boundaries or scope limitations of the system.",
+          "validators": []
+        },
+        {
+          "name": "history",
+          "type_ref": "list",
+          "required": false,
+          "default": "[]",
+          "description": "Relevant historical context or past decisions.",
+          "validators": []
+        },
+        {
+          "name": "success_shape",
+          "type_ref": "list",
+          "required": false,
+          "default": "[]",
+          "description": "What success looks like — observable outcomes or criteria.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Accumulated understanding of the problem being constrained. All fields have empty defaults so instances can be incrementally built. Supports shallow merge via apply_update: scalars are replaced, lists are extended with dedup for str lists, and unknown keys are silently ignored."
+    },
+    {
+      "name": "Message",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "role",
+          "type_ref": "Role",
+          "required": true,
+          "default": "",
+          "description": "Who produced this message: 'user' or 'assistant'.",
+          "validators": []
+        },
+        {
+          "name": "content",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The textual content of the message.",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "Message content must not be empty."
+            }
+          ]
+        },
+        {
+          "name": "timestamp",
+          "type_ref": "str",
+          "required": false,
+          "default": "datetime.now(timezone.utc)",
+          "description": "ISO 8601 UTC timestamp of when the message was created. Default factory: datetime.now(timezone.utc).",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single conversation turn in the interview session. Timestamp defaults to UTC now at creation time."
+    },
+    {
+      "name": "Constraint",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Unique identifier for this constraint (e.g., 'C-001').",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "min=1",
+              "error_message": "Constraint id must not be empty."
+            }
+          ]
+        },
+        {
+          "name": "boundary",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The domain boundary or area this constraint applies to.",
+          "validators": []
+        },
+        {
+          "name": "condition",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The specific condition that must hold or should hold.",
+          "validators": []
+        },
+        {
+          "name": "violation",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "What constitutes a violation of this constraint.",
+          "validators": []
+        },
+        {
+          "name": "severity",
+          "type_ref": "Severity",
+          "required": true,
+          "default": "",
+          "description": "Whether this is a hard requirement ('must') or recommendation ('should').",
+          "validators": []
+        },
+        {
+          "name": "rationale",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Why this constraint exists — the reasoning behind it.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A structured constraint extracted from the interview. Designed for YAML-safe export via model_dump(mode='json')."
+    },
+    {
+      "name": "Artifacts",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "prompt_md",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Generated prompt.md content as a string.",
+          "validators": []
+        },
+        {
+          "name": "constraints_yaml",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Generated constraints.yaml content as a string.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Container for generated output artifact content strings. Populated during synthesis phase."
+    },
+    {
+      "name": "LLMResponseMeta",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "ready_to_proceed",
+          "type_ref": "bool",
+          "required": false,
+          "default": "False",
+          "description": "Whether the LLM considers the current phase complete and ready to advance.",
+          "validators": []
+        },
+        {
+          "name": "problem_model_update",
+          "type_ref": "dict",
+          "required": false,
+          "default": "{}",
+          "description": "Incremental updates to apply to the ProblemModel. Keys correspond to ProblemModel field names; values are replacement scalars or items to append to lists.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Parsed structured JSON block from the end of LLM responses during understand/challenge phases. Defaults are safe fallbacks (not ready, no updates). Includes safe_parse classmethod that never raises."
+    },
+    {
+      "name": "Session",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "id",
+          "type_ref": "str",
+          "required": false,
+          "default": "str(uuid4())",
+          "description": "UUID4 string uniquely identifying this session. Default factory: str(uuid4()).",
+          "validators": []
+        },
+        {
+          "name": "schema_version",
+          "type_ref": "int",
+          "required": false,
+          "default": "1",
+          "description": "Schema version for forward compatibility of persisted session files.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "min=1",
+              "error_message": "Schema version must be at least 1."
+            }
+          ]
+        },
+        {
+          "name": "posture",
+          "type_ref": "Posture",
+          "required": true,
+          "default": "",
+          "description": "Interview posture controlling system prompt tone. Stored in session state but not displayed to the user.",
+          "validators": []
+        },
+        {
+          "name": "current_phase",
+          "type_ref": "Phase",
+          "required": false,
+          "default": "understand",
+          "description": "Current phase of the interview pipeline.",
+          "validators": []
+        },
+        {
+          "name": "current_round",
+          "type_ref": "int",
+          "required": false,
+          "default": "0",
+          "description": "Current round number within the active phase. Starts at 0, incremented each turn.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "min=0",
+              "error_message": "Round number must be non-negative."
+            }
+          ]
+        },
+        {
+          "name": "conversation_history",
+          "type_ref": "list",
+          "required": false,
+          "default": "[]",
+          "description": "Ordered list of all conversation turns across all phases.",
+          "validators": []
+        },
+        {
+          "name": "problem_model",
+          "type_ref": "ProblemModel",
+          "required": false,
+          "default": "ProblemModel()",
+          "description": "Incrementally accumulated understanding of the problem.",
+          "validators": []
+        },
+        {
+          "name": "artifacts",
+          "type_ref": "OptionalArtifacts",
+          "required": false,
+          "default": "None",
+          "description": "Generated artifacts, populated only after successful synthesis. None before synthesis completes.",
+          "validators": []
+        },
+        {
+          "name": "created_at",
+          "type_ref": "str",
+          "required": false,
+          "default": "datetime.now(timezone.utc)",
+          "description": "ISO 8601 UTC timestamp of session creation. Default factory: datetime.now(timezone.utc).",
+          "validators": []
+        },
+        {
+          "name": "updated_at",
+          "type_ref": "str",
+          "required": false,
+          "default": "datetime.now(timezone.utc)",
+          "description": "ISO 8601 UTC timestamp of last session modification. Updated by touch(). Default factory: datetime.now(timezone.utc).",
+          "validators": []
+        },
+        {
+          "name": "status",
+          "type_ref": "Status",
+          "required": false,
+          "default": "incomplete",
+          "description": "Overall session completion status.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Full session state container. Represents the complete state of an interview session including conversation history, problem model, phase tracking, and optional generated artifacts. Provides to_json/from_json for serialization to .constrain/sessions/<id>.json. Includes schema_version for forward compatibility."
+    },
+    {
+      "name": "OptionalArtifacts",
+      "kind": "optional",
+      "fields": [],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [
+        "Artifacts"
+      ],
+      "description": "Optional wrapper for Artifacts — None before synthesis, populated after."
+    }
+  ],
+  "functions": [
+    {
+      "name": "ProblemModel.apply_update",
+      "description": "Apply an incremental update dict to the problem model using shallow merge semantics. Scalar fields (str) are replaced. List fields are extended: str lists are deduplicated, FailureMode lists are appended without dedup. Keys not present in ProblemModel.model_fields are silently ignored (suitable for debug logging if added later). Uses model_fields introspection to determine field types and merge behavior.",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "ProblemModel",
+          "required": true,
+          "default": "",
+          "description": "The ProblemModel instance to mutate.",
+          "validators": []
+        },
+        {
+          "name": "update",
+          "type_ref": "dict",
+          "required": true,
+          "default": "",
+          "description": "Dict of incremental updates. Keys are ProblemModel field names. Values are replacement values for scalars or items/lists to append for list fields.",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "invalid_scalar_type",
+          "condition": "A scalar field update value is not a str",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Expected str for scalar field '{field_name}', got {type}"
+          }
+        },
+        {
+          "name": "invalid_list_value_type",
+          "condition": "A list field update value is neither a list nor a single item of the expected type",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Expected list or single item for list field '{field_name}', got {type}"
+          }
+        },
+        {
+          "name": "invalid_failure_mode_item",
+          "condition": "An item in a failure_modes update cannot be validated as a FailureMode",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Invalid FailureMode data: {detail}"
+          }
+        }
+      ],
+      "preconditions": [
+        "update is a dict (may be empty)",
+        "self is a valid ProblemModel instance"
+      ],
+      "postconditions": [
+        "For each key in update that matches a scalar ProblemModel field, self.<key> equals update[key]",
+        "For each key in update that matches a list[str] ProblemModel field, the new items from update[key] are appended and the list contains no duplicate strings",
+        "For each key in update that matches a list[FailureMode] field, the new FailureMode items are appended",
+        "Keys in update not present in ProblemModel.model_fields are silently ignored",
+        "Pre-existing list items are preserved in original order",
+        "An empty update dict results in no changes"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "mutates_state",
+          "target": "self (ProblemModel instance fields)",
+          "description": "Mutates fields of the ProblemModel instance in place."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "LLMResponseMeta.safe_parse",
+      "description": "Classmethod that safely parses a raw dict into an LLMResponseMeta instance. Wraps model_validate in try/except and returns a safe default (ready_to_proceed=False, problem_model_update={}) on any validation failure. Never raises.",
+      "inputs": [
+        {
+          "name": "raw",
+          "type_ref": "dict",
+          "required": true,
+          "default": "",
+          "description": "Raw dict parsed from the JSON block in an LLM response. May be malformed, missing keys, or contain unexpected types.",
+          "validators": []
+        }
+      ],
+      "output_type": "LLMResponseMeta",
+      "error_cases": [],
+      "preconditions": [
+        "raw is a dict (caller must ensure this; if not a dict, safe default is returned)"
+      ],
+      "postconditions": [
+        "Return value is always a valid LLMResponseMeta instance",
+        "If raw is valid, returned instance reflects the parsed values",
+        "If raw is invalid or malformed, returned instance has ready_to_proceed=False and problem_model_update={}",
+        "No exception is raised regardless of input"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure function — no side effects."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "Session.touch",
+      "description": "Update the 'updated_at' timestamp to the current UTC time. Called whenever session state is modified to keep the persistence timestamp accurate.",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "Session",
+          "required": true,
+          "default": "",
+          "description": "The Session instance to update.",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [],
+      "preconditions": [
+        "self is a valid Session instance"
+      ],
+      "postconditions": [
+        "self.updated_at is set to the current UTC time (datetime.now(timezone.utc))",
+        "self.updated_at >= the value of self.updated_at before the call",
+        "No other fields are modified"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "mutates_state",
+          "target": "self.updated_at",
+          "description": "Updates the updated_at timestamp field to current UTC time."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "Session.to_json",
+      "description": "Serialize the full session state to a JSON string with 2-space indentation. Delegates to Pydantic's model_dump_json(indent=2). Suitable for writing to .constrain/sessions/<id>.json. Does NOT perform file I/O.",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "Session",
+          "required": true,
+          "default": "",
+          "description": "The Session instance to serialize.",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [
+        {
+          "name": "serialization_failure",
+          "condition": "Pydantic serialization encounters an unserializable field value (should not happen with well-typed models)",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Failed to serialize session: {detail}"
+          }
+        }
+      ],
+      "preconditions": [
+        "self is a valid Session instance with all required fields populated"
+      ],
+      "postconditions": [
+        "Returned string is valid JSON",
+        "JSON contains all Session fields including nested models",
+        "JSON is formatted with 2-space indentation",
+        "Roundtrip: Session.from_json(self.to_json()) produces an equivalent Session",
+        "Posture is serialized as its string value",
+        "Timestamps are serialized as ISO 8601 strings",
+        "UUID id is serialized as a string"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure function — produces a string, no I/O."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 50,
+        "max_memory_mb": null,
+        "complexity": "O(n) where n is total size of conversation history and problem model"
+      }
+    },
+    {
+      "name": "Session.from_json",
+      "description": "Classmethod that deserializes a JSON string into a Session instance. Delegates to Pydantic's model_validate_json. Used when loading session state from .constrain/sessions/<id>.json. Does NOT perform file I/O.",
+      "inputs": [
+        {
+          "name": "raw",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "JSON string representing a serialized Session. Must be valid JSON conforming to the Session schema.",
+          "validators": []
+        }
+      ],
+      "output_type": "Session",
+      "error_cases": [
+        {
+          "name": "invalid_json",
+          "condition": "raw is not valid JSON",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Invalid JSON: {detail}"
+          }
+        },
+        {
+          "name": "schema_mismatch",
+          "condition": "JSON structure does not conform to the Session schema (missing required fields, wrong types)",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Session schema validation failed: {detail}"
+          }
+        },
+        {
+          "name": "unknown_posture",
+          "condition": "Posture value in JSON is not a valid Posture enum member",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Unknown posture: '{value}'. Valid values: adversarial, contrarian, critic, skeptic, collaborator"
+          }
+        },
+        {
+          "name": "unknown_phase",
+          "condition": "Phase value in JSON is not one of the valid Phase literals",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Unknown phase: '{value}'. Valid values: understand, challenge, synthesize, complete"
+          }
+        },
+        {
+          "name": "unsupported_schema_version",
+          "condition": "schema_version in JSON is higher than the current supported version",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Unsupported schema version {version}. Maximum supported: 1"
+          }
+        }
+      ],
+      "preconditions": [
+        "raw is a non-empty string",
+        "raw is valid JSON"
+      ],
+      "postconditions": [
+        "Returned Session is a fully valid instance with all fields populated",
+        "All nested models (Message, ProblemModel, Constraint, Artifacts) are properly deserialized",
+        "Posture is deserialized from its string value to the Posture enum member",
+        "Timestamps are deserialized to datetime objects",
+        "schema_version is preserved from the JSON"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure function — parses a string, no I/O."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 50,
+        "max_memory_mb": null,
+        "complexity": "O(n) where n is total size of the JSON string"
+      }
+    },
+    {
+      "name": "Constraint.to_yaml_dict",
+      "description": "Export the constraint as a plain dict suitable for YAML serialization. Delegates to Pydantic's model_dump(mode='json') to ensure all values are JSON/YAML-safe primitives (no datetime objects, no enum instances — just strings and bools).",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "Constraint",
+          "required": true,
+          "default": "",
+          "description": "The Constraint instance to export.",
+          "validators": []
+        }
+      ],
+      "output_type": "dict",
+      "error_cases": [],
+      "preconditions": [
+        "self is a valid Constraint instance"
+      ],
+      "postconditions": [
+        "Returned dict contains keys: id, boundary, condition, violation, severity, rationale",
+        "All values are str (severity is the string 'must' or 'should', not an enum object)",
+        "Returned dict is safe for direct use with pyyaml dump"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure function — produces a dict, no I/O."
+        }
+      ],
+      "performance_budget": null
+    }
+  ],
+  "dependencies": [],
+  "dependency_contracts": {},
+  "invariants": [
+    "models.py has zero internal project imports — it is the leaf dependency for all other components",
+    "All models are Pydantic BaseModel subclasses (except Posture which is enum.StrEnum and type aliases which are Literal)",
+    "All fields use type hints compatible with Python 3.12+",
+    "All list fields use Field(default_factory=list) — never mutable default arguments",
+    "All datetime fields default to datetime.now(timezone.utc) via default_factory — never mutable defaults",
+    "Session.id defaults to str(uuid4()) via default_factory — unique per instance",
+    "Posture enum members serialize to/from their string values (e.g., 'adversarial' not 'Posture.adversarial')",
+    "Phase, Status, Severity, and Role are Literal type aliases, not enum classes",
+    "ProblemModel.apply_update never raises on unknown keys — they are silently ignored",
+    "LLMResponseMeta.safe_parse never raises — returns safe defaults on any failure",
+    "Session serialization is roundtrip-stable: Session.from_json(session.to_json()) == session",
+    "schema_version field enables forward-compatible deserialization of persisted session files",
+    "Module total size target: approximately 200 lines or fewer",
+    "No file I/O in this module — serialization boundary stops at str/dict"
+  ],
+  "requires": [
+    "pydantic>=2.0",
+    "python>=3.12"
+  ],
+  "processing_register": "rigorous-analytical"
+}

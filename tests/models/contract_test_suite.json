@@ -1,0 +1,819 @@
+{
+  "component_id": "models",
+  "contract_version": 1,
+  "test_cases": [
+    {
+      "id": "enum_posture_members",
+      "description": "Posture enum has all 5 expected members",
+      "function": "Posture",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "All 5 posture members exist: adversarial, contrarian, critic, skeptic, collaborator"
+      ]
+    },
+    {
+      "id": "enum_posture_str_value",
+      "description": "Posture enum members serialize to their string values (StrEnum)",
+      "function": "Posture",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "str(Posture.adversarial) == 'adversarial'",
+        "Posture('collaborator') == Posture.collaborator"
+      ]
+    },
+    {
+      "id": "enum_posture_invalid",
+      "description": "Constructing Posture with invalid value raises ValueError",
+      "function": "Posture",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "ValueError",
+      "assertions": []
+    },
+    {
+      "id": "enum_phase_members",
+      "description": "Phase literal type accepts all 4 valid values",
+      "function": "Phase",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "All 4 phase values exist: understand, challenge, synthesize, complete"
+      ]
+    },
+    {
+      "id": "enum_status_members",
+      "description": "Status literal type accepts incomplete and complete",
+      "function": "Status",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Both status values exist: incomplete, complete"
+      ]
+    },
+    {
+      "id": "enum_severity_members",
+      "description": "Severity literal type accepts must and should",
+      "function": "Severity",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Both severity values exist: must, should"
+      ]
+    },
+    {
+      "id": "enum_role_members",
+      "description": "Role literal type accepts user and assistant",
+      "function": "Role",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Both role values exist: user, assistant"
+      ]
+    },
+    {
+      "id": "failure_mode_construction",
+      "description": "FailureMode struct can be constructed with required fields",
+      "function": "FailureMode",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "description, severity, historical fields are accessible"
+      ]
+    },
+    {
+      "id": "problem_model_defaults",
+      "description": "ProblemModel has empty defaults for all fields",
+      "function": "ProblemModel",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "All list fields default to empty lists",
+        "system_description defaults to empty string"
+      ]
+    },
+    {
+      "id": "problem_model_no_mutable_defaults",
+      "description": "ProblemModel instances have independent default lists (no shared mutable defaults)",
+      "function": "ProblemModel",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Two ProblemModel instances have independent list objects"
+      ]
+    },
+    {
+      "id": "apply_update_scalar",
+      "description": "apply_update replaces scalar (str) fields with new values",
+      "function": "ProblemModel.apply_update",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "update={'system_description': 'new desc'}",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "pm.system_description == 'new desc'"
+      ]
+    },
+    {
+      "id": "apply_update_str_list",
+      "description": "apply_update extends str list fields and deduplicates",
+      "function": "ProblemModel.apply_update",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "pm with stakeholders=['a'], update={'stakeholders': ['b', 'a', 'c']}",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "pm.stakeholders == ['a', 'b', 'c']",
+        "No duplicate strings in list"
+      ]
+    },
+    {
+      "id": "apply_update_failure_modes",
+      "description": "apply_update appends FailureMode items without dedup",
+      "function": "ProblemModel.apply_update",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "update={'failure_modes': [{'description': 'fail1', 'severity': 'must', 'historical': False}]}",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "New FailureMode is appended to failure_modes list"
+      ]
+    },
+    {
+      "id": "apply_update_preserves_order",
+      "description": "apply_update preserves original list item order when extending",
+      "function": "ProblemModel.apply_update",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Pre-existing items remain in original order before new items"
+      ]
+    },
+    {
+      "id": "apply_update_empty_dict",
+      "description": "apply_update with empty dict makes no changes",
+      "function": "ProblemModel.apply_update",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "update={}",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "All fields remain unchanged"
+      ]
+    },
+    {
+      "id": "apply_update_unknown_keys",
+      "description": "apply_update silently ignores keys not in ProblemModel.model_fields",
+      "function": "ProblemModel.apply_update",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "update={'nonexistent_field': 'value'}",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "No error raised",
+        "No new attribute created"
+      ]
+    },
+    {
+      "id": "apply_update_multiple_fields",
+      "description": "apply_update can update multiple fields at once",
+      "function": "ProblemModel.apply_update",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "update with system_description, stakeholders, and assumptions",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "All three fields are correctly updated"
+      ]
+    },
+    {
+      "id": "apply_update_invalid_scalar_type",
+      "description": "apply_update raises error when scalar field update value is not a str",
+      "function": "ProblemModel.apply_update",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "update={'system_description': 123}",
+      "expected_output_description": "",
+      "expected_error": "invalid_scalar_type or TypeError/ValueError",
+      "assertions": [
+        "Error is raised for non-str scalar value"
+      ]
+    },
+    {
+      "id": "apply_update_invalid_list_value_type",
+      "description": "apply_update raises error when list field update value is neither a list nor valid single item",
+      "function": "ProblemModel.apply_update",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "update={'stakeholders': 123}",
+      "expected_output_description": "",
+      "expected_error": "invalid_list_value_type or TypeError/ValueError",
+      "assertions": [
+        "Error is raised for invalid list update value"
+      ]
+    },
+    {
+      "id": "apply_update_invalid_failure_mode_item",
+      "description": "apply_update raises error when failure_modes item cannot be validated as FailureMode",
+      "function": "ProblemModel.apply_update",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "update={'failure_modes': [{'bad_key': 'bad_value'}]}",
+      "expected_output_description": "",
+      "expected_error": "invalid_failure_mode_item or ValidationError",
+      "assertions": [
+        "Error is raised for invalid FailureMode dict"
+      ]
+    },
+    {
+      "id": "apply_update_str_list_single_item",
+      "description": "apply_update handles a single string for a list[str] field if supported",
+      "function": "ProblemModel.apply_update",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "update={'stakeholders': 'single_stakeholder'}",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Either appends single item or raises clear error"
+      ]
+    },
+    {
+      "id": "safe_parse_valid",
+      "description": "safe_parse with valid dict returns correctly populated LLMResponseMeta",
+      "function": "LLMResponseMeta.safe_parse",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "raw={'ready_to_proceed': True, 'problem_model_update': {'system_description': 'test'}}",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result.ready_to_proceed is True",
+        "result.problem_model_update == {'system_description': 'test'}"
+      ]
+    },
+    {
+      "id": "safe_parse_empty_dict",
+      "description": "safe_parse with empty dict returns safe defaults",
+      "function": "LLMResponseMeta.safe_parse",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "raw={}",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result.ready_to_proceed is False",
+        "result.problem_model_update == {}"
+      ]
+    },
+    {
+      "id": "safe_parse_missing_keys",
+      "description": "safe_parse with partial dict fills defaults for missing keys",
+      "function": "LLMResponseMeta.safe_parse",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "raw={'ready_to_proceed': True}",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result.ready_to_proceed is True",
+        "result.problem_model_update == {}"
+      ]
+    },
+    {
+      "id": "safe_parse_wrong_types",
+      "description": "safe_parse with wrong value types returns safe defaults (never raises)",
+      "function": "LLMResponseMeta.safe_parse",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "raw={'ready_to_proceed': 'not_a_bool', 'problem_model_update': 'not_a_dict'}",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "No exception is raised",
+        "Returns valid LLMResponseMeta instance"
+      ]
+    },
+    {
+      "id": "safe_parse_extra_keys",
+      "description": "safe_parse ignores extra keys in raw dict",
+      "function": "LLMResponseMeta.safe_parse",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "raw={'ready_to_proceed': False, 'problem_model_update': {}, 'extra': 'ignored'}",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "result.ready_to_proceed is False",
+        "result.problem_model_update == {}"
+      ]
+    },
+    {
+      "id": "safe_parse_none_input",
+      "description": "safe_parse with non-dict input returns safe defaults",
+      "function": "LLMResponseMeta.safe_parse",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "raw=None (or any non-dict)",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns safe default LLMResponseMeta",
+        "No exception raised"
+      ]
+    },
+    {
+      "id": "safe_parse_never_raises",
+      "description": "safe_parse never raises regardless of bizarre input",
+      "function": "LLMResponseMeta.safe_parse",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "No exceptions for None, int, list, nested garbage"
+      ]
+    },
+    {
+      "id": "message_construction",
+      "description": "Message can be constructed with role and content, timestamp defaults to UTC now",
+      "function": "Message",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "role and content are set",
+        "timestamp is auto-populated"
+      ]
+    },
+    {
+      "id": "constraint_construction",
+      "description": "Constraint can be constructed with all required fields",
+      "function": "Constraint",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "All 6 fields are accessible: id, boundary, condition, violation, severity, rationale"
+      ]
+    },
+    {
+      "id": "constraint_to_yaml_dict_keys",
+      "description": "to_yaml_dict returns dict with all 6 expected keys",
+      "function": "Constraint.to_yaml_dict",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Dict has keys: id, boundary, condition, violation, severity, rationale"
+      ]
+    },
+    {
+      "id": "constraint_to_yaml_dict_severity_string",
+      "description": "to_yaml_dict serializes severity as plain string not enum object",
+      "function": "Constraint.to_yaml_dict",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "type(result['severity']) is str",
+        "result['severity'] in ('must', 'should')"
+      ]
+    },
+    {
+      "id": "constraint_to_yaml_dict_all_str_values",
+      "description": "to_yaml_dict produces all string values (YAML-safe primitives)",
+      "function": "Constraint.to_yaml_dict",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "All values in returned dict are str instances"
+      ]
+    },
+    {
+      "id": "constraint_to_yaml_dict_yaml_safe",
+      "description": "to_yaml_dict output can be passed through yaml.safe_dump without error",
+      "function": "Constraint.to_yaml_dict",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "yaml.safe_dump(result) succeeds and produces valid YAML string"
+      ]
+    },
+    {
+      "id": "session_construction_defaults",
+      "description": "Session can be constructed with defaults, generates unique id and UTC timestamps",
+      "function": "Session",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "id is a valid UUID string",
+        "created_at and updated_at are populated",
+        "status defaults to 'incomplete'"
+      ]
+    },
+    {
+      "id": "session_unique_ids",
+      "description": "Two Session instances get different default ids",
+      "function": "Session",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "s1.id != s2.id"
+      ]
+    },
+    {
+      "id": "session_touch_updates_timestamp",
+      "description": "Session.touch() updates updated_at to current UTC time",
+      "function": "Session.touch",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "updated_at after touch >= updated_at before touch"
+      ]
+    },
+    {
+      "id": "session_touch_only_updated_at",
+      "description": "Session.touch() does not modify any field other than updated_at",
+      "function": "Session.touch",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "id, current_phase, current_round, posture, etc. all unchanged"
+      ]
+    },
+    {
+      "id": "session_to_json_valid_json",
+      "description": "Session.to_json() returns valid JSON string",
+      "function": "Session.to_json",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "json.loads(result) succeeds",
+        "Result is a string"
+      ]
+    },
+    {
+      "id": "session_to_json_indentation",
+      "description": "Session.to_json() uses 2-space indentation",
+      "function": "Session.to_json",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "JSON string contains 2-space indented lines"
+      ]
+    },
+    {
+      "id": "session_to_json_posture_serialization",
+      "description": "Posture is serialized as plain string value not 'Posture.xxx'",
+      "function": "Session.to_json",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "'adversarial' in json output, not 'Posture.adversarial'"
+      ]
+    },
+    {
+      "id": "session_roundtrip_minimal",
+      "description": "Roundtrip: from_json(to_json()) produces equivalent Session with minimal data",
+      "function": "Session.from_json",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Deserialized session equals original in all fields"
+      ]
+    },
+    {
+      "id": "session_roundtrip_full",
+      "description": "Roundtrip: from_json(to_json()) with full session including history, problem model, artifacts",
+      "function": "Session.from_json",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "All nested models correctly round-tripped",
+        "conversation_history preserved",
+        "problem_model preserved",
+        "artifacts preserved"
+      ]
+    },
+    {
+      "id": "session_from_json_invalid_json",
+      "description": "from_json raises error on invalid JSON string",
+      "function": "Session.from_json",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "raw='not valid json'",
+      "expected_output_description": "",
+      "expected_error": "ValidationError or JSONDecodeError",
+      "assertions": [
+        "Exception is raised for malformed JSON"
+      ]
+    },
+    {
+      "id": "session_from_json_schema_mismatch",
+      "description": "from_json raises error when JSON structure is missing required fields",
+      "function": "Session.from_json",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "raw='{\"bad\": \"schema\"}'",
+      "expected_output_description": "",
+      "expected_error": "ValidationError",
+      "assertions": [
+        "Exception raised for missing required fields"
+      ]
+    },
+    {
+      "id": "session_from_json_unknown_posture",
+      "description": "from_json raises error when posture value is not a valid Posture enum member",
+      "function": "Session.from_json",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "JSON with posture='invalid_posture'",
+      "expected_output_description": "",
+      "expected_error": "ValidationError",
+      "assertions": [
+        "Exception raised for invalid posture string"
+      ]
+    },
+    {
+      "id": "session_from_json_unknown_phase",
+      "description": "from_json raises error when phase is not a valid Phase literal",
+      "function": "Session.from_json",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "JSON with current_phase='invalid_phase'",
+      "expected_output_description": "",
+      "expected_error": "ValidationError",
+      "assertions": [
+        "Exception raised for invalid phase value"
+      ]
+    },
+    {
+      "id": "session_from_json_empty_string",
+      "description": "from_json raises error on empty string input",
+      "function": "Session.from_json",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "raw=''",
+      "expected_output_description": "",
+      "expected_error": "ValidationError or JSONDecodeError",
+      "assertions": [
+        "Exception raised for empty string"
+      ]
+    },
+    {
+      "id": "session_schema_version_preserved",
+      "description": "schema_version is preserved through serialization roundtrip",
+      "function": "Session.from_json",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Deserialized schema_version matches original"
+      ]
+    },
+    {
+      "id": "artifacts_construction",
+      "description": "Artifacts struct holds prompt_md and constraints_yaml strings",
+      "function": "Artifacts",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "prompt_md and constraints_yaml fields are accessible"
+      ]
+    },
+    {
+      "id": "invariant_no_internal_imports",
+      "description": "models module has no internal project imports (leaf dependency)",
+      "function": "models",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Module can be imported standalone without other project modules"
+      ]
+    },
+    {
+      "id": "invariant_posture_is_strenum",
+      "description": "Posture is a StrEnum subclass",
+      "function": "Posture",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "issubclass(Posture, enum.StrEnum)"
+      ]
+    },
+    {
+      "id": "invariant_pydantic_basemodel",
+      "description": "Core model types are Pydantic BaseModel subclasses",
+      "function": "models",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "FailureMode, ProblemModel, Message, Constraint, Artifacts, LLMResponseMeta, Session are BaseModel subclasses"
+      ]
+    }
+  ],
+  "test_language": "python",
+  "generated_code": "\"\"\"\nTests for models.py — the leaf dependency module containing all domain types.\n\nOrganized into sections:\n1. Factories & Fixtures\n2. Enum / Type Tests\n3. ProblemModel.apply_update() Tests\n4. LLMResponseMeta.safe_parse() Tests\n5. Session Round-Trip Tests (to_json / from_json)\n6. Session.touch() Tests\n7. Constraint.to_yaml_dict() Tests\n8. Invariant Tests\n\"\"\"\n\nimport enum\nimport json\nimport time\nfrom datetime import datetime, timezone\nfrom unittest.mock import patch\n\nimport pytest\n\nfrom models import (\n    Artifacts,\n    Constraint,\n    FailureMode,\n    LLMResponseMeta,\n    Message,\n    Posture,\n    ProblemModel,\n    Session,\n)\n\n# Try to import pydantic's BaseModel for invariant checks\ntry:\n    from pydantic import BaseModel, ValidationError\nexcept ImportError:\n    BaseModel = None\n    ValidationError = Exception\n\n# Try to import yaml for YAML-safety check\ntry:\n    import yaml\n\n    HAS_YAML = True\nexcept ImportError:\n    HAS_YAML = False\n\n\n# ---------------------------------------------------------------------------\n# 1. Factories & Fixtures\n# ---------------------------------------------------------------------------\n\n\ndef make_failure_mode(**overrides):\n    defaults = {\n        \"description\": \"system crashes under load\",\n        \"severity\": \"must\",\n        \"historical\": False,\n    }\n    defaults.update(overrides)\n    return FailureMode(**defaults)\n\n\ndef make_problem_model(**overrides):\n    defaults = {}  # ProblemModel has empty defaults for all fields\n    defaults.update(overrides)\n    return ProblemModel(**defaults)\n\n\ndef make_message(**overrides):\n    defaults = {\n        \"role\": \"user\",\n        \"content\": \"Hello, world!\",\n    }\n    defaults.update(overrides)\n    return Message(**defaults)\n\n\ndef make_constraint(**overrides):\n    defaults = {\n        \"id\": \"C-001\",\n        \"boundary\": \"latency\",\n        \"condition\": \"p99 response time\",\n        \"violation\": \"exceeds 500ms\",\n        \"severity\": \"must\",\n        \"rationale\": \"SLA requirement\",\n    }\n    defaults.update(overrides)\n    return Constraint(**defaults)\n\n\ndef make_session(**overrides):\n    defaults = {\n        \"posture\": Posture.adversarial,\n        \"current_phase\": \"understand\",\n        \"current_round\": 1,\n    }\n    defaults.update(overrides)\n    return Session(**defaults)\n\n\n@pytest.fixture\ndef empty_pm():\n    return make_problem_model()\n\n\n@pytest.fixture\ndef populated_pm():\n    return make_problem_model(\n        system_description=\"A web API\",\n        stakeholders=[\"dev\", \"ops\"],\n        failure_modes=[make_failure_mode()],\n        dependencies=[\"postgres\"],\n        assumptions=[\"always online\"],\n        boundaries=[\"internal only\"],\n        history=[\"v1 had outages\"],\n        success_shape=[\"99.9% uptime\"],\n    )\n\n\n@pytest.fixture\ndef minimal_session():\n    return make_session()\n\n\n@pytest.fixture\ndef full_session():\n    return make_session(\n        posture=Posture.collaborator,\n        current_phase=\"synthesize\",\n        current_round=3,\n        conversation_history=[\n            make_message(role=\"user\", content=\"Describe the system\"),\n            make_message(role=\"assistant\", content=\"Sure, tell me more\"),\n        ],\n        problem_model=make_problem_model(\n            system_description=\"Payment service\",\n            stakeholders=[\"merchant\", \"customer\"],\n            failure_modes=[make_failure_mode(description=\"double charge\")],\n        ),\n        artifacts=Artifacts(\n            prompt_md=\"# System Prompt\\nYou are...\",\n            constraints_yaml=\"constraints:\\n  - id: C-001\",\n        ),\n        status=\"complete\",\n    )\n\n\n# ---------------------------------------------------------------------------\n# 2. Enum / Type Tests\n# ---------------------------------------------------------------------------\n\n\nclass TestPostureEnum:\n    def test_posture_has_all_members(self):\n        expected = {\"adversarial\", \"contrarian\", \"critic\", \"skeptic\", \"collaborator\"}\n        actual = {m.value for m in Posture}\n        assert actual == expected\n\n    def test_posture_str_value(self):\n        assert str(Posture.adversarial) == \"adversarial\"\n        assert str(Posture.collaborator) == \"collaborator\"\n\n    def test_posture_construction_from_string(self):\n        assert Posture(\"adversarial\") == Posture.adversarial\n        assert Posture(\"collaborator\") == Posture.collaborator\n\n    def test_posture_invalid_value_raises(self):\n        with pytest.raises(ValueError):\n            Posture(\"invalid_posture\")\n\n    def test_posture_is_strenum(self):\n        assert issubclass(Posture, enum.StrEnum)\n\n    def test_posture_member_count(self):\n        assert len(Posture) == 5\n\n\nclass TestPhaseType:\n    \"\"\"Phase is a Literal type alias. We verify valid values are accepted in Session.\"\"\"\n\n    def test_valid_phases_accepted(self):\n        for phase in [\"understand\", \"challenge\", \"synthesize\", \"complete\"]:\n            s = make_session(current_phase=phase)\n            assert s.current_phase == phase\n\n    def test_invalid_phase_rejected(self):\n        with pytest.raises((ValidationError, ValueError)):\n            make_session(current_phase=\"invalid_phase\")\n\n\nclass TestStatusType:\n    def test_valid_statuses(self):\n        for status in [\"incomplete\", \"complete\"]:\n            s = make_session(status=status)\n            assert s.status == status\n\n    def test_invalid_status_rejected(self):\n        with pytest.raises((ValidationError, ValueError)):\n            make_session(status=\"invalid_status\")\n\n\nclass TestSeverityType:\n    def test_valid_severities(self):\n        for sev in [\"must\", \"should\"]:\n            c = make_constraint(severity=sev)\n            assert c.severity == sev\n\n    def test_invalid_severity_rejected(self):\n        with pytest.raises((ValidationError, ValueError)):\n            make_constraint(severity=\"invalid_severity\")\n\n\nclass TestRoleType:\n    def test_valid_roles(self):\n        for role in [\"user\", \"assistant\"]:\n            m = make_message(role=role)\n            assert m.role == role\n\n    def test_invalid_role_rejected(self):\n        with pytest.raises((ValidationError, ValueError)):\n            make_message(role=\"invalid_role\")\n\n\n# ---------------------------------------------------------------------------\n# 3. Model Construction Tests\n# ---------------------------------------------------------------------------\n\n\nclass TestFailureMode:\n    def test_construction(self):\n        fm = make_failure_mode()\n        assert fm.description == \"system crashes under load\"\n        assert fm.severity == \"must\"\n        assert fm.historical is False\n\n    def test_fields_required(self):\n        with pytest.raises((ValidationError, TypeError)):\n            FailureMode()  # missing required fields\n\n\nclass TestProblemModelDefaults:\n    def test_all_lists_default_empty(self, empty_pm):\n        assert empty_pm.stakeholders == []\n        assert empty_pm.failure_modes == []\n        assert empty_pm.dependencies == []\n        assert empty_pm.assumptions == []\n        assert empty_pm.boundaries == []\n        assert empty_pm.history == []\n        assert empty_pm.success_shape == []\n\n    def test_system_description_default_empty(self, empty_pm):\n        assert empty_pm.system_description == \"\"\n\n    def test_no_mutable_default_sharing(self):\n        pm1 = make_problem_model()\n        pm2 = make_problem_model()\n        pm1.stakeholders.append(\"test\")\n        assert \"test\" not in pm2.stakeholders\n        assert pm1.stakeholders is not pm2.stakeholders\n\n\nclass TestMessageConstruction:\n    def test_message_defaults_timestamp(self):\n        before = datetime.now(timezone.utc)\n        m = make_message()\n        # timestamp should be a string (ISO format) or datetime\n        assert m.role == \"user\"\n        assert m.content == \"Hello, world!\"\n        assert m.timestamp is not None\n\n\nclass TestArtifactsConstruction:\n    def test_artifacts_fields(self):\n        a = Artifacts(prompt_md=\"# Prompt\", constraints_yaml=\"constraints: []\")\n        assert a.prompt_md == \"# Prompt\"\n        assert a.constraints_yaml == \"constraints: []\"\n\n\nclass TestConstraintConstruction:\n    def test_all_fields_accessible(self):\n        c = make_constraint()\n        assert c.id == \"C-001\"\n        assert c.boundary == \"latency\"\n        assert c.condition == \"p99 response time\"\n        assert c.violation == \"exceeds 500ms\"\n        assert c.severity == \"must\"\n        assert c.rationale == \"SLA requirement\"\n\n\n# ---------------------------------------------------------------------------\n# 4. ProblemModel.apply_update() Tests\n# ---------------------------------------------------------------------------\n\n\nclass TestApplyUpdate:\n    def test_scalar_update(self, empty_pm):\n        empty_pm.apply_update({\"system_description\": \"new description\"})\n        assert empty_pm.system_description == \"new description\"\n\n    def test_scalar_replacement(self, populated_pm):\n        populated_pm.apply_update({\"system_description\": \"replaced\"})\n        assert populated_pm.system_description == \"replaced\"\n\n    def test_str_list_extension(self, empty_pm):\n        empty_pm.apply_update({\"stakeholders\": [\"dev\", \"ops\"]})\n        assert \"dev\" in empty_pm.stakeholders\n        assert \"ops\" in empty_pm.stakeholders\n\n    def test_str_list_deduplication(self):\n        pm = make_problem_model(stakeholders=[\"a\", \"b\"])\n        pm.apply_update({\"stakeholders\": [\"b\", \"c\", \"a\"]})\n        assert pm.stakeholders == [\"a\", \"b\", \"c\"]\n\n    def test_str_list_preserves_original_order(self):\n        pm = make_problem_model(stakeholders=[\"z\", \"a\", \"m\"])\n        pm.apply_update({\"stakeholders\": [\"x\", \"a\"]})\n        # Original order preserved: z, a, m come first; then new: x\n        assert pm.stakeholders[:3] == [\"z\", \"a\", \"m\"]\n        assert \"x\" in pm.stakeholders\n\n    def test_failure_mode_append(self, empty_pm):\n        fm_dict = {\"description\": \"timeout\", \"severity\": \"should\", \"historical\": True}\n        empty_pm.apply_update({\"failure_modes\": [fm_dict]})\n        assert len(empty_pm.failure_modes) == 1\n        assert empty_pm.failure_modes[0].description == \"timeout\"\n\n    def test_failure_mode_no_dedup(self):\n        fm_dict = {\"description\": \"same\", \"severity\": \"must\", \"historical\": False}\n        pm = make_problem_model()\n        pm.apply_update({\"failure_modes\": [fm_dict]})\n        pm.apply_update({\"failure_modes\": [fm_dict]})\n        # FailureMode lists are appended without dedup\n        assert len(pm.failure_modes) == 2\n\n    def test_empty_dict_no_changes(self, populated_pm):\n        desc_before = populated_pm.system_description\n        stakeholders_before = list(populated_pm.stakeholders)\n        populated_pm.apply_update({})\n        assert populated_pm.system_description == desc_before\n        assert populated_pm.stakeholders == stakeholders_before\n\n    def test_unknown_keys_silently_ignored(self, empty_pm):\n        empty_pm.apply_update({\"nonexistent_field\": \"some value\", \"another_fake\": [1, 2]})\n        assert not hasattr(empty_pm, \"nonexistent_field\")\n        # No error raised — this test passing means silent ignore works\n\n    def test_multiple_fields_at_once(self, empty_pm):\n        empty_pm.apply_update(\n            {\n                \"system_description\": \"multi-update\",\n                \"stakeholders\": [\"alice\"],\n                \"assumptions\": [\"always available\"],\n            }\n        )\n        assert empty_pm.system_description == \"multi-update\"\n        assert \"alice\" in empty_pm.stakeholders\n        assert \"always available\" in empty_pm.assumptions\n\n    def test_invalid_scalar_type_raises(self, empty_pm):\n        with pytest.raises((TypeError, ValueError, ValidationError)):\n            empty_pm.apply_update({\"system_description\": 123})\n\n    def test_invalid_list_value_type_raises(self, empty_pm):\n        with pytest.raises((TypeError, ValueError, ValidationError)):\n            empty_pm.apply_update({\"stakeholders\": 123})\n\n    def test_invalid_failure_mode_item_raises(self, empty_pm):\n        with pytest.raises((TypeError, ValueError, ValidationError)):\n            empty_pm.apply_update({\"failure_modes\": [{\"bad_key\": \"bad_value\"}]})\n\n    def test_str_list_with_single_string(self, empty_pm):\n        \"\"\"A single string for a list[str] field — either appends or raises clearly.\"\"\"\n        try:\n            empty_pm.apply_update({\"stakeholders\": \"single\"})\n            # If it works, single should be in the list\n            assert \"single\" in empty_pm.stakeholders\n        except (TypeError, ValueError, ValidationError):\n            # If it raises, that's also acceptable per contract\n            pass\n\n    def test_preserves_existing_failure_modes(self, populated_pm):\n        original_count = len(populated_pm.failure_modes)\n        original_first = populated_pm.failure_modes[0].description\n        fm_dict = {\"description\": \"new failure\", \"severity\": \"should\", \"historical\": False}\n        populated_pm.apply_update({\"failure_modes\": [fm_dict]})\n        assert len(populated_pm.failure_modes) == original_count + 1\n        assert populated_pm.failure_modes[0].description == original_first\n\n\n# ---------------------------------------------------------------------------\n# 5. LLMResponseMeta.safe_parse() Tests\n# ---------------------------------------------------------------------------\n\n\nclass TestSafeParse:\n    def test_valid_input(self):\n        raw = {\"ready_to_proceed\": True, \"problem_model_update\": {\"system_description\": \"test\"}}\n        result = LLMResponseMeta.safe_parse(raw)\n        assert result.ready_to_proceed is True\n        assert result.problem_model_update == {\"system_description\": \"test\"}\n\n    def test_empty_dict_returns_defaults(self):\n        result = LLMResponseMeta.safe_parse({})\n        assert result.ready_to_proceed is False\n        assert result.problem_model_update == {}\n\n    def test_missing_problem_model_update(self):\n        result = LLMResponseMeta.safe_parse({\"ready_to_proceed\": True})\n        assert result.ready_to_proceed is True\n        assert result.problem_model_update == {}\n\n    def test_missing_ready_to_proceed(self):\n        result = LLMResponseMeta.safe_parse({\"problem_model_update\": {\"key\": \"val\"}})\n        assert result.ready_to_proceed is False\n        assert result.problem_model_update == {\"key\": \"val\"}\n\n    def test_extra_keys_ignored(self):\n        raw = {\n            \"ready_to_proceed\": False,\n            \"problem_model_update\": {},\n            \"extra_field\": \"should be ignored\",\n        }\n        result = LLMResponseMeta.safe_parse(raw)\n        assert isinstance(result, LLMResponseMeta)\n        assert result.ready_to_proceed is False\n\n    def test_wrong_type_ready_to_proceed(self):\n        \"\"\"Wrong types should return safe defaults without raising.\"\"\"\n        result = LLMResponseMeta.safe_parse(\n            {\"ready_to_proceed\": \"not_a_bool\", \"problem_model_update\": \"not_a_dict\"}\n        )\n        # Must not raise — either coerces or returns defaults\n        assert isinstance(result, LLMResponseMeta)\n\n    def test_none_input_returns_defaults(self):\n        \"\"\"Non-dict input should return safe defaults.\"\"\"\n        result = LLMResponseMeta.safe_parse(None)\n        assert isinstance(result, LLMResponseMeta)\n        assert result.ready_to_proceed is False\n        assert result.problem_model_update == {}\n\n    def test_never_raises_on_int(self):\n        result = LLMResponseMeta.safe_parse(42)\n        assert isinstance(result, LLMResponseMeta)\n\n    def test_never_raises_on_list(self):\n        result = LLMResponseMeta.safe_parse([1, 2, 3])\n        assert isinstance(result, LLMResponseMeta)\n\n    def test_never_raises_on_string(self):\n        result = LLMResponseMeta.safe_parse(\"garbage\")\n        assert isinstance(result, LLMResponseMeta)\n\n    def test_never_raises_on_nested_garbage(self):\n        result = LLMResponseMeta.safe_parse({\"ready_to_proceed\": {\"nested\": {\"deep\": True}}})\n        assert isinstance(result, LLMResponseMeta)\n\n    def test_return_is_always_valid_instance(self):\n        \"\"\"Regardless of input, result is always a valid LLMResponseMeta.\"\"\"\n        bizarre_inputs = [None, 0, \"\", [], {}, True, {\"ready_to_proceed\": []}, object()]\n        for inp in bizarre_inputs:\n            result = LLMResponseMeta.safe_parse(inp)\n            assert isinstance(result, LLMResponseMeta)\n\n\n# ---------------------------------------------------------------------------\n# 6. Session.touch() Tests\n# ---------------------------------------------------------------------------\n\n\nclass TestSessionTouch:\n    def test_touch_updates_timestamp(self, minimal_session):\n        old_updated = minimal_session.updated_at\n        time.sleep(0.01)  # small delay to ensure time difference\n        minimal_session.touch()\n        # updated_at should be >= old value\n        if isinstance(minimal_session.updated_at, str):\n            assert minimal_session.updated_at >= old_updated\n        else:\n            assert minimal_session.updated_at >= old_updated\n\n    def test_touch_only_modifies_updated_at(self, minimal_session):\n        original_id = minimal_session.id\n        original_phase = minimal_session.current_phase\n        original_round = minimal_session.current_round\n        original_posture = minimal_session.posture\n        original_status = minimal_session.status\n        original_created = minimal_session.created_at\n\n        minimal_session.touch()\n\n        assert minimal_session.id == original_id\n        assert minimal_session.current_phase == original_phase\n        assert minimal_session.current_round == original_round\n        assert minimal_session.posture == original_posture\n        assert minimal_session.status == original_status\n        assert minimal_session.created_at == original_created\n\n    def test_touch_timestamp_is_utc(self, minimal_session):\n        minimal_session.touch()\n        updated = minimal_session.updated_at\n        if isinstance(updated, datetime):\n            assert updated.tzinfo is not None\n            assert updated.tzinfo == timezone.utc\n\n\n# ---------------------------------------------------------------------------\n# 7. Session Round-Trip Tests (to_json / from_json)\n# ---------------------------------------------------------------------------\n\n\nclass TestSessionToJson:\n    def test_returns_valid_json(self, minimal_session):\n        result = minimal_session.to_json()\n        assert isinstance(result, str)\n        parsed = json.loads(result)\n        assert isinstance(parsed, dict)\n\n    def test_two_space_indentation(self, minimal_session):\n        result = minimal_session.to_json()\n        lines = result.split(\"\\n\")\n        # At least some lines should be indented with exactly 2 spaces\n        indented_lines = [l for l in lines if l.startswith(\"  \") and not l.startswith(\"    \")]\n        assert len(indented_lines) > 0\n\n    def test_posture_serialized_as_string(self, minimal_session):\n        result = minimal_session.to_json()\n        parsed = json.loads(result)\n        posture_val = parsed[\"posture\"]\n        assert isinstance(posture_val, str)\n        assert posture_val == \"adversarial\"\n        assert \"Posture.\" not in result\n\n    def test_contains_all_session_fields(self, minimal_session):\n        result = minimal_session.to_json()\n        parsed = json.loads(result)\n        expected_keys = {\n            \"id\", \"schema_version\", \"posture\", \"current_phase\",\n            \"current_round\", \"conversation_history\", \"problem_model\",\n            \"artifacts\", \"created_at\", \"updated_at\", \"status\",\n        }\n        assert expected_keys.issubset(set(parsed.keys()))\n\n    def test_timestamps_serialized_as_iso_strings(self, minimal_session):\n        result = minimal_session.to_json()\n        parsed = json.loads(result)\n        # Timestamps should be strings\n        assert isinstance(parsed[\"created_at\"], str)\n        assert isinstance(parsed[\"updated_at\"], str)\n        # Should be parseable as ISO 8601\n        # Just check they contain 'T' or similar date markers\n        assert \"T\" in parsed[\"created_at\"] or \"-\" in parsed[\"created_at\"]\n\n    def test_uuid_serialized_as_string(self, minimal_session):\n        result = minimal_session.to_json()\n        parsed = json.loads(result)\n        assert isinstance(parsed[\"id\"], str)\n        assert len(parsed[\"id\"]) > 0\n\n\nclass TestSessionFromJson:\n    def test_roundtrip_minimal(self, minimal_session):\n        json_str = minimal_session.to_json()\n        restored = Session.from_json(json_str)\n        assert restored.id == minimal_session.id\n        assert restored.posture == minimal_session.posture\n        assert restored.current_phase == minimal_session.current_phase\n        assert restored.current_round == minimal_session.current_round\n        assert restored.status == minimal_session.status\n        assert restored.schema_version == minimal_session.schema_version\n\n    def test_roundtrip_full_session(self, full_session):\n        json_str = full_session.to_json()\n        restored = Session.from_json(json_str)\n\n        assert restored.id == full_session.id\n        assert restored.posture == full_session.posture\n        assert restored.current_phase == full_session.current_phase\n        assert restored.current_round == full_session.current_round\n        assert restored.status == full_session.status\n\n        # Conversation history\n        assert len(restored.conversation_history) == len(full_session.conversation_history)\n        assert restored.conversation_history[0].role == \"user\"\n        assert restored.conversation_history[0].content == \"Describe the system\"\n\n        # Problem model\n        assert restored.problem_model.system_description == \"Payment service\"\n        assert \"merchant\" in restored.problem_model.stakeholders\n\n        # Artifacts\n        assert restored.artifacts is not None\n        assert \"System Prompt\" in restored.artifacts.prompt_md\n\n    def test_roundtrip_preserves_schema_version(self, minimal_session):\n        json_str = minimal_session.to_json()\n        restored = Session.from_json(json_str)\n        assert restored.schema_version == minimal_session.schema_version\n\n    def test_roundtrip_posture_deserialized_to_enum(self, minimal_session):\n        json_str = minimal_session.to_json()\n        restored = Session.from_json(json_str)\n        assert isinstance(restored.posture, Posture)\n        assert restored.posture == Posture.adversarial\n\n    def test_roundtrip_idempotent(self, full_session):\n        \"\"\"Double round-trip should produce identical JSON.\"\"\"\n        json1 = full_session.to_json()\n        restored1 = Session.from_json(json1)\n        json2 = restored1.to_json()\n        restored2 = Session.from_json(json2)\n        assert json1 == json2\n        assert restored1.id == restored2.id\n\n    def test_from_json_invalid_json_raises(self):\n        with pytest.raises(Exception):\n            Session.from_json(\"not valid json {{{\")\n\n    def test_from_json_empty_string_raises(self):\n        with pytest.raises(Exception):\n            Session.from_json(\"\")\n\n    def test_from_json_schema_mismatch_raises(self):\n        with pytest.raises((ValidationError, ValueError, Exception)):\n            Session.from_json('{\"bad\": \"schema\"}')\n\n    def test_from_json_unknown_posture_raises(self, minimal_session):\n        json_str = minimal_session.to_json()\n        data = json.loads(json_str)\n        data[\"posture\"] = \"invalid_posture_value\"\n        modified_json = json.dumps(data)\n        with pytest.raises((ValidationError, ValueError, Exception)):\n            Session.from_json(modified_json)\n\n    def test_from_json_unknown_phase_raises(self, minimal_session):\n        json_str = minimal_session.to_json()\n        data = json.loads(json_str)\n        data[\"current_phase\"] = \"invalid_phase_value\"\n        modified_json = json.dumps(data)\n        with pytest.raises((ValidationError, ValueError, Exception)):\n            Session.from_json(modified_json)\n\n    def test_from_json_artifacts_none_preserved(self, minimal_session):\n        \"\"\"Session without artifacts should roundtrip with None artifacts.\"\"\"\n        json_str = minimal_session.to_json()\n        restored = Session.from_json(json_str)\n        assert restored.artifacts is None\n\n\n# ---------------------------------------------------------------------------\n# 8. Constraint.to_yaml_dict() Tests\n# ---------------------------------------------------------------------------\n\n\nclass TestConstraintToYamlDict:\n    def test_returns_dict_with_expected_keys(self):\n        c = make_constraint()\n        result = c.to_yaml_dict()\n        expected_keys = {\"id\", \"boundary\", \"condition\", \"violation\", \"severity\", \"rationale\"}\n        assert set(result.keys()) == expected_keys\n\n    def test_severity_is_plain_string(self):\n        c = make_constraint(severity=\"must\")\n        result = c.to_yaml_dict()\n        assert result[\"severity\"] == \"must\"\n        assert type(result[\"severity\"]) is str\n\n    def test_severity_should_is_plain_string(self):\n        c = make_constraint(severity=\"should\")\n        result = c.to_yaml_dict()\n        assert result[\"severity\"] == \"should\"\n        assert type(result[\"severity\"]) is str\n\n    def test_all_values_are_strings(self):\n        c = make_constraint()\n        result = c.to_yaml_dict()\n        for key, value in result.items():\n            assert isinstance(value, str), f\"Key '{key}' has non-str value: {type(value)}\"\n\n    def test_values_match_original(self):\n        c = make_constraint()\n        result = c.to_yaml_dict()\n        assert result[\"id\"] == \"C-001\"\n        assert result[\"boundary\"] == \"latency\"\n        assert result[\"condition\"] == \"p99 response time\"\n        assert result[\"violation\"] == \"exceeds 500ms\"\n        assert result[\"rationale\"] == \"SLA requirement\"\n\n    @pytest.mark.skipif(not HAS_YAML, reason=\"pyyaml not installed\")\n    def test_yaml_safe_dump_compatible(self):\n        c = make_constraint()\n        result = c.to_yaml_dict()\n        # Should not raise\n        yaml_output = yaml.safe_dump(result)\n        assert isinstance(yaml_output, str)\n        assert len(yaml_output) > 0\n\n    @pytest.mark.skipif(not HAS_YAML, reason=\"pyyaml not installed\")\n    def test_yaml_roundtrip(self):\n        c = make_constraint()\n        result = c.to_yaml_dict()\n        yaml_str = yaml.safe_dump(result)\n        loaded = yaml.safe_load(yaml_str)\n        assert loaded == result\n\n\n# ---------------------------------------------------------------------------\n# 9. Invariant Tests\n# ---------------------------------------------------------------------------\n\n\nclass TestInvariants:\n    def test_models_module_importable(self):\n        \"\"\"models module can be imported standalone (leaf dependency).\"\"\"\n        import models\n        assert hasattr(models, \"Session\")\n        assert hasattr(models, \"Posture\")\n        assert hasattr(models, \"ProblemModel\")\n\n    def test_posture_is_strenum(self):\n        assert issubclass(Posture, enum.StrEnum)\n\n    @pytest.mark.skipif(BaseModel is None, reason=\"pydantic not installed\")\n    def test_core_models_are_pydantic_basemodel(self):\n        for cls in [FailureMode, ProblemModel, Message, Constraint, Artifacts, LLMResponseMeta, Session]:\n            assert issubclass(cls, BaseModel), f\"{cls.__name__} is not a BaseModel subclass\"\n\n    def test_session_ids_unique(self):\n        s1 = make_session()\n        s2 = make_session()\n        assert s1.id != s2.id\n\n    def test_session_timestamps_are_utc(self):\n        s = make_session()\n        if isinstance(s.created_at, datetime):\n            assert s.created_at.tzinfo is not None\n        if isinstance(s.updated_at, datetime):\n            assert s.updated_at.tzinfo is not None\n\n    def test_problem_model_apply_update_never_raises_on_unknown_keys(self):\n        pm = make_problem_model()\n        # Should silently ignore all unknown keys\n        pm.apply_update({\n            \"completely_unknown\": \"value\",\n            \"another_unknown\": [1, 2, 3],\n            \"yet_another\": {\"nested\": True},\n        })\n        # No assertion needed — test passes if no exception\n\n    def test_llm_response_meta_safe_parse_never_raises(self):\n        \"\"\"safe_parse should never raise regardless of input.\"\"\"\n        inputs = [\n            None, 42, \"string\", [], {}, True, False,\n            {\"ready_to_proceed\": \"invalid\"},\n            {\"problem_model_update\": 123},\n            {\"unknown\": object()},\n            {\"ready_to_proceed\": {\"nested\": {\"deep\": True}}},\n        ]\n        for inp in inputs:\n            result = LLMResponseMeta.safe_parse(inp)\n            assert isinstance(result, LLMResponseMeta), f\"Failed for input: {inp}\"\n\n    def test_serialization_roundtrip_stable(self):\n        \"\"\"Session.from_json(session.to_json()) == session (roundtrip stability).\"\"\"\n        s = make_session(\n            posture=Posture.skeptic,\n            current_phase=\"challenge\",\n            current_round=2,\n            conversation_history=[make_message()],\n            problem_model=make_problem_model(system_description=\"test\"),\n        )\n        json_str = s.to_json()\n        restored = Session.from_json(json_str)\n\n        assert restored.id == s.id\n        assert restored.posture == s.posture\n        assert restored.current_phase == s.current_phase\n        assert restored.current_round == s.current_round\n        assert restored.schema_version == s.schema_version\n        assert restored.status == s.status\n        assert len(restored.conversation_history) == len(s.conversation_history)\n        assert restored.problem_model.system_description == s.problem_model.system_description\n\n    def test_no_file_io_in_to_json(self, minimal_session):\n        \"\"\"to_json should not perform file I/O — it returns a string.\"\"\"\n        result = minimal_session.to_json()\n        assert isinstance(result, str)\n\n    def test_no_file_io_in_from_json(self, minimal_session):\n        \"\"\"from_json should not perform file I/O — it takes a string.\"\"\"\n        json_str = minimal_session.to_json()\n        result = Session.from_json(json_str)\n        assert isinstance(result, Session)\n"
+}

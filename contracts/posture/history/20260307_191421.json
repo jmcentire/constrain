@@ -1,0 +1,677 @@
+{
+  "component_id": "posture",
+  "name": "Posture & Prompt Generation",
+  "description": "System prompt generation for each phase and posture combination. All prompts are string constants or f-string templates defined inline (no external files). Provides phase-specific system prompts for understand, challenge, and synthesize phases, plus a revision prompt. Includes posture selection logic with random default and environment variable override. Dependency direction: posture.py imports from models.py only.",
+  "version": 1,
+  "types": [
+    {
+      "name": "Phase",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "UNDERSTAND",
+        "CHALLENGE",
+        "SYNTHESIZE"
+      ],
+      "inner_types": [],
+      "description": "Conversation phase determining which system prompt skeleton to use. Defined in models.py, referenced here."
+    },
+    {
+      "name": "Posture",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "ADVERSARIAL",
+        "CONTRARIAN",
+        "CRITIC",
+        "SKEPTIC",
+        "COLLABORATOR"
+      ],
+      "inner_types": [],
+      "description": "Adversarial posture for the challenge phase. Each posture defines a distinct critical lens. Defined in models.py, referenced here."
+    },
+    {
+      "name": "ProblemModel",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "system_description",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "What the system does at a high level",
+          "validators": []
+        },
+        {
+          "name": "primary_goal",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The main objective or problem to solve",
+          "validators": []
+        },
+        {
+          "name": "stakes",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "What happens if the solution fails or is wrong",
+          "validators": []
+        },
+        {
+          "name": "history",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Prior attempts, existing solutions, relevant context",
+          "validators": []
+        },
+        {
+          "name": "dependencies",
+          "type_ref": "DependencyList",
+          "required": true,
+          "default": "[]",
+          "description": "External systems, libraries, APIs the solution depends on",
+          "validators": []
+        },
+        {
+          "name": "boundaries",
+          "type_ref": "BoundaryList",
+          "required": true,
+          "default": "[]",
+          "description": "Hard constraints, non-negotiable requirements",
+          "validators": []
+        },
+        {
+          "name": "assumptions",
+          "type_ref": "AssumptionList",
+          "required": true,
+          "default": "[]",
+          "description": "Things assumed to be true but not verified",
+          "validators": []
+        },
+        {
+          "name": "open_questions",
+          "type_ref": "QuestionList",
+          "required": true,
+          "default": "[]",
+          "description": "Unresolved questions needing answers",
+          "validators": []
+        },
+        {
+          "name": "challenged_assumptions",
+          "type_ref": "ChallengedAssumptionList",
+          "required": true,
+          "default": "[]",
+          "description": "Assumptions that were questioned during challenge phase",
+          "validators": []
+        },
+        {
+          "name": "risk_areas",
+          "type_ref": "RiskAreaList",
+          "required": true,
+          "default": "[]",
+          "description": "Identified risk areas from challenge phase",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Structured representation of the engineer's problem as understood so far. Defined in models.py as a Pydantic BaseModel with JSON serialization. Fields accumulate across understand and challenge phases."
+    },
+    {
+      "name": "DependencyList",
+      "kind": "list",
+      "fields": [],
+      "item_type": "str",
+      "variants": [],
+      "inner_types": [],
+      "description": "List of external dependency descriptions"
+    },
+    {
+      "name": "BoundaryList",
+      "kind": "list",
+      "fields": [],
+      "item_type": "str",
+      "variants": [],
+      "inner_types": [],
+      "description": "List of hard constraint descriptions"
+    },
+    {
+      "name": "AssumptionList",
+      "kind": "list",
+      "fields": [],
+      "item_type": "str",
+      "variants": [],
+      "inner_types": [],
+      "description": "List of assumption descriptions"
+    },
+    {
+      "name": "QuestionList",
+      "kind": "list",
+      "fields": [],
+      "item_type": "str",
+      "variants": [],
+      "inner_types": [],
+      "description": "List of open question descriptions"
+    },
+    {
+      "name": "ChallengedAssumptionList",
+      "kind": "list",
+      "fields": [],
+      "item_type": "str",
+      "variants": [],
+      "inner_types": [],
+      "description": "List of assumptions that were challenged and their resolutions"
+    },
+    {
+      "name": "RiskAreaList",
+      "kind": "list",
+      "fields": [],
+      "item_type": "str",
+      "variants": [],
+      "inner_types": [],
+      "description": "List of identified risk area descriptions"
+    },
+    {
+      "name": "PostureDescription",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "posture",
+          "type_ref": "Posture",
+          "required": true,
+          "default": "",
+          "description": "The posture enum value",
+          "validators": []
+        },
+        {
+          "name": "description",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable description of what this posture does",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A posture paired with its human-readable description string for display purposes."
+    },
+    {
+      "name": "PostureDescriptionMap",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "ADVERSARIAL",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Description for adversarial posture: actively tries to break the solution",
+          "validators": []
+        },
+        {
+          "name": "CONTRARIAN",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Description for contrarian posture: argues the opposite of stated positions",
+          "validators": []
+        },
+        {
+          "name": "CRITIC",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Description for critic posture: evaluates quality and completeness rigorously",
+          "validators": []
+        },
+        {
+          "name": "SKEPTIC",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Description for skeptic posture: questions evidence and certainty levels",
+          "validators": []
+        },
+        {
+          "name": "COLLABORATOR",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Description for collaborator posture: constructively identifies gaps and alternatives",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Module-level constant POSTURE_DESCRIPTIONS: dict[Posture, str]. Maps each Posture variant to its human-readable display description. All 5 postures must have entries."
+    }
+  ],
+  "functions": [
+    {
+      "name": "get_system_prompt",
+      "description": "Main dispatch function. Returns the complete system prompt string for the given phase. Delegates to phase-specific private builders (_understand_prompt, _challenge_prompt, _synthesize_prompt). The returned prompt includes the serialized problem model state and, for understand/challenge phases, the structured JSON block output instruction.",
+      "inputs": [
+        {
+          "name": "phase",
+          "type_ref": "Phase",
+          "required": true,
+          "default": "",
+          "description": "The current conversation phase determining prompt skeleton selection",
+          "validators": []
+        },
+        {
+          "name": "problem_model",
+          "type_ref": "ProblemModel",
+          "required": true,
+          "default": "",
+          "description": "Current accumulated problem model state, serialized into prompt as context",
+          "validators": []
+        },
+        {
+          "name": "posture",
+          "type_ref": "Posture",
+          "required": false,
+          "default": "None",
+          "description": "Required for CHALLENGE phase. Selects which adversarial lens to apply. Ignored for UNDERSTAND and SYNTHESIZE phases.",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [
+        {
+          "name": "missing_posture_for_challenge",
+          "condition": "phase is CHALLENGE and posture is None",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Posture is required for CHALLENGE phase"
+          }
+        },
+        {
+          "name": "unknown_phase",
+          "condition": "phase is not a recognized Phase enum value",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Unknown phase: {phase}"
+          }
+        }
+      ],
+      "preconditions": [
+        "phase is a valid Phase enum value",
+        "problem_model is a valid ProblemModel instance (may have empty/default fields)",
+        "If phase is CHALLENGE, posture must not be None"
+      ],
+      "postconditions": [
+        "Returned string is non-empty",
+        "Returned string contains a serialized representation of the problem model",
+        "For UNDERSTAND phase: returned string contains collaborative interviewer instructions and JSON block output format specification",
+        "For CHALLENGE phase: returned string contains the posture-specific adversarial lens instructions and JSON block output format specification",
+        "For SYNTHESIZE phase: returned string contains prompt.md and constraints.yaml format specifications without JSON block instruction",
+        "Returned string uses no external file references — all content is inline"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 5,
+        "max_memory_mb": null,
+        "complexity": "O(n) where n is total size of problem model fields"
+      }
+    },
+    {
+      "name": "get_revision_prompt",
+      "description": "Returns the system prompt for the single revision cycle. Instructs the LLM to regenerate prompt.md and constraints.yaml artifacts based on the engineer's feedback. Includes the full problem model and the engineer's feedback text.",
+      "inputs": [
+        {
+          "name": "feedback",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The engineer's feedback on the initial synthesis artifacts, describing what to change or improve",
+          "validators": [
+            {
+              "kind": "length",
+              "expression": "len(value) >= 1",
+              "error_message": "Feedback must be non-empty"
+            }
+          ]
+        },
+        {
+          "name": "problem_model",
+          "type_ref": "ProblemModel",
+          "required": true,
+          "default": "",
+          "description": "The final accumulated problem model state from understand and challenge phases",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [
+        {
+          "name": "empty_feedback",
+          "condition": "feedback is an empty string or only whitespace",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Feedback must be non-empty"
+          }
+        }
+      ],
+      "preconditions": [
+        "feedback is a non-empty string",
+        "problem_model is a valid ProblemModel instance representing the completed understand+challenge state"
+      ],
+      "postconditions": [
+        "Returned string is non-empty",
+        "Returned string contains the engineer's feedback text verbatim",
+        "Returned string contains a serialized representation of the problem model",
+        "Returned string contains prompt.md and constraints.yaml output format specifications",
+        "Returned string instructs regeneration (not incremental patching) of artifacts"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 5,
+        "max_memory_mb": null,
+        "complexity": "O(n) where n is total size of problem model fields + feedback length"
+      }
+    },
+    {
+      "name": "select_posture",
+      "description": "Selects a challenge posture using a three-tier priority: (1) explicit override parameter, (2) CONSTRAIN_POSTURE environment variable, (3) random.choice from all Posture variants. Used by the engine before entering the challenge phase to determine which adversarial lens to apply.",
+      "inputs": [
+        {
+          "name": "override",
+          "type_ref": "Posture",
+          "required": false,
+          "default": "None",
+          "description": "Explicit posture override. Highest priority. When provided, returned directly without consulting env var or random selection.",
+          "validators": []
+        }
+      ],
+      "output_type": "Posture",
+      "error_cases": [
+        {
+          "name": "invalid_env_posture",
+          "condition": "override is None and CONSTRAIN_POSTURE environment variable is set but its value does not match any Posture variant name (case-insensitive)",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Invalid CONSTRAIN_POSTURE value: '{value}'. Must be one of: ADVERSARIAL, CONTRARIAN, CRITIC, SKEPTIC, COLLABORATOR"
+          }
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Returned value is a valid Posture enum member",
+        "If override is not None, returned value equals override",
+        "If override is None and CONSTRAIN_POSTURE env var is set to a valid posture name, returned value matches the env var",
+        "If override is None and CONSTRAIN_POSTURE env var is not set, returned value is one of the 5 Posture variants (selected randomly)"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Reads CONSTRAIN_POSTURE environment variable",
+        "Uses random.choice when no override or env var is set (non-deterministic)"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "environment variable CONSTRAIN_POSTURE via os.environ",
+          "description": "Reads the CONSTRAIN_POSTURE env var as a posture override for testing/deterministic selection"
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 1,
+        "max_memory_mb": null,
+        "complexity": "O(1)"
+      }
+    },
+    {
+      "name": "get_posture_description",
+      "description": "Returns a human-readable description of the given posture for display to the engineer. Looks up the posture in the POSTURE_DESCRIPTIONS constant dict.",
+      "inputs": [
+        {
+          "name": "posture",
+          "type_ref": "Posture",
+          "required": true,
+          "default": "",
+          "description": "The posture to describe",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [],
+      "preconditions": [
+        "posture is a valid Posture enum member"
+      ],
+      "postconditions": [
+        "Returned string is non-empty",
+        "Returned string is a human-readable sentence or short paragraph describing the posture's behavior"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 1,
+        "max_memory_mb": null,
+        "complexity": "O(1)"
+      }
+    },
+    {
+      "name": "_format_problem_model",
+      "description": "Private helper. Serializes a ProblemModel instance into a human-readable text block suitable for inclusion in system prompts. Renders each field with a label, omitting fields that are empty or at their default values. Used by all prompt builder functions.",
+      "inputs": [
+        {
+          "name": "model",
+          "type_ref": "ProblemModel",
+          "required": true,
+          "default": "",
+          "description": "The problem model to serialize",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [],
+      "preconditions": [
+        "model is a valid ProblemModel instance"
+      ],
+      "postconditions": [
+        "Returned string contains only fields from model that have non-default values",
+        "Each included field is rendered with a human-readable label and its value",
+        "List fields are rendered as bulleted sub-items",
+        "If all fields are at defaults, returns a string indicating no information gathered yet"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 2,
+        "max_memory_mb": null,
+        "complexity": "O(n) where n is total size of all problem model fields"
+      }
+    },
+    {
+      "name": "_understand_prompt",
+      "description": "Private builder. Constructs the Phase 1 (Understand) system prompt. Instructs the LLM to act as a collaborative interviewer, provides the interview structure (system, stakes, history, dependencies, boundaries, assumptions), includes current problem model state, and appends the JSON block output instruction.",
+      "inputs": [
+        {
+          "name": "problem_model",
+          "type_ref": "ProblemModel",
+          "required": true,
+          "default": "",
+          "description": "Current problem model state for context",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Returned string contains collaborative interviewer role instruction",
+        "Returned string enumerates interview structure areas: system, stakes, history, dependencies, boundaries, assumptions",
+        "Returned string contains serialized problem model from _format_problem_model",
+        "Returned string ends with or contains the _JSON_BLOCK_INSTRUCTION for structured output"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 5,
+        "max_memory_mb": null,
+        "complexity": "O(n) where n is problem model size"
+      }
+    },
+    {
+      "name": "_challenge_prompt",
+      "description": "Private builder. Constructs the Phase 2 (Challenge) system prompt for a specific posture. Injects the posture-specific adversarial/contrarian/critic/skeptic/collaborator lens describing what to look for and how to frame challenges. Includes accumulated problem model and JSON block instruction.",
+      "inputs": [
+        {
+          "name": "problem_model",
+          "type_ref": "ProblemModel",
+          "required": true,
+          "default": "",
+          "description": "Current accumulated problem model state",
+          "validators": []
+        },
+        {
+          "name": "posture",
+          "type_ref": "Posture",
+          "required": true,
+          "default": "",
+          "description": "The specific adversarial posture to apply",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [],
+      "preconditions": [
+        "posture is a valid Posture enum member"
+      ],
+      "postconditions": [
+        "Returned string contains posture-specific challenge instructions matching the given posture",
+        "Returned string contains serialized problem model from _format_problem_model",
+        "Returned string contains the _JSON_BLOCK_INSTRUCTION for structured output",
+        "ADVERSARIAL posture prompt instructs to actively try to break the solution approach",
+        "CONTRARIAN posture prompt instructs to argue the opposite of stated positions",
+        "CRITIC posture prompt instructs to evaluate quality and completeness rigorously",
+        "SKEPTIC posture prompt instructs to question evidence and certainty levels",
+        "COLLABORATOR posture prompt instructs to constructively identify gaps and alternatives"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 5,
+        "max_memory_mb": null,
+        "complexity": "O(n) where n is problem model size"
+      }
+    },
+    {
+      "name": "_synthesize_prompt",
+      "description": "Private builder. Constructs the Phase 3 (Synthesize) system prompt. Instructs the LLM to generate prompt.md (briefing style) and constraints.yaml (structured YAML schema) from the full conversation history and problem model. Specifies exact output formats. Does NOT include the JSON block instruction (synthesis uses different output structure).",
+      "inputs": [
+        {
+          "name": "problem_model",
+          "type_ref": "ProblemModel",
+          "required": true,
+          "default": "",
+          "description": "Final accumulated problem model state",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Returned string contains instructions for generating prompt.md in briefing style",
+        "Returned string contains the YAML schema specification for constraints.yaml",
+        "Returned string contains serialized problem model from _format_problem_model",
+        "Returned string does NOT contain the _JSON_BLOCK_INSTRUCTION",
+        "Returned string specifies that output should contain both artifacts with clear delimiters"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 5,
+        "max_memory_mb": null,
+        "complexity": "O(n) where n is problem model size"
+      }
+    }
+  ],
+  "dependencies": [
+    "models"
+  ],
+  "dependency_contracts": {
+    "models": [
+      "Phase",
+      "Posture",
+      "ProblemModel"
+    ]
+  },
+  "invariants": [
+    "All prompts are generated from inline string constants and templates — no external file reads",
+    "POSTURE_DESCRIPTIONS contains exactly 5 entries, one for each Posture variant",
+    "The _JSON_BLOCK_INSTRUCTION constant is included in understand and challenge prompts but never in synthesize or revision prompts",
+    "get_system_prompt dispatches to exactly one of _understand_prompt, _challenge_prompt, or _synthesize_prompt based on phase",
+    "posture.py imports only from models.py — no imports from cli.py, engine.py, session.py, or synthesizer.py",
+    "All public functions use type hints on all parameters and return types",
+    "String concatenation (not f-string interpolation) is used for JSON example blocks to avoid curly-brace escaping issues",
+    "select_posture priority order is always: parameter override > CONSTRAIN_POSTURE env var > random.choice",
+    "Every returned prompt string contains the serialized problem model state",
+    "Private functions and constants are prefixed with underscore"
+  ],
+  "requires": [
+    "Python 3.12+",
+    "pydantic",
+    "Standard library (os, random)"
+  ],
+  "processing_register": "rigorous-analytical"
+}

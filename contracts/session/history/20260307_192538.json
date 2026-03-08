@@ -1,0 +1,1362 @@
+{
+  "component_id": "session",
+  "name": "Session Manager",
+  "description": "Session lifecycle and persistence management for the Constrain CLI tool. Manages creation, saving, loading, resuming, listing, and completion of interview sessions. Each session is stored as a single JSON file under `.constrain/sessions/<id>.json`. Atomic writes (write to .tmp then rename) ensure Ctrl+C safety. Signal handling is delegated to the caller (engine/CLI catches KeyboardInterrupt and calls save). Overwrite confirmation for output artifacts is delegated to the CLI layer; this component only reports conflicts. Phase transitions are validated via an explicit allowed-transitions map.",
+  "version": 1,
+  "types": [
+    {
+      "name": "Phase",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "understand",
+        "challenge",
+        "synthesize",
+        "complete",
+        "abandoned"
+      ],
+      "inner_types": [],
+      "description": "The current phase of a session's lifecycle. Transitions are validated: understand→challenge→synthesize→complete, and any non-complete phase→abandoned."
+    },
+    {
+      "name": "MessageRole",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "user",
+        "assistant"
+      ],
+      "inner_types": [],
+      "description": "Role of a message in the conversation history."
+    },
+    {
+      "name": "Message",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "role",
+          "type_ref": "MessageRole",
+          "required": true,
+          "default": "",
+          "description": "The role of the message sender.",
+          "validators": []
+        },
+        {
+          "name": "content",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The text content of the message.",
+          "validators": []
+        },
+        {
+          "name": "timestamp",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "ISO 8601 timestamp of when the message was recorded.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single message in the conversation history."
+    },
+    {
+      "name": "ProblemModel",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "domain",
+          "type_ref": "str",
+          "required": false,
+          "default": "",
+          "description": "The problem domain or area.",
+          "validators": []
+        },
+        {
+          "name": "core_problem",
+          "type_ref": "str",
+          "required": false,
+          "default": "",
+          "description": "Concise statement of the core problem being solved.",
+          "validators": []
+        },
+        {
+          "name": "key_entities",
+          "type_ref": "list",
+          "required": false,
+          "default": "[]",
+          "description": "Primary entities/concepts in the problem space.",
+          "validators": []
+        },
+        {
+          "name": "constraints",
+          "type_ref": "list",
+          "required": false,
+          "default": "[]",
+          "description": "Known constraints on the solution.",
+          "validators": []
+        },
+        {
+          "name": "assumptions",
+          "type_ref": "list",
+          "required": false,
+          "default": "[]",
+          "description": "Assumptions surfaced during the interview.",
+          "validators": []
+        },
+        {
+          "name": "quality_attributes",
+          "type_ref": "list",
+          "required": false,
+          "default": "[]",
+          "description": "Non-functional requirements and quality attributes.",
+          "validators": []
+        },
+        {
+          "name": "scope_boundaries",
+          "type_ref": "list",
+          "required": false,
+          "default": "[]",
+          "description": "What is explicitly in and out of scope.",
+          "validators": []
+        },
+        {
+          "name": "open_questions",
+          "type_ref": "list",
+          "required": false,
+          "default": "[]",
+          "description": "Unresolved questions that remain after the interview.",
+          "validators": []
+        },
+        {
+          "name": "topics_covered",
+          "type_ref": "list",
+          "required": false,
+          "default": "[]",
+          "description": "High-level topics that have been discussed.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Structured representation of the engineer's problem as understood through the interview. Fields are incrementally populated via problem_model_update JSON blocks from LLM responses."
+    },
+    {
+      "name": "RoundCounters",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "understand_rounds",
+          "type_ref": "int",
+          "required": true,
+          "default": "0",
+          "description": "Number of rounds completed in the understand phase.",
+          "validators": []
+        },
+        {
+          "name": "challenge_rounds",
+          "type_ref": "int",
+          "required": true,
+          "default": "0",
+          "description": "Number of rounds completed in the challenge phase.",
+          "validators": []
+        },
+        {
+          "name": "understand_limit",
+          "type_ref": "int",
+          "required": true,
+          "default": "10",
+          "description": "Maximum rounds allowed in the understand phase.",
+          "validators": []
+        },
+        {
+          "name": "challenge_limit",
+          "type_ref": "int",
+          "required": true,
+          "default": "5",
+          "description": "Maximum rounds allowed in the challenge phase.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Tracks the number of conversation rounds per phase and enforced limits."
+    },
+    {
+      "name": "Session",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "UUID v4 string uniquely identifying this session.",
+          "validators": []
+        },
+        {
+          "name": "phase",
+          "type_ref": "Phase",
+          "required": true,
+          "default": "",
+          "description": "Current phase of the session.",
+          "validators": []
+        },
+        {
+          "name": "posture",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Name of the selected interviewer posture (e.g., 'socratic', 'adversarial'). Stored as name string, not full definition.",
+          "validators": []
+        },
+        {
+          "name": "problem_model",
+          "type_ref": "ProblemModel",
+          "required": true,
+          "default": "",
+          "description": "The incrementally-built problem model.",
+          "validators": []
+        },
+        {
+          "name": "round_counters",
+          "type_ref": "RoundCounters",
+          "required": true,
+          "default": "",
+          "description": "Round tracking and limits per phase.",
+          "validators": []
+        },
+        {
+          "name": "conversation_history",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "Full conversation history across all phases.",
+          "validators": []
+        },
+        {
+          "name": "created_at",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "ISO 8601 timestamp of session creation.",
+          "validators": []
+        },
+        {
+          "name": "updated_at",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "ISO 8601 timestamp of last session update.",
+          "validators": []
+        },
+        {
+          "name": "completed_at",
+          "type_ref": "str",
+          "required": false,
+          "default": "",
+          "description": "ISO 8601 timestamp of session completion. Empty string if not yet complete.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Complete session state. Serialized as a single JSON file. Contains all data needed to resume or complete a session."
+    },
+    {
+      "name": "SessionSummary",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "UUID v4 string of the session.",
+          "validators": []
+        },
+        {
+          "name": "phase",
+          "type_ref": "Phase",
+          "required": true,
+          "default": "",
+          "description": "Current phase of the session.",
+          "validators": []
+        },
+        {
+          "name": "posture",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Name of the interviewer posture.",
+          "validators": []
+        },
+        {
+          "name": "created_at",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "ISO 8601 timestamp of session creation.",
+          "validators": []
+        },
+        {
+          "name": "updated_at",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "ISO 8601 timestamp of last update.",
+          "validators": []
+        },
+        {
+          "name": "total_rounds",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Total number of conversation rounds across all phases.",
+          "validators": []
+        },
+        {
+          "name": "topics_covered",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "High-level topics discussed, extracted from the problem model.",
+          "validators": []
+        },
+        {
+          "name": "is_complete",
+          "type_ref": "bool",
+          "required": true,
+          "default": "",
+          "description": "Whether the session is in 'complete' or 'abandoned' phase.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Lightweight session metadata for listing purposes. Does not include conversation history to avoid loading large files."
+    },
+    {
+      "name": "ResumeSummary",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "session_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "UUID of the session being resumed.",
+          "validators": []
+        },
+        {
+          "name": "phase",
+          "type_ref": "Phase",
+          "required": true,
+          "default": "",
+          "description": "Current phase at time of resume.",
+          "validators": []
+        },
+        {
+          "name": "posture",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Posture name for the session.",
+          "validators": []
+        },
+        {
+          "name": "current_round",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Current round number in the active phase.",
+          "validators": []
+        },
+        {
+          "name": "round_limit",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Maximum rounds allowed for the active phase.",
+          "validators": []
+        },
+        {
+          "name": "core_problem",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The core problem statement if identified, empty string otherwise.",
+          "validators": []
+        },
+        {
+          "name": "topics_covered",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "Topics covered so far.",
+          "validators": []
+        },
+        {
+          "name": "open_questions",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "Outstanding questions.",
+          "validators": []
+        },
+        {
+          "name": "last_active",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "ISO 8601 timestamp of when the session was last active.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Summary information displayed when resuming a session, providing context without replaying history."
+    },
+    {
+      "name": "PhaseTransition",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "from_phase",
+          "type_ref": "Phase",
+          "required": true,
+          "default": "",
+          "description": "The phase being transitioned from.",
+          "validators": []
+        },
+        {
+          "name": "to_phase",
+          "type_ref": "Phase",
+          "required": true,
+          "default": "",
+          "description": "The phase being transitioned to.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Represents an allowed phase transition with metadata."
+    },
+    {
+      "name": "SessionError",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "message",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable error message.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Base error type for all session-related errors. Provides human-readable error messages, not stack traces."
+    },
+    {
+      "name": "SessionNotFoundError",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "message",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable error message.",
+          "validators": []
+        },
+        {
+          "name": "session_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The session ID that was not found.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Raised when a session with the specified ID does not exist on disk."
+    },
+    {
+      "name": "SessionCorruptedError",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "message",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable error message.",
+          "validators": []
+        },
+        {
+          "name": "session_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The session ID that is corrupted.",
+          "validators": []
+        },
+        {
+          "name": "file_path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Path to the corrupted file.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Raised when a session file exists but cannot be parsed or fails validation."
+    },
+    {
+      "name": "SessionStorageError",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "message",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable error message.",
+          "validators": []
+        },
+        {
+          "name": "path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The filesystem path where the error occurred.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Raised when file I/O operations fail (permissions, disk space, etc.)."
+    },
+    {
+      "name": "InvalidPhaseTransitionError",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "message",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable error message.",
+          "validators": []
+        },
+        {
+          "name": "from_phase",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The current phase.",
+          "validators": []
+        },
+        {
+          "name": "to_phase",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The target phase that was rejected.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Raised when an attempted phase transition is not in the allowed-transitions map."
+    },
+    {
+      "name": "GitignoreStatus",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "covered",
+        "not_covered",
+        "no_gitignore_file"
+      ],
+      "inner_types": [],
+      "description": "Result of checking whether .constrain/ is covered by .gitignore."
+    }
+  ],
+  "functions": [
+    {
+      "name": "__init__",
+      "description": "Construct a SessionManager instance. Stores the base path under which `.constrain/sessions/` will be created. Does not create directories at construction time.",
+      "inputs": [
+        {
+          "name": "base_path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The root project directory path. Session files will be stored under `<base_path>/.constrain/sessions/`.",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [],
+      "preconditions": [
+        "base_path is a valid filesystem path string"
+      ],
+      "postconditions": [
+        "SessionManager instance is initialized with base_path stored",
+        "No directories are created on disk at this point"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "create",
+      "description": "Create a new session with a generated UUID v4 ID, selected posture, empty problem model, and phase set to 'understand'. Posture is selected randomly from available postures unless overridden via the posture_override parameter or the CONSTRAIN_POSTURE environment variable (parameter takes precedence over env var). The session is NOT automatically saved to disk; the caller must call save() explicitly.",
+      "inputs": [
+        {
+          "name": "posture_override",
+          "type_ref": "str",
+          "required": false,
+          "default": "",
+          "description": "Optional posture name to use instead of random selection. If empty string or not provided, checks CONSTRAIN_POSTURE env var, then falls back to random selection.",
+          "validators": []
+        }
+      ],
+      "output_type": "Session",
+      "error_cases": [
+        {
+          "name": "invalid_posture",
+          "condition": "posture_override (or env var) specifies a posture name that is not in the known posture set",
+          "error_type": "SessionError",
+          "error_data": {
+            "message": "Unknown posture '{name}'. Available postures: ..."
+          }
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Returned Session has a valid UUID v4 as its id",
+        "Session.phase == 'understand'",
+        "Session.problem_model has all fields at default (empty) values",
+        "Session.conversation_history is an empty list",
+        "Session.round_counters has all round counts at 0",
+        "Session.created_at and Session.updated_at are set to current time in ISO 8601",
+        "Session.completed_at is empty string",
+        "If posture_override is non-empty, Session.posture == posture_override",
+        "If posture_override is empty and CONSTRAIN_POSTURE env var is set, Session.posture == env var value",
+        "Session is not yet persisted to disk"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure creation — does not write to disk or read files. Only reads CONSTRAIN_POSTURE env var."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "save",
+      "description": "Persist session state to `.constrain/sessions/<id>.json`. Uses atomic write strategy: writes to a temporary file (`<id>.json.tmp`) then renames to final path, ensuring Ctrl+C safety. Creates `.constrain/sessions/` directory structure if it does not exist. On the first save (when the sessions directory is first created), checks for `.constrain/` coverage in .gitignore and prints a suggestion if missing. Updates Session.updated_at to current time before writing.",
+      "inputs": [
+        {
+          "name": "session",
+          "type_ref": "Session",
+          "required": true,
+          "default": "",
+          "description": "The session to persist.",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "storage_write_failure",
+          "condition": "Unable to write to the sessions directory due to permissions, disk space, or other I/O errors",
+          "error_type": "SessionStorageError",
+          "error_data": {
+            "message": "Failed to save session: {detail}",
+            "path": "<file_path>"
+          }
+        },
+        {
+          "name": "directory_creation_failure",
+          "condition": "Unable to create `.constrain/sessions/` directory",
+          "error_type": "SessionStorageError",
+          "error_data": {
+            "message": "Failed to create sessions directory: {detail}",
+            "path": "<dir_path>"
+          }
+        }
+      ],
+      "preconditions": [
+        "session.id is a valid UUID v4 string",
+        "session is a valid Session instance with all required fields"
+      ],
+      "postconditions": [
+        "File exists at `<base_path>/.constrain/sessions/<session.id>.json`",
+        "File contains valid JSON that can be deserialized back to a Session",
+        "No .tmp file remains on disk after successful save",
+        "session.updated_at has been updated to the current time",
+        "`.constrain/sessions/` directory exists"
+      ],
+      "idempotent": true,
+      "side_effects": [
+        "Writes session JSON to `.constrain/sessions/<id>.json` via atomic tmp+rename",
+        "May create `.constrain/sessions/` directory if it does not exist",
+        "May print .gitignore suggestion to stdout on first directory creation"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "writes_file",
+          "target": ".constrain/sessions/<id>.json",
+          "description": "Atomic write via .tmp then rename"
+        },
+        {
+          "kind": "writes_file",
+          "target": ".constrain/sessions/",
+          "description": "Directory creation if not exists (mkdir -p)"
+        },
+        {
+          "kind": "reads_file",
+          "target": ".gitignore",
+          "description": "Checked on first save to suggest adding .constrain/ entry"
+        },
+        {
+          "kind": "logging",
+          "target": "stdout",
+          "description": "Prints .gitignore suggestion if .constrain/ is not covered"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "load",
+      "description": "Load a session by its UUID from disk. Reads and parses the JSON file, validates it against the Session Pydantic model. Returns a fully hydrated Session including conversation history.",
+      "inputs": [
+        {
+          "name": "session_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "UUID v4 string of the session to load.",
+          "validators": []
+        }
+      ],
+      "output_type": "Session",
+      "error_cases": [
+        {
+          "name": "session_not_found",
+          "condition": "No file exists at `.constrain/sessions/<session_id>.json`",
+          "error_type": "SessionNotFoundError",
+          "error_data": {
+            "message": "No session found with ID '{session_id}'.",
+            "session_id": "<session_id>"
+          }
+        },
+        {
+          "name": "session_corrupted_invalid_json",
+          "condition": "File exists but contains invalid JSON",
+          "error_type": "SessionCorruptedError",
+          "error_data": {
+            "message": "Session file is corrupted (invalid JSON): {detail}",
+            "session_id": "<session_id>",
+            "file_path": "<path>"
+          }
+        },
+        {
+          "name": "session_corrupted_invalid_schema",
+          "condition": "File contains valid JSON but fails Pydantic model validation",
+          "error_type": "SessionCorruptedError",
+          "error_data": {
+            "message": "Session file has invalid structure: {detail}",
+            "session_id": "<session_id>",
+            "file_path": "<path>"
+          }
+        },
+        {
+          "name": "storage_read_failure",
+          "condition": "File exists but cannot be read due to permissions or I/O error",
+          "error_type": "SessionStorageError",
+          "error_data": {
+            "message": "Failed to read session file: {detail}",
+            "path": "<path>"
+          }
+        }
+      ],
+      "preconditions": [
+        "session_id is a valid UUID v4 string"
+      ],
+      "postconditions": [
+        "Returned Session has all fields populated from the persisted JSON",
+        "Session.id == session_id",
+        "Session.phase is a valid Phase enum value",
+        "All nested models (ProblemModel, RoundCounters, Messages) are valid"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": ".constrain/sessions/<id>.json",
+          "description": "Reads session JSON file from disk"
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 100,
+        "max_memory_mb": null,
+        "complexity": "O(n) where n is conversation history length"
+      }
+    },
+    {
+      "name": "find_latest_incomplete",
+      "description": "Scan all session files and return the most recently updated session that is not in 'complete' or 'abandoned' phase. Used for the resume workflow. Returns None if no incomplete sessions exist. Loads only metadata from each file (optimized to avoid full deserialization where possible, but falls back to full load if needed).",
+      "inputs": [],
+      "output_type": "Session",
+      "error_cases": [
+        {
+          "name": "storage_read_failure",
+          "condition": "Unable to read the sessions directory or individual session files",
+          "error_type": "SessionStorageError",
+          "error_data": {
+            "message": "Failed to scan sessions directory: {detail}",
+            "path": "<dir_path>"
+          }
+        },
+        {
+          "name": "no_sessions_directory",
+          "condition": "The `.constrain/sessions/` directory does not exist — no sessions have ever been created",
+          "error_type": "SessionNotFoundError",
+          "error_data": {
+            "message": "No sessions directory found. Start a new session with 'constrain start'.",
+            "session_id": ""
+          }
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "If a Session is returned, its phase is one of: 'understand', 'challenge', 'synthesize'",
+        "If a Session is returned, it has the most recent updated_at among all incomplete sessions",
+        "If None is returned, no incomplete sessions exist on disk"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": ".constrain/sessions/",
+          "description": "Scans directory listing and reads session JSON files"
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 500,
+        "max_memory_mb": null,
+        "complexity": "O(n) where n is number of session files on disk"
+      }
+    },
+    {
+      "name": "get_resume_summary",
+      "description": "Generate a ResumeSummary for a session, extracting key context information to display to the user when resuming. Shows current phase, round number, core problem, topics covered, and open questions without replaying conversation history.",
+      "inputs": [
+        {
+          "name": "session",
+          "type_ref": "Session",
+          "required": true,
+          "default": "",
+          "description": "The session to summarize for resume.",
+          "validators": []
+        }
+      ],
+      "output_type": "ResumeSummary",
+      "error_cases": [
+        {
+          "name": "session_already_complete",
+          "condition": "Session is in 'complete' or 'abandoned' phase and cannot be resumed",
+          "error_type": "SessionError",
+          "error_data": {
+            "message": "Cannot resume a session in '{phase}' phase."
+          }
+        }
+      ],
+      "preconditions": [
+        "session.phase is not 'complete' and not 'abandoned'"
+      ],
+      "postconditions": [
+        "ResumeSummary.session_id == session.id",
+        "ResumeSummary.phase == session.phase",
+        "ResumeSummary.current_round matches the round count for the active phase from session.round_counters",
+        "ResumeSummary.round_limit matches the limit for the active phase from session.round_counters",
+        "ResumeSummary.topics_covered == session.problem_model.topics_covered"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure computation, no I/O"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "list_all",
+      "description": "Return lightweight summaries of all sessions. Reads each session file but constructs SessionSummary objects that omit conversation history. Sorted by updated_at descending (most recent first). Returns an empty list if the sessions directory does not exist or contains no session files.",
+      "inputs": [],
+      "output_type": "list",
+      "error_cases": [
+        {
+          "name": "storage_read_failure",
+          "condition": "Unable to read the sessions directory due to permissions",
+          "error_type": "SessionStorageError",
+          "error_data": {
+            "message": "Failed to read sessions directory: {detail}",
+            "path": "<dir_path>"
+          }
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Returned list contains one SessionSummary per valid session file on disk",
+        "List is sorted by updated_at descending",
+        "Corrupted session files are skipped with a warning, not included in results"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": ".constrain/sessions/",
+          "description": "Reads all session JSON files for summary extraction"
+        },
+        {
+          "kind": "logging",
+          "target": "stderr",
+          "description": "Logs warnings for corrupted session files that are skipped"
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 1000,
+        "max_memory_mb": null,
+        "complexity": "O(n) where n is number of session files"
+      }
+    },
+    {
+      "name": "transition_phase",
+      "description": "Transition a session from its current phase to a new phase. Validates the transition against the allowed-transitions map: understand→challenge, challenge→synthesize, synthesize→complete, and any of {understand, challenge, synthesize}→abandoned. Updates the session's phase and updated_at. If transitioning to 'complete', sets completed_at. Does NOT save to disk — caller must call save() after.",
+      "inputs": [
+        {
+          "name": "session",
+          "type_ref": "Session",
+          "required": true,
+          "default": "",
+          "description": "The session to transition.",
+          "validators": []
+        },
+        {
+          "name": "to_phase",
+          "type_ref": "Phase",
+          "required": true,
+          "default": "",
+          "description": "The target phase.",
+          "validators": []
+        }
+      ],
+      "output_type": "Session",
+      "error_cases": [
+        {
+          "name": "invalid_transition",
+          "condition": "The transition from session.phase to to_phase is not in the allowed-transitions map",
+          "error_type": "InvalidPhaseTransitionError",
+          "error_data": {
+            "message": "Cannot transition from '{from_phase}' to '{to_phase}'.",
+            "from_phase": "<current>",
+            "to_phase": "<target>"
+          }
+        }
+      ],
+      "preconditions": [
+        "session.phase is not 'complete'",
+        "session.phase is not 'abandoned'"
+      ],
+      "postconditions": [
+        "Returned session's phase == to_phase",
+        "Returned session's updated_at is set to current time",
+        "If to_phase is 'complete', returned session's completed_at is set to current time",
+        "All other session fields remain unchanged",
+        "Session is not persisted to disk"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure state mutation on the session object, no I/O"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "update_problem_model",
+      "description": "Apply an incremental update to the session's problem model from a parsed problem_model_update dict (from LLM response JSON block). Merges list fields (appends new unique items) and overwrites scalar fields. Updates session.updated_at. Does NOT save to disk.",
+      "inputs": [
+        {
+          "name": "session",
+          "type_ref": "Session",
+          "required": true,
+          "default": "",
+          "description": "The session whose problem model to update.",
+          "validators": []
+        },
+        {
+          "name": "updates",
+          "type_ref": "dict",
+          "required": true,
+          "default": "",
+          "description": "Dictionary of field_name→value pairs to apply. Keys must match ProblemModel field names. List-valued fields are merged (new unique items appended), string fields are overwritten.",
+          "validators": []
+        }
+      ],
+      "output_type": "Session",
+      "error_cases": [
+        {
+          "name": "invalid_field",
+          "condition": "updates contains a key that is not a valid ProblemModel field name",
+          "error_type": "SessionError",
+          "error_data": {
+            "message": "Unknown problem model field: '{field_name}'."
+          }
+        },
+        {
+          "name": "wrong_phase",
+          "condition": "Session is not in 'understand' or 'challenge' phase",
+          "error_type": "SessionError",
+          "error_data": {
+            "message": "Cannot update problem model in '{phase}' phase."
+          }
+        }
+      ],
+      "preconditions": [
+        "session.phase is 'understand' or 'challenge'",
+        "updates contains only keys that are valid ProblemModel field names"
+      ],
+      "postconditions": [
+        "For each string field in updates, session.problem_model.<field> == updates[field]",
+        "For each list field in updates, all items from updates[field] that were not already present are appended to session.problem_model.<field>",
+        "Fields not mentioned in updates are unchanged",
+        "session.updated_at is set to current time"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure state mutation on the session object, no I/O"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "add_message",
+      "description": "Append a message to the session's conversation history. Increments the round counter for the current phase when an assistant message is added (a full round = one user message + one assistant response). Updates session.updated_at. Does NOT save to disk.",
+      "inputs": [
+        {
+          "name": "session",
+          "type_ref": "Session",
+          "required": true,
+          "default": "",
+          "description": "The session to add the message to.",
+          "validators": []
+        },
+        {
+          "name": "role",
+          "type_ref": "MessageRole",
+          "required": true,
+          "default": "",
+          "description": "The role of the message sender ('user' or 'assistant').",
+          "validators": []
+        },
+        {
+          "name": "content",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The message content text.",
+          "validators": []
+        }
+      ],
+      "output_type": "Session",
+      "error_cases": [
+        {
+          "name": "session_not_active",
+          "condition": "Session is in 'complete' or 'abandoned' phase",
+          "error_type": "SessionError",
+          "error_data": {
+            "message": "Cannot add messages to a session in '{phase}' phase."
+          }
+        },
+        {
+          "name": "empty_content",
+          "condition": "content is empty or whitespace-only",
+          "error_type": "SessionError",
+          "error_data": {
+            "message": "Message content cannot be empty."
+          }
+        }
+      ],
+      "preconditions": [
+        "session.phase is one of: 'understand', 'challenge', 'synthesize'",
+        "content is a non-empty string"
+      ],
+      "postconditions": [
+        "session.conversation_history has one additional Message at the end",
+        "The appended Message has role, content, and timestamp set correctly",
+        "If role is 'assistant' and phase is 'understand', session.round_counters.understand_rounds is incremented by 1",
+        "If role is 'assistant' and phase is 'challenge', session.round_counters.challenge_rounds is incremented by 1",
+        "session.updated_at is set to current time"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure state mutation on the session object, no I/O"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "is_round_limit_reached",
+      "description": "Check whether the current phase's round limit has been reached or exceeded. Returns True if the session should be prompted to transition to the next phase.",
+      "inputs": [
+        {
+          "name": "session",
+          "type_ref": "Session",
+          "required": true,
+          "default": "",
+          "description": "The session to check.",
+          "validators": []
+        }
+      ],
+      "output_type": "bool",
+      "error_cases": [],
+      "preconditions": [
+        "session.phase is 'understand' or 'challenge'"
+      ],
+      "postconditions": [
+        "Returns True if the current phase's round count >= the phase's round limit",
+        "Returns False otherwise"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure computation, no I/O"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "check_output_conflicts",
+      "description": "Check whether prompt.md and/or constraints.yaml already exist in the specified output directory. Returns a list of conflicting file paths. The caller (CLI) is responsible for presenting overwrite confirmation to the user.",
+      "inputs": [
+        {
+          "name": "output_dir",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Path to the directory where output files would be written (typically current working directory).",
+          "validators": []
+        }
+      ],
+      "output_type": "list",
+      "error_cases": [
+        {
+          "name": "invalid_directory",
+          "condition": "output_dir does not exist or is not a directory",
+          "error_type": "SessionStorageError",
+          "error_data": {
+            "message": "Output directory does not exist: {path}",
+            "path": "<output_dir>"
+          }
+        }
+      ],
+      "preconditions": [
+        "output_dir is a valid directory path"
+      ],
+      "postconditions": [
+        "Returned list contains Path strings for each of prompt.md and constraints.yaml that already exist in output_dir",
+        "Returned list is empty if neither file exists",
+        "Returned list has at most 2 elements"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "prompt.md, constraints.yaml",
+          "description": "Checks existence of output files in the specified directory"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "check_gitignore",
+      "description": "Check whether the .gitignore file in the specified project root contains an entry that covers `.constrain/`. Reads the .gitignore file and checks for patterns that would match `.constrain/` (exact match, wildcard patterns, etc.). Returns a GitignoreStatus enum value.",
+      "inputs": [
+        {
+          "name": "project_root",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Path to the project root directory where .gitignore is expected.",
+          "validators": []
+        }
+      ],
+      "output_type": "GitignoreStatus",
+      "error_cases": [
+        {
+          "name": "gitignore_read_failure",
+          "condition": ".gitignore file exists but cannot be read",
+          "error_type": "SessionStorageError",
+          "error_data": {
+            "message": "Failed to read .gitignore: {detail}",
+            "path": "<gitignore_path>"
+          }
+        }
+      ],
+      "preconditions": [
+        "project_root is a valid directory path"
+      ],
+      "postconditions": [
+        "Returns 'covered' if .gitignore exists and contains a pattern matching .constrain/",
+        "Returns 'not_covered' if .gitignore exists but does not contain a matching pattern",
+        "Returns 'no_gitignore_file' if no .gitignore file exists at project_root"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": ".gitignore",
+          "description": "Reads .gitignore file to check for .constrain/ coverage"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "delete_session",
+      "description": "Delete a session file from disk. Used for cleanup of abandoned or corrupted sessions.",
+      "inputs": [
+        {
+          "name": "session_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "UUID v4 string of the session to delete.",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "session_not_found",
+          "condition": "No session file exists with the given ID",
+          "error_type": "SessionNotFoundError",
+          "error_data": {
+            "message": "No session found with ID '{session_id}'.",
+            "session_id": "<session_id>"
+          }
+        },
+        {
+          "name": "delete_failure",
+          "condition": "File exists but cannot be deleted due to permissions",
+          "error_type": "SessionStorageError",
+          "error_data": {
+            "message": "Failed to delete session file: {detail}",
+            "path": "<file_path>"
+          }
+        }
+      ],
+      "preconditions": [
+        "session_id is a valid UUID v4 string"
+      ],
+      "postconditions": [
+        "No file exists at `.constrain/sessions/<session_id>.json`",
+        "If a .tmp file for this session existed, it is also removed"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "writes_file",
+          "target": ".constrain/sessions/<id>.json",
+          "description": "Deletes the session JSON file (and any .tmp file)"
+        }
+      ],
+      "performance_budget": null
+    }
+  ],
+  "dependencies": [],
+  "dependency_contracts": {},
+  "invariants": [
+    "A Session.id is always a valid UUID v4 string and is immutable after creation",
+    "A Session.phase can only change through the allowed transitions: understand→challenge, challenge→synthesize, synthesize→complete, {understand,challenge,synthesize}→abandoned",
+    "A session in 'complete' or 'abandoned' phase cannot have its phase, conversation_history, or problem_model modified",
+    "Session.created_at is immutable after creation and always in ISO 8601 format",
+    "Session.updated_at is always >= Session.created_at and is updated on every mutation",
+    "Session.completed_at is empty string until phase transitions to 'complete', then set to current time and immutable",
+    "Round counters are monotonically increasing and never decrease",
+    "understand_rounds <= understand_limit and challenge_rounds <= challenge_limit (hard enforcement)",
+    "Each session file on disk is a valid JSON document deserializable to a Session model",
+    "Atomic writes ensure no partial/corrupted session files exist after save completes",
+    "The sessions directory path is always `<base_path>/.constrain/sessions/`",
+    "Session.posture is always a non-empty string matching a known posture name",
+    "ProblemModel list fields contain no duplicate entries after update_problem_model merges",
+    "Conversation history messages are append-only and never modified or removed"
+  ],
+  "requires": [
+    "pathlib",
+    "uuid",
+    "pydantic",
+    "json"
+  ],
+  "processing_register": "rigorous-analytical"
+}

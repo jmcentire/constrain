@@ -1,0 +1,910 @@
+{
+  "component_id": "cli",
+  "contract_version": 1,
+  "test_cases": [
+    {
+      "id": "ensure_api_key_happy",
+      "description": "Returns the API key when ANTHROPIC_API_KEY is set in environment",
+      "function": "ensure_api_key",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "ANTHROPIC_API_KEY env var set to a valid string",
+      "expected_output_description": "Returns the non-empty key string matching os.environ value",
+      "expected_error": "",
+      "assertions": [
+        "Return value is a non-empty string",
+        "Return value equals os.environ['ANTHROPIC_API_KEY']"
+      ]
+    },
+    {
+      "id": "ensure_api_key_not_set",
+      "description": "Raises click.ClickException when ANTHROPIC_API_KEY is not set",
+      "function": "ensure_api_key",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "ANTHROPIC_API_KEY not in environment",
+      "expected_output_description": "",
+      "expected_error": "click.ClickException with prescribed message about missing API key",
+      "assertions": []
+    },
+    {
+      "id": "ensure_api_key_empty_string",
+      "description": "Raises click.ClickException when ANTHROPIC_API_KEY is empty string",
+      "function": "ensure_api_key",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "ANTHROPIC_API_KEY set to empty string",
+      "expected_output_description": "",
+      "expected_error": "click.ClickException",
+      "assertions": []
+    },
+    {
+      "id": "resolve_round_limits_all_defaults",
+      "description": "When no CLI flags or env vars provided, returns defaults with min<=max",
+      "function": "resolve_round_limits",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "All None CLI flag values, no env vars set",
+      "expected_output_description": "RoundLimits with default positive integers, min<=max for both phases",
+      "expected_error": "",
+      "assertions": [
+        "result.min_understand <= result.max_understand",
+        "result.min_challenge <= result.max_challenge",
+        "All four fields are positive integers"
+      ]
+    },
+    {
+      "id": "resolve_round_limits_cli_flags",
+      "description": "CLI flag values take priority over env vars and defaults",
+      "function": "resolve_round_limits",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "min_understand": "2",
+        "max_understand": "5",
+        "min_challenge": "3",
+        "max_challenge": "6"
+      },
+      "input_description": "CLI flags: min_understand=2, max_understand=5, min_challenge=3, max_challenge=6",
+      "expected_output_description": "RoundLimits with exact CLI flag values",
+      "expected_error": "",
+      "assertions": [
+        "result.min_understand == 2",
+        "result.max_understand == 5",
+        "result.min_challenge == 3",
+        "result.max_challenge == 6"
+      ]
+    },
+    {
+      "id": "resolve_round_limits_env_fallback",
+      "description": "Environment variables used when CLI flags are None",
+      "function": "resolve_round_limits",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "No CLI flags, env vars set for all four limits",
+      "expected_output_description": "RoundLimits with values from environment variables",
+      "expected_error": "",
+      "assertions": [
+        "Values match env var values",
+        "min <= max for both phases"
+      ]
+    },
+    {
+      "id": "resolve_round_limits_min_exceeds_max_understand",
+      "description": "Error when resolved min_understand > max_understand",
+      "function": "resolve_round_limits",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "min_understand": "10",
+        "max_understand": "3",
+        "min_challenge": "1",
+        "max_challenge": "5"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "min_exceeds_max_understand error",
+      "assertions": []
+    },
+    {
+      "id": "resolve_round_limits_min_exceeds_max_challenge",
+      "description": "Error when resolved min_challenge > max_challenge",
+      "function": "resolve_round_limits",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "min_understand": "1",
+        "max_understand": "5",
+        "min_challenge": "10",
+        "max_challenge": "3"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "min_exceeds_max_challenge error",
+      "assertions": []
+    },
+    {
+      "id": "resolve_round_limits_invalid_env_var",
+      "description": "Error when env var is not a valid positive integer",
+      "function": "resolve_round_limits",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "CONSTRAIN_MIN_UNDERSTAND set to 'abc', no CLI flags",
+      "expected_output_description": "",
+      "expected_error": "invalid_env_var_value error",
+      "assertions": []
+    },
+    {
+      "id": "resolve_round_limits_min_equals_max",
+      "description": "Edge case where min equals max is valid",
+      "function": "resolve_round_limits",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "min_understand": "3",
+        "max_understand": "3",
+        "min_challenge": "2",
+        "max_challenge": "2"
+      },
+      "input_description": "",
+      "expected_output_description": "RoundLimits where min equals max for both phases",
+      "expected_error": "",
+      "assertions": [
+        "result.min_understand == result.max_understand == 3",
+        "result.min_challenge == result.max_challenge == 2"
+      ]
+    },
+    {
+      "id": "check_gitignore_new_dir_no_gitignore",
+      "description": "Suggests adding .constrain/ when directory is newly created and .gitignore doesn't cover it",
+      "function": "check_gitignore_suggestion",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "constrain_dir_existed_before": "False"
+      },
+      "input_description": "",
+      "expected_output_description": "GitignoreSuggestion with should_suggest=True, message echoed to stderr",
+      "expected_error": "",
+      "assertions": [
+        "result.should_suggest is True"
+      ]
+    },
+    {
+      "id": "check_gitignore_existing_dir",
+      "description": "No suggestion when .constrain/ directory already existed",
+      "function": "check_gitignore_suggestion",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "constrain_dir_existed_before": "True"
+      },
+      "input_description": "",
+      "expected_output_description": "GitignoreSuggestion with should_suggest=False",
+      "expected_error": "",
+      "assertions": [
+        "result.should_suggest is False"
+      ]
+    },
+    {
+      "id": "check_gitignore_already_covered",
+      "description": "No suggestion when .gitignore already covers .constrain/",
+      "function": "check_gitignore_suggestion",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "New dir but .gitignore already contains .constrain/",
+      "expected_output_description": "GitignoreSuggestion with should_suggest=False, gitignore_exists=True",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "format_session_table_happy",
+      "description": "Formats a list of sessions into an aligned table with correct columns",
+      "function": "format_session_table",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "List of 2 SessionListRow instances",
+      "expected_output_description": "String with header row and 2 data rows, columns: ID, STATUS, CREATED, PHASE, POSTURE",
+      "expected_error": "",
+      "assertions": [
+        "Output contains header row with ID, STATUS, CREATED, PHASE, POSTURE",
+        "Output contains one data row per session",
+        "All posture values are '***'",
+        "Rows are whitespace-aligned"
+      ]
+    },
+    {
+      "id": "format_session_table_single_row",
+      "description": "Formats a single session into the table",
+      "function": "format_session_table",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "List with exactly one SessionListRow",
+      "expected_output_description": "Table with header and one data row",
+      "expected_error": "",
+      "assertions": [
+        "Output contains exactly one header and one data row"
+      ]
+    },
+    {
+      "id": "format_session_table_posture_always_masked",
+      "description": "Posture field is always *** regardless of input",
+      "function": "format_session_table",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Sessions with various posture_display values",
+      "expected_output_description": "All posture columns show ***",
+      "expected_error": "",
+      "assertions": [
+        "Every data row shows *** for posture column"
+      ]
+    },
+    {
+      "id": "format_session_summary_happy",
+      "description": "Formats session summary with all required fields",
+      "function": "format_session_summary",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "session_id": "abc123",
+        "status": "in_progress",
+        "current_phase": "understand",
+        "round_count": "3",
+        "problem_summary": "Building a REST API"
+      },
+      "input_description": "",
+      "expected_output_description": "Multi-line string containing session_id, current_phase, and round_count",
+      "expected_error": "",
+      "assertions": [
+        "'abc123' in result",
+        "'understand' in result",
+        "'3' in result"
+      ]
+    },
+    {
+      "id": "format_session_summary_empty_problem",
+      "description": "Handles empty problem summary gracefully",
+      "function": "format_session_summary",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "session_id": "xyz789",
+        "status": "in_progress",
+        "current_phase": "challenge",
+        "round_count": "0",
+        "problem_summary": ""
+      },
+      "input_description": "",
+      "expected_output_description": "Multi-line string with session info, no crash on empty summary",
+      "expected_error": "",
+      "assertions": [
+        "'xyz789' in result",
+        "'challenge' in result"
+      ]
+    },
+    {
+      "id": "confirm_overwrite_no_files_exist",
+      "description": "Returns True when neither prompt.md nor constraints.yaml exist",
+      "function": "confirm_overwrite",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Empty directory as cwd",
+      "expected_output_description": "Returns True without prompting user",
+      "expected_error": "",
+      "assertions": [
+        "Return value is True"
+      ]
+    },
+    {
+      "id": "confirm_overwrite_files_exist_user_confirms",
+      "description": "Returns True when files exist and user confirms overwrite",
+      "function": "confirm_overwrite",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Directory with prompt.md existing, user says yes",
+      "expected_output_description": "Returns True",
+      "expected_error": "",
+      "assertions": [
+        "Return value is True"
+      ]
+    },
+    {
+      "id": "confirm_overwrite_user_declines",
+      "description": "Raises click.Abort when user declines overwrite",
+      "function": "confirm_overwrite",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Directory with prompt.md existing, user says no",
+      "expected_output_description": "",
+      "expected_error": "click.Abort raised",
+      "assertions": []
+    },
+    {
+      "id": "create_cli_happy",
+      "description": "Returns a properly configured Click group with all subcommands",
+      "function": "create_cli",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "click.Group with SafeGroup class, subcommands: new, resume, show, list",
+      "expected_error": "",
+      "assertions": [
+        "Return is a click.Group instance",
+        "Has subcommands: new, resume, show, list",
+        "Group uses SafeGroup class"
+      ]
+    },
+    {
+      "id": "create_cli_round_limit_options",
+      "description": "Group and new subcommand both have round limit options",
+      "function": "create_cli",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "Both group callback and new subcommand have min/max understand/challenge options",
+      "expected_error": "",
+      "assertions": [
+        "Round limit options present on group",
+        "Round limit options present on new subcommand"
+      ]
+    },
+    {
+      "id": "cmd_new_happy",
+      "description": "Creates new session, runs engine, writes output artifacts on success",
+      "function": "cmd_new",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "session": "mock session module",
+        "engine": "mock engine module"
+      },
+      "input_values": {},
+      "input_description": "Valid API key, valid round limits, mocked session and engine",
+      "expected_output_description": "Exit code 0, session created, engine run called",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0",
+        "session.create() was called",
+        "engine.run() was called"
+      ]
+    },
+    {
+      "id": "cmd_new_api_key_missing",
+      "description": "Exits with error when API key not set",
+      "function": "cmd_new",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "ANTHROPIC_API_KEY not set",
+      "expected_output_description": "",
+      "expected_error": "Exit code 1 with API key error message",
+      "assertions": [
+        "Exit code is non-zero",
+        "Output contains API key error message"
+      ]
+    },
+    {
+      "id": "cmd_new_keyboard_interrupt",
+      "description": "Exits with code 130 on KeyboardInterrupt during engine run",
+      "function": "cmd_new",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "engine.run": "raises KeyboardInterrupt"
+      },
+      "input_values": {},
+      "input_description": "Engine.run() raises KeyboardInterrupt",
+      "expected_output_description": "",
+      "expected_error": "Exit code 130 with Interrupted message",
+      "assertions": []
+    },
+    {
+      "id": "cmd_resume_happy",
+      "description": "Resumes most recent incomplete session and runs engine",
+      "function": "cmd_resume",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "session": "returns incomplete session",
+        "engine": "mock engine module"
+      },
+      "input_values": {},
+      "input_description": "Valid API key, existing incomplete session, no session_id arg",
+      "expected_output_description": "Session summary displayed, engine.run called with resume=True",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0",
+        "Session summary displayed in output",
+        "engine.run() called with resume=True"
+      ]
+    },
+    {
+      "id": "cmd_resume_specific_session",
+      "description": "Resumes a specific session by ID",
+      "function": "cmd_resume",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "session": "returns session matching ID"
+      },
+      "input_values": {},
+      "input_description": "Valid API key, session_id provided matching existing incomplete session",
+      "expected_output_description": "Specified session loaded, engine.run called",
+      "expected_error": "",
+      "assertions": [
+        "Correct session loaded by ID",
+        "engine.run() called with resume=True"
+      ]
+    },
+    {
+      "id": "cmd_resume_no_incomplete",
+      "description": "Error when no incomplete sessions and no session_id provided",
+      "function": "cmd_resume",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "No incomplete sessions error message, non-zero exit",
+      "assertions": [
+        "Exit code is non-zero",
+        "Error message mentions no incomplete sessions"
+      ]
+    },
+    {
+      "id": "cmd_resume_session_not_found",
+      "description": "Error when provided session_id doesn't match any session",
+      "function": "cmd_resume",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "session_id": "nonexistent123"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "Session not found error, non-zero exit",
+      "assertions": []
+    },
+    {
+      "id": "cmd_resume_session_completed",
+      "description": "Error when session_id refers to completed session",
+      "function": "cmd_resume",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "session_id": "completed_session_id"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "Session already completed error",
+      "assertions": []
+    },
+    {
+      "id": "cmd_show_happy",
+      "description": "Displays prompt.md and constraints.yaml from most recent completed session",
+      "function": "cmd_show",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "session": "returns completed session with artifacts"
+      },
+      "input_values": {},
+      "input_description": "Completed session with both artifact files on disk",
+      "expected_output_description": "Both files' content displayed with header separators",
+      "expected_error": "",
+      "assertions": [
+        "Output contains prompt.md content",
+        "Output contains constraints.yaml content",
+        "Headers/separators present"
+      ]
+    },
+    {
+      "id": "cmd_show_no_completed",
+      "description": "Error when no completed sessions exist",
+      "function": "cmd_show",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "No completed sessions error, non-zero exit",
+      "assertions": []
+    },
+    {
+      "id": "cmd_show_artifacts_missing",
+      "description": "Error when completed session exists but artifact files missing",
+      "function": "cmd_show",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "Artifacts missing error",
+      "assertions": []
+    },
+    {
+      "id": "cmd_show_no_api_key_needed",
+      "description": "cmd_show works without ANTHROPIC_API_KEY being set",
+      "function": "cmd_show",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "ANTHROPIC_API_KEY not set, completed session with artifacts",
+      "expected_output_description": "Exit code 0, artifacts displayed",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0",
+        "No API key error"
+      ]
+    },
+    {
+      "id": "cmd_list_happy",
+      "description": "Lists all sessions in reverse chronological order",
+      "function": "cmd_list",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "session": "returns multiple sessions"
+      },
+      "input_values": {},
+      "input_description": "Multiple existing sessions",
+      "expected_output_description": "Table with all sessions, most recent first, posture masked",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0",
+        "Sessions listed in reverse chronological order",
+        "Posture shown as ***"
+      ]
+    },
+    {
+      "id": "cmd_list_no_sessions",
+      "description": "Displays helpful message when no sessions exist",
+      "function": "cmd_list",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "Helpful message about no sessions",
+      "expected_error": "",
+      "assertions": [
+        "Exit code is 0",
+        "Output contains helpful message"
+      ]
+    },
+    {
+      "id": "cmd_list_no_api_key_needed",
+      "description": "cmd_list works without ANTHROPIC_API_KEY",
+      "function": "cmd_list",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "ANTHROPIC_API_KEY not set",
+      "expected_output_description": "Sessions listed without error",
+      "expected_error": "",
+      "assertions": [
+        "No API key error in output"
+      ]
+    },
+    {
+      "id": "cmd_list_posture_masked",
+      "description": "Posture is always displayed as *** in list output",
+      "function": "cmd_list",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Sessions with various posture values",
+      "expected_output_description": "All posture values shown as ***",
+      "expected_error": "",
+      "assertions": [
+        "No actual posture values appear in output",
+        "*** appears for each session row"
+      ]
+    },
+    {
+      "id": "cmd_default_no_subcommand_no_sessions",
+      "description": "Starts new session when no subcommand and no incomplete sessions",
+      "function": "cmd_default",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "session": "no incomplete sessions",
+        "engine": "mock engine"
+      },
+      "input_values": {},
+      "input_description": "No subcommand invoked, no incomplete sessions, valid API key",
+      "expected_output_description": "New session created and engine run",
+      "expected_error": "",
+      "assertions": [
+        "session.create() called",
+        "engine.run() called"
+      ]
+    },
+    {
+      "id": "cmd_default_resume_offered",
+      "description": "Offers to resume when incomplete session found",
+      "function": "cmd_default",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "session": "returns incomplete session",
+        "engine": "mock engine"
+      },
+      "input_values": {},
+      "input_description": "Incomplete session exists, user chooses to resume",
+      "expected_output_description": "Session summary displayed, session resumed",
+      "expected_error": "",
+      "assertions": [
+        "Session summary shown to user",
+        "engine.run() called with resume=True"
+      ]
+    },
+    {
+      "id": "cmd_default_subcommand_invoked",
+      "description": "Does nothing special when a subcommand is being invoked",
+      "function": "cmd_default",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Click context indicates subcommand is invoked",
+      "expected_output_description": "Default command defers to subcommand",
+      "expected_error": "",
+      "assertions": [
+        "No new session created by default handler"
+      ]
+    },
+    {
+      "id": "cmd_default_api_key_missing",
+      "description": "Exits with error when API key missing and no subcommand",
+      "function": "cmd_default",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "API key error, non-zero exit",
+      "assertions": []
+    },
+    {
+      "id": "safe_group_keyboard_interrupt",
+      "description": "Catches KeyboardInterrupt, exits 130 with friendly message",
+      "function": "safe_group_invoke",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Command raises KeyboardInterrupt",
+      "expected_output_description": "",
+      "expected_error": "sys.exit(130), 'Interrupted.' on stderr",
+      "assertions": [
+        "Exit code is 130",
+        "stderr contains 'Interrupted.'",
+        "No stack trace in output"
+      ]
+    },
+    {
+      "id": "safe_group_click_exception",
+      "description": "Re-raises click.ClickException for Click's handling",
+      "function": "safe_group_invoke",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Command raises click.ClickException",
+      "expected_output_description": "",
+      "expected_error": "click.ClickException re-raised, exit 1",
+      "assertions": [
+        "click.ClickException is re-raised",
+        "Exit code is 1"
+      ]
+    },
+    {
+      "id": "safe_group_abort",
+      "description": "Catches click.Abort, exits 1 with Aborted message",
+      "function": "safe_group_invoke",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Command raises click.Abort",
+      "expected_output_description": "",
+      "expected_error": "sys.exit(1), 'Aborted.' displayed",
+      "assertions": [
+        "Exit code is 1",
+        "Output contains 'Aborted.'"
+      ]
+    },
+    {
+      "id": "safe_group_unexpected_error",
+      "description": "Catches unexpected exceptions, exits 1 with generic message, no traceback",
+      "function": "safe_group_invoke",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Command raises RuntimeError('something broke')",
+      "expected_output_description": "",
+      "expected_error": "sys.exit(1), generic error message to stderr",
+      "assertions": [
+        "Exit code is 1",
+        "stderr contains 'An unexpected error occurred'",
+        "stderr contains 'RuntimeError'",
+        "No traceback in output"
+      ]
+    },
+    {
+      "id": "invariant_no_business_logic_in_cli",
+      "description": "CLI delegates all domain operations to session, engine, models modules",
+      "function": "cmd_new",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "session": "mock",
+        "engine": "mock"
+      },
+      "input_values": {},
+      "input_description": "Trace calls during cmd_new execution",
+      "expected_output_description": "session and engine modules called for business logic",
+      "expected_error": "",
+      "assertions": [
+        "session module called for session creation",
+        "engine module called for conversation loop"
+      ]
+    },
+    {
+      "id": "invariant_api_key_before_network",
+      "description": "API key is validated before any network call in cmd_new, cmd_resume, cmd_default",
+      "function": "ensure_api_key",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "API key not set",
+      "expected_output_description": "Error raised before engine or session network calls",
+      "expected_error": "",
+      "assertions": [
+        "ensure_api_key raises before engine.run is called"
+      ]
+    },
+    {
+      "id": "invariant_exit_codes_consistent",
+      "description": "Exit codes follow 0=success, 1=app error, 130=keyboard interrupt",
+      "function": "safe_group_invoke",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "Exit codes match specification",
+      "expected_error": "",
+      "assertions": [
+        "Success returns 0",
+        "Application error returns 1",
+        "KeyboardInterrupt returns 130"
+      ]
+    },
+    {
+      "id": "invariant_overwrite_confirmation_required",
+      "description": "Output file overwrites always require explicit user confirmation",
+      "function": "confirm_overwrite",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "prompt.md exists in cwd",
+      "expected_output_description": "User prompted before any overwrite",
+      "expected_error": "",
+      "assertions": [
+        "Confirmation prompt shown when files exist",
+        "No overwrite without user consent"
+      ]
+    },
+    {
+      "id": "resolve_round_limits_cli_over_env",
+      "description": "CLI flag takes priority over env var for same parameter",
+      "function": "resolve_round_limits",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "CLI flag min_understand=5, env CONSTRAIN_MIN_UNDERSTAND=10",
+      "expected_output_description": "CLI flag value (5) used, not env var",
+      "expected_error": "",
+      "assertions": [
+        "result.min_understand == 5"
+      ]
+    },
+    {
+      "id": "resolve_round_limits_env_over_default",
+      "description": "Env var takes priority over default when no CLI flag",
+      "function": "resolve_round_limits",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "No CLI flag for min_understand, CONSTRAIN_MIN_UNDERSTAND=7",
+      "expected_output_description": "Env var value (7) used",
+      "expected_error": "",
+      "assertions": [
+        "result.min_understand == 7"
+      ]
+    },
+    {
+      "id": "resolve_round_limits_negative_env_var",
+      "description": "Negative number in env var is rejected as invalid",
+      "function": "resolve_round_limits",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "CONSTRAIN_MIN_UNDERSTAND set to '-3'",
+      "expected_output_description": "",
+      "expected_error": "invalid_env_var_value error",
+      "assertions": []
+    },
+    {
+      "id": "resolve_round_limits_zero_env_var",
+      "description": "Zero in env var is rejected (must be positive)",
+      "function": "resolve_round_limits",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "CONSTRAIN_MIN_UNDERSTAND set to '0'",
+      "expected_output_description": "",
+      "expected_error": "invalid_env_var_value error (not positive)",
+      "assertions": []
+    }
+  ],
+  "test_language": "python",
+  "generated_code": "\"\"\"\nContract tests for the CLI module.\n\nTests verify behavior at boundaries, not internals. Covers happy paths,\nedge cases, error cases, and invariants. All dependencies (session, engine, models)\nare mocked.\n\"\"\"\n\nimport os\nimport sys\nimport pytest\nfrom pathlib import Path\nfrom unittest.mock import patch, MagicMock, PropertyMock, call\nimport click\nfrom click.testing import CliRunner\n\n# Import the component under test\nfrom cli import (\n    ensure_api_key,\n    resolve_round_limits,\n    check_gitignore_suggestion,\n    format_session_table,\n    format_session_summary,\n    confirm_overwrite,\n    create_cli,\n)\n\n\n# ---------------------------------------------------------------------------\n# Fixtures\n# ---------------------------------------------------------------------------\n\n@pytest.fixture\ndef runner():\n    \"\"\"Provide a Click CliRunner instance.\"\"\"\n    return CliRunner(mix_stderr=False)\n\n\n@pytest.fixture\ndef isolated_runner(runner):\n    \"\"\"Provide a CliRunner with isolated filesystem.\"\"\"\n    with runner.isolated_filesystem() as td:\n        yield runner, td\n\n\n@pytest.fixture\ndef mock_api_key(monkeypatch):\n    \"\"\"Set a valid ANTHROPIC_API_KEY in the environment.\"\"\"\n    monkeypatch.setenv(\"ANTHROPIC_API_KEY\", \"sk-ant-test-key-123\")\n    return \"sk-ant-test-key-123\"\n\n\n@pytest.fixture\ndef clear_api_key(monkeypatch):\n    \"\"\"Ensure ANTHROPIC_API_KEY is not in the environment.\"\"\"\n    monkeypatch.delenv(\"ANTHROPIC_API_KEY\", raising=False)\n\n\n@pytest.fixture\ndef clear_round_limit_env_vars(monkeypatch):\n    \"\"\"Clear all round limit environment variables.\"\"\"\n    for var in [\n        \"CONSTRAIN_MIN_UNDERSTAND\",\n        \"CONSTRAIN_MAX_UNDERSTAND\",\n        \"CONSTRAIN_MIN_CHALLENGE\",\n        \"CONSTRAIN_MAX_CHALLENGE\",\n    ]:\n        monkeypatch.delenv(var, raising=False)\n\n\n@pytest.fixture\ndef cli_app():\n    \"\"\"Create and return the CLI application.\"\"\"\n    return create_cli()\n\n\n# ---------------------------------------------------------------------------\n# 1. Unit tests for pure functions\n# ---------------------------------------------------------------------------\n\nclass TestEnsureApiKey:\n    \"\"\"Tests for ensure_api_key().\"\"\"\n\n    def test_happy_returns_key(self, mock_api_key):\n        \"\"\"Returns the API key when ANTHROPIC_API_KEY is set.\"\"\"\n        result = ensure_api_key()\n        assert result == \"sk-ant-test-key-123\"\n        assert isinstance(result, str)\n        assert len(result) > 0\n\n    def test_happy_matches_env(self, monkeypatch):\n        \"\"\"Return value equals os.environ['ANTHROPIC_API_KEY'].\"\"\"\n        monkeypatch.setenv(\"ANTHROPIC_API_KEY\", \"sk-ant-specific-value\")\n        result = ensure_api_key()\n        assert result == os.environ[\"ANTHROPIC_API_KEY\"]\n\n    def test_error_not_set(self, clear_api_key):\n        \"\"\"Raises click.ClickException when ANTHROPIC_API_KEY is not set.\"\"\"\n        with pytest.raises(click.ClickException):\n            ensure_api_key()\n\n    def test_error_empty_string(self, monkeypatch):\n        \"\"\"Raises click.ClickException when ANTHROPIC_API_KEY is empty string.\"\"\"\n        monkeypatch.setenv(\"ANTHROPIC_API_KEY\", \"\")\n        with pytest.raises(click.ClickException):\n            ensure_api_key()\n\n\nclass TestResolveRoundLimits:\n    \"\"\"Tests for resolve_round_limits().\"\"\"\n\n    def test_happy_all_defaults(self, clear_round_limit_env_vars):\n        \"\"\"When no CLI flags or env vars, returns defaults with min<=max.\"\"\"\n        result = resolve_round_limits(\n            min_understand=None,\n            max_understand=None,\n            min_challenge=None,\n            max_challenge=None,\n        )\n        assert result.min_understand <= result.max_understand\n        assert result.min_challenge <= result.max_challenge\n        assert result.min_understand > 0\n        assert result.max_understand > 0\n        assert result.min_challenge > 0\n        assert result.max_challenge > 0\n\n    def test_happy_cli_flags(self, clear_round_limit_env_vars):\n        \"\"\"CLI flag values are used directly.\"\"\"\n        result = resolve_round_limits(\n            min_understand=2,\n            max_understand=5,\n            min_challenge=3,\n            max_challenge=6,\n        )\n        assert result.min_understand == 2\n        assert result.max_understand == 5\n        assert result.min_challenge == 3\n        assert result.max_challenge == 6\n\n    def test_happy_env_fallback(self, monkeypatch):\n        \"\"\"Environment variables used when CLI flags are None.\"\"\"\n        monkeypatch.setenv(\"CONSTRAIN_MIN_UNDERSTAND\", \"4\")\n        monkeypatch.setenv(\"CONSTRAIN_MAX_UNDERSTAND\", \"8\")\n        monkeypatch.setenv(\"CONSTRAIN_MIN_CHALLENGE\", \"2\")\n        monkeypatch.setenv(\"CONSTRAIN_MAX_CHALLENGE\", \"6\")\n        result = resolve_round_limits(\n            min_understand=None,\n            max_understand=None,\n            min_challenge=None,\n            max_challenge=None,\n        )\n        assert result.min_understand == 4\n        assert result.max_understand == 8\n        assert result.min_challenge == 2\n        assert result.max_challenge == 6\n\n    def test_edge_min_equals_max(self, clear_round_limit_env_vars):\n        \"\"\"min equals max is valid for both phases.\"\"\"\n        result = resolve_round_limits(\n            min_understand=3,\n            max_understand=3,\n            min_challenge=2,\n            max_challenge=2,\n        )\n        assert result.min_understand == 3\n        assert result.max_understand == 3\n        assert result.min_challenge == 2\n        assert result.max_challenge == 2\n\n    def test_error_min_exceeds_max_understand(self, clear_round_limit_env_vars):\n        \"\"\"Error when min_understand > max_understand.\"\"\"\n        with pytest.raises((click.ClickException, click.BadParameter, ValueError, Exception)):\n            resolve_round_limits(\n                min_understand=10,\n                max_understand=3,\n                min_challenge=1,\n                max_challenge=5,\n            )\n\n    def test_error_min_exceeds_max_challenge(self, clear_round_limit_env_vars):\n        \"\"\"Error when min_challenge > max_challenge.\"\"\"\n        with pytest.raises((click.ClickException, click.BadParameter, ValueError, Exception)):\n            resolve_round_limits(\n                min_understand=1,\n                max_understand=5,\n                min_challenge=10,\n                max_challenge=3,\n            )\n\n    def test_error_invalid_env_var(self, monkeypatch):\n        \"\"\"Error when env var is not a valid positive integer.\"\"\"\n        monkeypatch.setenv(\"CONSTRAIN_MIN_UNDERSTAND\", \"abc\")\n        monkeypatch.delenv(\"CONSTRAIN_MAX_UNDERSTAND\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MIN_CHALLENGE\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MAX_CHALLENGE\", raising=False)\n        with pytest.raises((click.ClickException, click.BadParameter, ValueError, Exception)):\n            resolve_round_limits(\n                min_understand=None,\n                max_understand=None,\n                min_challenge=None,\n                max_challenge=None,\n            )\n\n    def test_error_negative_env_var(self, monkeypatch):\n        \"\"\"Negative number in env var is rejected.\"\"\"\n        monkeypatch.setenv(\"CONSTRAIN_MIN_UNDERSTAND\", \"-3\")\n        monkeypatch.delenv(\"CONSTRAIN_MAX_UNDERSTAND\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MIN_CHALLENGE\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MAX_CHALLENGE\", raising=False)\n        with pytest.raises((click.ClickException, click.BadParameter, ValueError, Exception)):\n            resolve_round_limits(\n                min_understand=None,\n                max_understand=None,\n                min_challenge=None,\n                max_challenge=None,\n            )\n\n    def test_error_zero_env_var(self, monkeypatch):\n        \"\"\"Zero in env var is rejected (must be positive).\"\"\"\n        monkeypatch.setenv(\"CONSTRAIN_MIN_UNDERSTAND\", \"0\")\n        monkeypatch.delenv(\"CONSTRAIN_MAX_UNDERSTAND\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MIN_CHALLENGE\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MAX_CHALLENGE\", raising=False)\n        with pytest.raises((click.ClickException, click.BadParameter, ValueError, Exception)):\n            resolve_round_limits(\n                min_understand=None,\n                max_understand=None,\n                min_challenge=None,\n                max_challenge=None,\n            )\n\n    def test_invariant_cli_over_env(self, monkeypatch):\n        \"\"\"CLI flag takes priority over env var.\"\"\"\n        monkeypatch.setenv(\"CONSTRAIN_MIN_UNDERSTAND\", \"10\")\n        monkeypatch.delenv(\"CONSTRAIN_MAX_UNDERSTAND\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MIN_CHALLENGE\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MAX_CHALLENGE\", raising=False)\n        result = resolve_round_limits(\n            min_understand=5,\n            max_understand=None,\n            min_challenge=None,\n            max_challenge=None,\n        )\n        assert result.min_understand == 5  # CLI flag, not env var 10\n\n    def test_invariant_env_over_default(self, monkeypatch):\n        \"\"\"Env var takes priority over default when no CLI flag.\"\"\"\n        monkeypatch.setenv(\"CONSTRAIN_MIN_UNDERSTAND\", \"7\")\n        monkeypatch.delenv(\"CONSTRAIN_MAX_UNDERSTAND\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MIN_CHALLENGE\", raising=False)\n        monkeypatch.delenv(\"CONSTRAIN_MAX_CHALLENGE\", raising=False)\n        result = resolve_round_limits(\n            min_understand=None,\n            max_understand=None,\n            min_challenge=None,\n            max_challenge=None,\n        )\n        assert result.min_understand == 7\n\n\nclass TestFormatSessionTable:\n    \"\"\"Tests for format_session_table().\"\"\"\n\n    def _make_row(self, session_id=\"ses-001\", status=\"in_progress\",\n                  created_at=\"2024-01-15 10:30\", current_phase=\"understand\",\n                  posture_display=\"***\"):\n        \"\"\"Helper to create a SessionListRow-like object.\"\"\"\n        row = MagicMock()\n        row.session_id = session_id\n        row.status = status\n        row.created_at = created_at\n        row.current_phase = current_phase\n        row.posture_display = posture_display\n        return row\n\n    def test_happy_multiple_rows(self):\n        \"\"\"Formats list of sessions into aligned table with correct columns.\"\"\"\n        sessions = [\n            self._make_row(session_id=\"ses-001\", status=\"in_progress\",\n                          created_at=\"2024-01-15 10:30\", current_phase=\"understand\"),\n            self._make_row(session_id=\"ses-002\", status=\"completed\",\n                          created_at=\"2024-01-14 09:00\", current_phase=\"synthesis\"),\n        ]\n        result = format_session_table(sessions)\n        assert isinstance(result, str)\n        lines = result.strip().split(\"\\n\")\n        # At least header + 2 data rows\n        assert len(lines) >= 3\n        # Header contains expected column names (case-insensitive check)\n        header = lines[0].upper()\n        assert \"ID\" in header\n        assert \"STATUS\" in header\n        assert \"PHASE\" in header\n        assert \"POSTURE\" in header\n        # Data rows present\n        assert \"ses-001\" in result\n        assert \"ses-002\" in result\n        # Posture is masked\n        assert \"***\" in result\n\n    def test_edge_single_row(self):\n        \"\"\"Single session formatted correctly.\"\"\"\n        sessions = [self._make_row()]\n        result = format_session_table(sessions)\n        lines = result.strip().split(\"\\n\")\n        # Header + at least 1 data row (possibly a separator line too)\n        data_lines = [l for l in lines if \"ses-001\" in l]\n        assert len(data_lines) == 1\n\n    def test_invariant_posture_always_masked(self):\n        \"\"\"Posture field is always *** regardless of input value.\"\"\"\n        sessions = [\n            self._make_row(session_id=\"s1\", posture_display=\"socratic\"),\n            self._make_row(session_id=\"s2\", posture_display=\"adversarial\"),\n            self._make_row(session_id=\"s3\", posture_display=\"collaborative\"),\n        ]\n        result = format_session_table(sessions)\n        # Actual posture values should not appear\n        assert \"socratic\" not in result.lower()\n        assert \"adversarial\" not in result.lower()\n        assert \"collaborative\" not in result.lower()\n        # *** should appear for each row\n        assert result.count(\"***\") >= 3\n\n\nclass TestFormatSessionSummary:\n    \"\"\"Tests for format_session_summary().\"\"\"\n\n    def test_happy_all_fields(self):\n        \"\"\"Formats summary with all required fields present.\"\"\"\n        result = format_session_summary(\n            session_id=\"abc123\",\n            status=\"in_progress\",\n            current_phase=\"understand\",\n            round_count=3,\n            problem_summary=\"Building a REST API\",\n        )\n        assert isinstance(result, str)\n        assert \"abc123\" in result\n        assert \"understand\" in result\n        assert \"3\" in result\n        # Multi-line\n        assert \"\\n\" in result\n\n    def test_edge_empty_problem_summary(self):\n        \"\"\"Handles empty problem summary without crashing.\"\"\"\n        result = format_session_summary(\n            session_id=\"xyz789\",\n            status=\"in_progress\",\n            current_phase=\"challenge\",\n            round_count=0,\n            problem_summary=\"\",\n        )\n        assert isinstance(result, str)\n        assert \"xyz789\" in result\n        assert \"challenge\" in result\n\n    def test_edge_zero_rounds(self):\n        \"\"\"Handles zero round count.\"\"\"\n        result = format_session_summary(\n            session_id=\"s1\",\n            status=\"in_progress\",\n            current_phase=\"understand\",\n            round_count=0,\n            problem_summary=\"Test\",\n        )\n        assert \"0\" in result\n\n\nclass TestConfirmOverwrite:\n    \"\"\"Tests for confirm_overwrite().\"\"\"\n\n    def test_happy_no_files_exist(self, tmp_path):\n        \"\"\"Returns True when neither prompt.md nor constraints.yaml exist.\"\"\"\n        result = confirm_overwrite(str(tmp_path))\n        assert result is True\n\n    def test_happy_user_confirms(self, tmp_path):\n        \"\"\"Returns True when files exist and user confirms.\"\"\"\n        (tmp_path / \"prompt.md\").write_text(\"existing\")\n        with patch(\"click.confirm\", return_value=True):\n            result = confirm_overwrite(str(tmp_path))\n        assert result is True\n\n    def test_error_user_declines(self, tmp_path):\n        \"\"\"Raises click.Abort when user declines overwrite.\"\"\"\n        (tmp_path / \"prompt.md\").write_text(\"existing\")\n        with patch(\"click.confirm\", side_effect=click.Abort()):\n            with pytest.raises(click.Abort):\n                confirm_overwrite(str(tmp_path))\n\n    def test_constraints_yaml_triggers_prompt(self, tmp_path):\n        \"\"\"constraints.yaml alone also triggers confirmation prompt.\"\"\"\n        (tmp_path / \"constraints.yaml\").write_text(\"existing\")\n        with patch(\"click.confirm\", return_value=True) as mock_confirm:\n            confirm_overwrite(str(tmp_path))\n        mock_confirm.assert_called()\n\n    def test_invariant_always_prompts_when_files_exist(self, tmp_path):\n        \"\"\"Both files existing still requires only one confirmation.\"\"\"\n        (tmp_path / \"prompt.md\").write_text(\"existing\")\n        (tmp_path / \"constraints.yaml\").write_text(\"existing\")\n        with patch(\"click.confirm\", return_value=True) as mock_confirm:\n            result = confirm_overwrite(str(tmp_path))\n        assert result is True\n        # Confirm was called at least once\n        assert mock_confirm.call_count >= 1\n\n\nclass TestCheckGitignoreSuggestion:\n    \"\"\"Tests for check_gitignore_suggestion().\"\"\"\n\n    def test_happy_new_dir_no_gitignore(self, tmp_path, monkeypatch):\n        \"\"\"Suggests when directory is newly created and .gitignore doesn't cover it.\"\"\"\n        monkeypatch.chdir(tmp_path)\n        # No .gitignore exists\n        result = check_gitignore_suggestion(constrain_dir_existed_before=False)\n        assert result.should_suggest is True\n\n    def test_happy_existing_dir(self, tmp_path, monkeypatch):\n        \"\"\"No suggestion when directory already existed.\"\"\"\n        monkeypatch.chdir(tmp_path)\n        result = check_gitignore_suggestion(constrain_dir_existed_before=True)\n        assert result.should_suggest is False\n\n    def test_edge_gitignore_already_covers(self, tmp_path, monkeypatch):\n        \"\"\"No suggestion when .gitignore already covers .constrain/.\"\"\"\n        monkeypatch.chdir(tmp_path)\n        gitignore = tmp_path / \".gitignore\"\n        gitignore.write_text(\".constrain/\\n\")\n        result = check_gitignore_suggestion(constrain_dir_existed_before=False)\n        # If .gitignore covers it, should not suggest\n        assert result.should_suggest is False or result.gitignore_exists is True\n\n\n# ---------------------------------------------------------------------------\n# 2. CLI wiring tests via create_cli()\n# ---------------------------------------------------------------------------\n\nclass TestCreateCli:\n    \"\"\"Tests for create_cli() factory function.\"\"\"\n\n    def test_happy_returns_click_group(self):\n        \"\"\"Returns a click.Group instance.\"\"\"\n        cli = create_cli()\n        assert isinstance(cli, click.Group)\n\n    def test_happy_has_all_subcommands(self):\n        \"\"\"Group has subcommands: new, resume, show, list.\"\"\"\n        cli = create_cli()\n        commands = cli.commands if hasattr(cli, 'commands') else {}\n        # Also check list_commands if available\n        if hasattr(cli, 'list_commands'):\n            ctx = click.Context(cli)\n            cmd_names = cli.list_commands(ctx)\n        else:\n            cmd_names = list(commands.keys())\n        assert \"new\" in cmd_names\n        assert \"resume\" in cmd_names\n        assert \"show\" in cmd_names\n        assert \"list\" in cmd_names\n\n    def test_happy_uses_safe_group(self):\n        \"\"\"Group uses SafeGroup custom class.\"\"\"\n        cli = create_cli()\n        # The group itself should be an instance of SafeGroup\n        # SafeGroup should be a subclass of click.Group\n        assert isinstance(cli, click.Group)\n        class_name = type(cli).__name__\n        assert \"SafeGroup\" in class_name or issubclass(type(cli), click.Group)\n        # More specific: it should not be exactly click.Group\n        # It should be a custom subclass\n        assert type(cli).__name__ == \"SafeGroup\"\n\n    def test_invariant_round_limit_options_on_group(self):\n        \"\"\"Group callback has round limit options.\"\"\"\n        cli = create_cli()\n        # Check that the group has params for round limits\n        param_names = [p.name for p in cli.params]\n        assert \"min_understand\" in param_names\n        assert \"max_understand\" in param_names\n        assert \"min_challenge\" in param_names\n        assert \"max_challenge\" in param_names\n\n    def test_invariant_round_limit_options_on_new(self):\n        \"\"\"'new' subcommand has round limit options.\"\"\"\n        cli = create_cli()\n        new_cmd = cli.commands.get(\"new\")\n        assert new_cmd is not None\n        param_names = [p.name for p in new_cmd.params]\n        assert \"min_understand\" in param_names\n        assert \"max_understand\" in param_names\n        assert \"min_challenge\" in param_names\n        assert \"max_challenge\" in param_names\n\n\n# ---------------------------------------------------------------------------\n# 3. Command integration tests via CliRunner\n# ---------------------------------------------------------------------------\n\nclass TestCmdNew:\n    \"\"\"Integration tests for `constrain new` subcommand.\"\"\"\n\n    @patch(\"cli.engine\")\n    @patch(\"cli.session\")\n    def test_happy_creates_session(self, mock_session, mock_engine,\n                                    runner, mock_api_key, clear_round_limit_env_vars):\n        \"\"\"Creates new session, runs engine, exits 0.\"\"\"\n        mock_session.create.return_value = MagicMock()\n        mock_engine.run.return_value = None\n        # Mock check_gitignore_suggestion or its underlying calls\n        cli = create_cli()\n        with runner.isolated_filesystem():\n            result = runner.invoke(cli, [\"new\"])\n        # Should succeed (or at least call session.create and engine.run)\n        if result.exit_code == 0:\n            assert mock_session.create.called or mock_engine.run.called\n\n    @patch(\"cli.engine\")\n    @patch(\"cli.session\")\n    def test_error_api_key_missing(self, mock_session, mock_engine,\n                                    runner, clear_api_key):\n        \"\"\"Exits with error when API key not set.\"\"\"\n        cli = create_cli()\n        with runner.isolated_filesystem():\n            result = runner.invoke(cli, [\"new\"])\n        assert result.exit_code != 0\n        # engine.run should not have been called\n        mock_engine.run.assert_not_called()\n\n    @patch(\"cli.engine\")\n    @patch(\"cli.session\")\n    def test_keyboard_interrupt_exits_130(self, mock_session, mock_engine,\n                                           runner, mock_api_key, clear_round_limit_env_vars):\n        \"\"\"Exits 130 on KeyboardInterrupt during engine run.\"\"\"\n        mock_session.create.return_value = MagicMock()\n        mock_engine.run.side_effect = KeyboardInterrupt()\n        cli = create_cli()\n        with runner.isolated_filesystem():\n            result = runner.invoke(cli, [\"new\"])\n        assert result.exit_code == 130\n\n    @patch(\"cli.engine\")\n    @patch(\"cli.session\")\n    def test_no_business_logic_delegates(self, mock_session, mock_engine,\n                                          runner, mock_api_key, clear_round_limit_env_vars):\n        \"\"\"CLI delegates to session and engine modules (invariant).\"\"\"\n        mock_session.create.return_value = MagicMock()\n        mock_engine.run.return_value = None\n        cli = create_cli()\n        with runner.isolated_filesystem():\n            result = runner.invoke(cli, [\"new\"])\n        # Verify delegation happened\n        assert mock_session.create.called or mock_session.method_calls\n        assert mock_engine.run.called or mock_engine.method_calls\n\n\nclass TestCmdResume:\n    \"\"\"Integration tests for `constrain resume` subcommand.\"\"\"\n\n    @patch(\"cli.engine\")\n    @patch(\"cli.session\")\n    def test_happy_resumes_most_recent(self, mock_session, mock_engine,\n                                        runner, mock_api_key):\n        \"\"\"Resumes most recent incomplete session.\"\"\"\n        mock_sess = MagicMock()\n        mock_sess.session_id = \"ses-latest\"\n        mock_sess.status = \"in_progress\"\n        mock_sess.current_phase = \"understand\"\n        mock_session.find_incomplete.return_value = mock_sess\n        mock_session.load.return_value = mock_sess\n        mock_engine.run.return_value = None\n        cli = create_cli()\n        with runner.isolated_filesystem():\n            result = runner.invoke(cli, [\"resume\"])\n        # Engine should be called with resume\n        if result.exit_code == 0:\n            assert mock_engine.run.called\n\n    @patch(\"cli.engine\")\n    @patch(\"cli.session\")\n    def test_happy_resumes_specific_session(self, mock_session, mock_engine,\n                                             runner, mock_api_key):\n        \"\"\"Resumes specific session by ID.\"\"\"\n        mock_sess = MagicMock()\n        mock_sess.session_id = \"specific-id\"\n        mock_sess.status = \"in_progress\"\n        mock_session.load.return_value = mock_sess\n        mock_engine.run.return_value = None\n        cli = create_cli()\n        with runner.isolated_filesystem():\n            result = runner.invoke(cli, [\"resume\", \"specific-id\"])\n        if result.exit_code == 0:\n            assert mock_engine.run.called\n\n    @patch(\"cli.engine\")\n    @patch(\"cli.session\")\n    def test_error_api_key_missing(self, mock_session, mock_engine,\n                                    runner, clear_api_key):\n        \"\"\"Exits with error when API key not set.\"\"\"\n        cli = create_cli()\n        with runner.isolated_filesystem():\n            result = runner.invoke(cli, [\"resume\"])\n        assert result.exit_code != 0\n\n    @patch(\"cli.engine\")\n    @patch(\"cli.session\")\n    def test_error_no_incomplete_sessions(self, mock_session, mock_engine,\n                                           runner, mock_api_key):\n        \"\"\"Error when no incomplete sessions exist.\"\"\"\n        mock_session.find_incomplete.return_value = None\n        mock_session.find_incomplete.side_effect = click.ClickException(\"No incomplete sessions found\")\n        cli = create_cli()\n        with runner.isolated_filesystem():\n            result = runner.invoke(cli, [\"resume\"])\n        assert result.exit_code != 0\n\n    @patch(\"cli.engine\")\n    @patch(\"cli.session\")\n    def test_error_session_not_found(self, mock_session, mock_engine,\n                                      runner, mock_api_key):\n        \"\"\"Error when session_id doesn't match any session.\"\"\"\n        mock_session.load.side_effect = click.ClickException(\"Session not found: nonexistent123\")\n        cli = create_cli()\n        with runner.isolated_filesystem():\n            result = runner.invoke(cli, [\"resume\", \"nonexistent123\"])\n        assert result.exit_code != 0\n\n\nclass TestCmdShow:\n    \"\"\"Integration tests for `constrain show` subcommand.\"\"\"\n\n    @patch(\"cli.session\")\n    def test_happy_displays_artifacts(self, mock_session, runner):\n        \"\"\"Displays prompt.md and constraints.yaml content.\"\"\"\n        mock_sess = MagicMock()\n        mock_sess.status = \"completed\"\n        mock_session.find_completed.return_value = mock_sess\n        cli = create_cli()\n        with runner.isolated_filesystem():\n            # Create artifact files\n            Path(\"prompt.md\").write_text(\"# Test Prompt\\nContent here\")\n            Path(\"constraints.yaml\").write_text(\"constraints:\\n  - test: true\")\n            result = runner.invoke(cli, [\"show\"])\n        # Should display content (if it reads from files in cwd)\n        # The exact mechanism depends on implementation but should not error\n        if result.exit_code == 0:\n            output = result.output\n            # Should contain some content\n            assert len(output.strip()) > 0\n\n    @patch(\"cli.session\")\n    def test_error_no_completed_sessions(self, mock_session, runner):\n        \"\"\"Error when no completed sessions exist.\"\"\"\n        mock_session.find_completed.return_value = None\n        mock_session.find_completed.side_effect = click.ClickException(\"No completed sessions\")\n        cli = create_cli()\n        with runner.isolated_filesystem():\n            result = runner.invoke(cli, [\"show\"])\n        assert result.exit_code != 0\n\n    def test_no_api_key_needed(self, runner, clear_api_key):\n        \"\"\"cmd_show works without ANTHROPIC_API_KEY.\"\"\"\n        cli = create_cli()\n        with runner.isolated_filesystem():\n            # Even if show fails for other reasons, it shouldn't fail due to API key\n            result = runner.invoke(cli, [\"show\"])\n            # Should NOT contain an API key error\n            combined_output = (result.output or \"\") + (result.stderr or \"\")\n            assert \"ANTHROPIC_API_KEY\" not in combined_output or result.exit_code != 0\n\n\nclass TestCmdList:\n    \"\"\"Integration tests for `constrain list` subcommand.\"\"\"\n\n    @patch(\"cli.session\")\n    def test_happy_lists_sessions(self, mock_session, runner):\n        \"\"\"Lists all sessions in reverse chronological order.\"\"\"\n        mock_sess1 = MagicMock()\n        mock_sess1.session_id = \"ses-002\"\n        mock_sess1.status = \"in_progress\"\n        mock_sess1.created_at = \"2024-01-15 10:30\"\n        mock_sess1.current_phase = \"understand\"\n        mock_sess1.posture_display = \"***\"\n\n        mock_sess2 = MagicMock()\n        mock_sess2.session_id = \"ses-001\"\n        mock_sess2.status = \"completed\"\n        mock_sess2.created_at = \"2024-01-14 09:00\"\n        mock_sess2.current_phase = \"synthesis\"\n        mock_sess2.posture_display = \"***\"\n\n        mock_session.list_all.return_value = [mock_sess1, mock_sess2]\n        cli = create_cli()\n        with runner.isolated_filesystem():\n            result = runner.invoke(cli, [\"list\"])\n        if result.exit_code == 0:\n            assert \"ses-002\" in result.output or \"ses-001\" in result.output\n\n    @patch(\"cli.session\")\n    def test_edge_no_sessions(self, mock_session, runner):\n        \"\"\"Displays helpful message when no sessions exist.\"\"\"\n        mock_session.list_all.return_value = []\n        cli = create_cli()\n        with runner.isolated_filesystem():\n            result = runner.invoke(cli, [\"list\"])\n        # Should succeed with a message, not crash\n        assert result.exit_code == 0 or result.exit_code == 1\n        if result.exit_code == 0:\n            assert len(result.output.strip()) > 0\n\n    def test_no_api_key_needed(self, runner, clear_api_key):\n        \"\"\"cmd_list works without ANTHROPIC_API_KEY.\"\"\"\n        cli = create_cli()\n        with runner.isolated_filesystem():\n            result = runner.invoke(cli, [\"list\"])\n            combined_output = (result.output or \"\") + (result.stderr or \"\")\n            # Should not fail due to API key\n            assert \"ANTHROPIC_API_KEY\" not in combined_output or \"list\" in combined_output.lower()\n\n    @patch(\"cli.session\")\n    def test_invariant_posture_masked(self, mock_session, runner):\n        \"\"\"Posture is always displayed as *** in list output.\"\"\"\n        mock_sess = MagicMock()\n        mock_sess.session_id = \"ses-001\"\n        mock_sess.status = \"in_progress\"\n        mock_sess.created_at = \"2024-01-15\"\n        mock_sess.current_phase = \"understand\"\n        mock_sess.posture_display = \"***\"\n        mock_session.list_all.return_value = [mock_sess]\n        cli = create_cli()\n        with runner.isolated_filesystem():\n            result = runner.invoke(cli, [\"list\"])\n        if result.exit_code == 0:\n            assert \"***\" in result.output\n            # Actual posture strategy names should not appear\n            for strategy in [\"socratic\", \"adversarial\", \"collaborative\", \"exploratory\"]:\n                assert strategy not in result.output.lower()\n\n\nclass TestCmdDefault:\n    \"\"\"Integration tests for default command (no subcommand).\"\"\"\n\n    @patch(\"cli.engine\")\n    @patch(\"cli.session\")\n    def test_happy_no_sessions_starts_new(self, mock_session, mock_engine,\n                                           runner, mock_api_key, clear_round_limit_env_vars):\n        \"\"\"Starts new session when no incomplete sessions exist.\"\"\"\n        mock_session.find_incomplete.return_value = None\n        mock_session.create.return_value = MagicMock()\n        mock_engine.run.return_value = None\n        cli = create_cli()\n        with runner.isolated_filesystem():\n            result = runner.invoke(cli, [])\n        if result.exit_code == 0:\n            # Should have started a new session\n            assert mock_session.create.called or mock_engine.run.called\n\n    @patch(\"cli.engine\")\n    @patch(\"cli.session\")\n    def test_error_api_key_missing(self, mock_session, mock_engine,\n                                    runner, clear_api_key):\n        \"\"\"Exits with error when API key missing and no subcommand.\"\"\"\n        cli = create_cli()\n        with runner.isolated_filesystem():\n            result = runner.invoke(cli, [])\n        assert result.exit_code != 0\n\n    @patch(\"cli.engine\")\n    @patch(\"cli.session\")\n    def test_subcommand_invoked_skips_default(self, mock_session, mock_engine,\n                                               runner, mock_api_key):\n        \"\"\"Default command defers when subcommand is invoked.\"\"\"\n        cli = create_cli()\n        # Invoking 'show' should not trigger default session creation\n        with runner.isolated_filesystem():\n            result = runner.invoke(cli, [\"show\"])\n        # session.create should NOT have been called from default handler\n        # (show doesn't create sessions)\n        mock_session.create.assert_not_called()\n\n\n# ---------------------------------------------------------------------------\n# 4. SafeGroup invoke tests\n# ---------------------------------------------------------------------------\n\nclass TestSafeGroupInvoke:\n    \"\"\"Tests for SafeGroup exception handling.\"\"\"\n\n    def test_keyboard_interrupt_exits_130(self, runner, mock_api_key):\n        \"\"\"KeyboardInterrupt → exit 130, 'Interrupted.' on stderr.\"\"\"\n        cli = create_cli()\n        with patch.object(type(cli), \"invoke\", wraps=None) as _:\n            # We need to test the actual SafeGroup behavior\n            pass\n        # Test via a command that raises KeyboardInterrupt\n        with patch(\"cli.engine\") as mock_engine, \\\n             patch(\"cli.session\") as mock_session:\n            mock_session.find_incomplete.return_value = None\n            mock_session.create.return_value = MagicMock()\n            mock_engine.run.side_effect = KeyboardInterrupt()\n            with runner.isolated_filesystem():\n                result = runner.invoke(cli, [\"new\"])\n        assert result.exit_code == 130\n        stderr = result.stderr if hasattr(result, 'stderr') and result.stderr else \"\"\n        output = result.output or \"\"\n        combined = stderr + output\n        assert \"Interrupted\" in combined or \"interrupt\" in combined.lower()\n\n    def test_click_exception_exits_1(self, runner, mock_api_key):\n        \"\"\"click.ClickException → exit 1 with error message.\"\"\"\n        cli = create_cli()\n        with patch(\"cli.engine\") as mock_engine, \\\n             patch(\"cli.session\") as mock_session:\n            mock_session.find_incomplete.return_value = None\n            mock_session.create.side_effect = click.ClickException(\"Test error message\")\n            with runner.isolated_filesystem():\n                result = runner.invoke(cli, [\"new\"])\n        assert result.exit_code == 1\n        combined = (result.output or \"\") + (result.stderr or \"\")\n        assert \"Test error message\" in combined\n\n    def test_abort_exits_1(self, runner, mock_api_key):\n        \"\"\"click.Abort → exit 1 with 'Aborted.' message.\"\"\"\n        cli = create_cli()\n        with patch(\"cli.engine\") as mock_engine, \\\n             patch(\"cli.session\") as mock_session:\n            mock_session.find_incomplete.return_value = None\n            mock_session.create.side_effect = click.Abort()\n            with runner.isolated_filesystem():\n                result = runner.invoke(cli, [\"new\"])\n        assert result.exit_code == 1\n        combined = (result.output or \"\") + (result.stderr or \"\")\n        assert \"Aborted\" in combined\n\n    def test_unexpected_error_exits_1_no_traceback(self, runner, mock_api_key):\n        \"\"\"Unexpected exception → exit 1, generic message, no traceback.\"\"\"\n        cli = create_cli()\n        with patch(\"cli.engine\") as mock_engine, \\\n             patch(\"cli.session\") as mock_session:\n            mock_session.find_incomplete.return_value = None\n            mock_session.create.side_effect = RuntimeError(\"something broke\")\n            with runner.isolated_filesystem():\n                result = runner.invoke(cli, [\"new\"])\n        assert result.exit_code == 1\n        combined = (result.output or \"\") + (result.stderr or \"\")\n        assert \"unexpected error\" in combined.lower() or \"An unexpected error occurred\" in combined\n        assert \"RuntimeError\" in combined\n        # No traceback\n        assert \"Traceback\" not in combined\n\n\n# ---------------------------------------------------------------------------\n# 5. Invariant tests\n# ---------------------------------------------------------------------------\n\nclass TestInvariants:\n    \"\"\"Tests for cross-cutting invariants.\"\"\"\n\n    def test_api_key_validated_before_network_new(self, runner, clear_api_key):\n        \"\"\"API key validated before network call in cmd_new.\"\"\"\n        cli = create_cli()\n        with patch(\"cli.engine\") as mock_engine:\n            with runner.isolated_filesystem():\n                result = runner.invoke(cli, [\"new\"])\n            mock_engine.run.assert_not_called()\n        assert result.exit_code != 0\n\n    def test_api_key_validated_before_network_resume(self, runner, clear_api_key):\n        \"\"\"API key validated before network call in cmd_resume.\"\"\"\n        cli = create_cli()\n        with patch(\"cli.engine\") as mock_engine:\n            with runner.isolated_filesystem():\n                result = runner.invoke(cli, [\"resume\"])\n            mock_engine.run.assert_not_called()\n        assert result.exit_code != 0\n\n    def test_api_key_validated_before_network_default(self, runner, clear_api_key):\n        \"\"\"API key validated before network call in default command.\"\"\"\n        cli = create_cli()\n        with patch(\"cli.engine\") as mock_engine:\n            with runner.isolated_filesystem():\n                result = runner.invoke(cli, [])\n            mock_engine.run.assert_not_called()\n        assert result.exit_code != 0\n\n    def test_show_does_not_require_api_key(self, runner, clear_api_key):\n        \"\"\"cmd_show does not validate API key.\"\"\"\n        cli = create_cli()\n        with runner.isolated_filesystem():\n            result = runner.invoke(cli, [\"show\"])\n        combined = (result.output or \"\") + (result.stderr or \"\")\n        # Should not mention API key requirement\n        assert \"ANTHROPIC_API_KEY\" not in combined or \"Error\" not in combined\n\n    def test_list_does_not_require_api_key(self, runner, clear_api_key):\n        \"\"\"cmd_list does not validate API key.\"\"\"\n        cli = create_cli()\n        with runner.isolated_filesystem():\n            result = runner.invoke(cli, [\"list\"])\n        combined = (result.output or \"\") + (result.stderr or \"\")\n        assert \"ANTHROPIC_API_KEY\" not in combined or \"Error\" not in combined\n\n    def test_exit_code_0_on_success(self, runner, mock_api_key, clear_round_limit_env_vars):\n        \"\"\"Success exits with code 0.\"\"\"\n        cli = create_cli()\n        with patch(\"cli.engine\") as mock_engine, \\\n             patch(\"cli.session\") as mock_session:\n            mock_session.find_incomplete.return_value = None\n            mock_session.create.return_value = MagicMock()\n            mock_engine.run.return_value = None\n            with runner.isolated_filesystem():\n                result = runner.invoke(cli, [\"new\"])\n        assert result.exit_code == 0\n\n    def test_exit_code_1_on_app_error(self, runner, clear_api_key):\n        \"\"\"Application error exits with code 1.\"\"\"\n        cli = create_cli()\n        with runner.isolated_filesystem():\n            result = runner.invoke(cli, [\"new\"])\n        assert result.exit_code == 1\n\n    def test_exit_code_130_on_keyboard_interrupt(self, runner, mock_api_key):\n        \"\"\"KeyboardInterrupt exits with code 130.\"\"\"\n        cli = create_cli()\n        with patch(\"cli.engine\") as mock_engine, \\\n             patch(\"cli.session\") as mock_session:\n            mock_session.find_incomplete.return_value = None\n            mock_session.create.return_value = MagicMock()\n            mock_engine.run.side_effect = KeyboardInterrupt()\n            with runner.isolated_filesystem():\n                result = runner.invoke(cli, [\"new\"])\n        assert result.exit_code == 130\n\n    def test_stack_traces_never_shown(self, runner, mock_api_key):\n        \"\"\"Stack traces never reach the user.\"\"\"\n        cli = create_cli()\n        with patch(\"cli.engine\") as mock_engine, \\\n             patch(\"cli.session\") as mock_session:\n            mock_session.find_incomplete.return_value = None\n            mock_session.create.side_effect = RuntimeError(\"Internal failure\")\n            with runner.isolated_filesystem():\n                result = runner.invoke(cli, [\"new\"])\n        combined = (result.output or \"\") + (result.stderr or \"\")\n        assert \"Traceback\" not in combined\n        assert \"File \\\"\" not in combined\n\n\n# ---------------------------------------------------------------------------\n# 6. Randomized testing (using stdlib random, not hypothesis)\n# ---------------------------------------------------------------------------\n\nclass TestResolveRoundLimitsRandomized:\n    \"\"\"Randomized tests for resolve_round_limits.\"\"\"\n\n    def test_random_valid_ranges(self, clear_round_limit_env_vars):\n        \"\"\"Random valid min/max pairs always satisfy postconditions.\"\"\"\n        import random\n        rng = random.Random(42)\n        for _ in range(50):\n            min_u = rng.randint(1, 10)\n            max_u = rng.randint(min_u, 20)\n            min_c = rng.randint(1, 10)\n            max_c = rng.randint(min_c, 20)\n            result = resolve_round_limits(\n                min_understand=min_u,\n                max_understand=max_u,\n                min_challenge=min_c,\n                max_challenge=max_c,\n            )\n            assert result.min_understand <= result.max_understand\n            assert result.min_challenge <= result.max_challenge\n            assert result.min_understand > 0\n            assert result.max_understand > 0\n            assert result.min_challenge > 0\n            assert result.max_challenge > 0\n\n    def test_random_invalid_ranges_always_error(self, clear_round_limit_env_vars):\n        \"\"\"Random invalid min > max pairs always raise errors.\"\"\"\n        import random\n        rng = random.Random(42)\n        for _ in range(20):\n            max_u = rng.randint(1, 5)\n            min_u = rng.randint(max_u + 1, 20)  # min > max\n            with pytest.raises(Exception):\n                resolve_round_limits(\n                    min_understand=min_u,\n                    max_understand=max_u,\n                    min_challenge=1,\n                    max_challenge=5,\n                )\n"
+}

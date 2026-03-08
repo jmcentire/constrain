@@ -1,0 +1,1202 @@
+{
+  "component_id": "engine",
+  "name": "Conversation Engine",
+  "description": "Core conversation loop orchestrating the three-phase interview (understand → challenge → synthesize). Uses synchronous anthropic.Anthropic() client with claude-sonnet-4-20250514 for all LLM calls. Manages phase transitions, turn management with structured JSON parsing, round enforcement with configurable min/max limits, two-tier retry (API-level exponential backoff + parse-level re-prompting), interrupt handling (Ctrl+C saves session, Ctrl+D advances phase), synthesis delegation with feedback loop, and session resume support. All terminal I/O is abstracted behind a TerminalIO protocol for testability.",
+  "version": 1,
+  "types": [
+    {
+      "name": "Phase",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "UNDERSTAND",
+        "CHALLENGE",
+        "SYNTHESIZE"
+      ],
+      "inner_types": [],
+      "description": "The three phases of the constrain interview process, executed in sequence."
+    },
+    {
+      "name": "PhaseConfig",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "phase",
+          "type_ref": "Phase",
+          "required": true,
+          "default": "",
+          "description": "Which phase this config applies to.",
+          "validators": []
+        },
+        {
+          "name": "min_rounds",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Minimum number of conversation rounds before ready_to_proceed is honored. Below this, ready_to_proceed=true is ignored.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "value >= 0",
+              "error_message": "min_rounds must be non-negative"
+            }
+          ]
+        },
+        {
+          "name": "max_rounds",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Maximum number of rounds before forced phase transition. At this count, phase ends regardless of ready_to_proceed.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "value >= 1",
+              "error_message": "max_rounds must be at least 1"
+            }
+          ]
+        },
+        {
+          "name": "posture_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Identifier passed to posture module to retrieve the appropriate system prompt for this phase. Must not be revealed to the engineer.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Declarative configuration for a single interview phase, controlling round enforcement boundaries and the posture identifier used for system prompt generation."
+    },
+    {
+      "name": "Message",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "role",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Message role: 'user' or 'assistant'.",
+          "validators": [
+            {
+              "kind": "custom",
+              "expression": "value in ('user', 'assistant')",
+              "error_message": "role must be 'user' or 'assistant'"
+            }
+          ]
+        },
+        {
+          "name": "content",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Full text content of the message. For assistant messages, includes both natural language and any JSON blocks.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single message in the conversation history. Stores full LLM responses including JSON blocks. Role is 'user' for engineer input or 'assistant' for LLM output."
+    },
+    {
+      "name": "MessageHistory",
+      "kind": "list",
+      "fields": [],
+      "item_type": "Message",
+      "variants": [],
+      "inner_types": [],
+      "description": "Ordered list of conversation messages. System prompt is NOT stored here; it is injected per-API-call from the posture module. Full LLM responses (including JSON blocks) are preserved."
+    },
+    {
+      "name": "TurnResult",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "display_text",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The natural language portion of the LLM response, with JSON blocks stripped. This is what gets shown to the engineer.",
+          "validators": []
+        },
+        {
+          "name": "model_update",
+          "type_ref": "dict",
+          "required": true,
+          "default": "",
+          "description": "Incremental updates to the problem model parsed from the structured JSON block. Keys are ProblemModel field names, values are the updates. Empty dict if no updates.",
+          "validators": []
+        },
+        {
+          "name": "ready_to_proceed",
+          "type_ref": "bool",
+          "required": true,
+          "default": "",
+          "description": "Whether the LLM indicates the current phase is complete. Subject to round enforcement: ignored if below min_rounds, overridden to true at max_rounds.",
+          "validators": []
+        },
+        {
+          "name": "raw_response",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The complete unmodified LLM response text, including JSON blocks. Stored in message history for full fidelity.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Structured result from executing a single conversation turn. Cleanly separates the parsed components of an LLM response for the orchestrator."
+    },
+    {
+      "name": "PhaseResult",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "phase",
+          "type_ref": "Phase",
+          "required": true,
+          "default": "",
+          "description": "Which phase produced this result.",
+          "validators": []
+        },
+        {
+          "name": "messages",
+          "type_ref": "MessageHistory",
+          "required": true,
+          "default": "",
+          "description": "All messages exchanged during this phase (does not include prior phases).",
+          "validators": []
+        },
+        {
+          "name": "rounds_completed",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Number of full conversation rounds (user + assistant pairs) completed in this phase.",
+          "validators": []
+        },
+        {
+          "name": "exit_reason",
+          "type_ref": "PhaseExitReason",
+          "required": true,
+          "default": "",
+          "description": "How and why the phase ended.",
+          "validators": []
+        },
+        {
+          "name": "problem_model_snapshot",
+          "type_ref": "dict",
+          "required": true,
+          "default": "",
+          "description": "Serialized ProblemModel state at the end of the phase. Represents cumulative updates from all turns.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Result of running a single phase to completion. Contains the updated problem model, conversation transcript for the phase, final round count, and how the phase ended."
+    },
+    {
+      "name": "PhaseExitReason",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "READY",
+        "MAX_ROUNDS",
+        "EOF_ADVANCE",
+        "INTERRUPTED",
+        "ERROR"
+      ],
+      "inner_types": [],
+      "description": "Describes how a phase ended, used for logging and session state."
+    },
+    {
+      "name": "SynthesisContext",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "problem_model",
+          "type_ref": "dict",
+          "required": true,
+          "default": "",
+          "description": "Serialized ProblemModel containing all discovered problem structure from understand and challenge phases.",
+          "validators": []
+        },
+        {
+          "name": "conversation_transcript",
+          "type_ref": "MessageHistory",
+          "required": true,
+          "default": "",
+          "description": "Full conversation history across all phases, providing rich context for artifact generation.",
+          "validators": []
+        },
+        {
+          "name": "session_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Session identifier for traceability in generated artifacts.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "All context needed by the Synthesizer to generate artifacts. Assembled by the engine from accumulated session state."
+    },
+    {
+      "name": "SynthesisResult",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "prompt_md",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Generated prompt.md content — the induced-understanding prompt artifact.",
+          "validators": []
+        },
+        {
+          "name": "constraints_yaml",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Generated constraints.yaml content — the structured constraint set artifact.",
+          "validators": []
+        },
+        {
+          "name": "feedback_rounds",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Number of feedback/regeneration rounds that occurred (0 if accepted immediately, 1 if regenerated once).",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Output of the synthesis phase. Contains generated artifact content ready for file writing."
+    },
+    {
+      "name": "TerminalIO",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "display",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Callable[[str], None] — Display text to the engineer. Handles newlines and formatting.",
+          "validators": []
+        },
+        {
+          "name": "prompt",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Callable[[str], str] — Prompt the engineer for input with the given prefix string. Returns the input string. Raises EOFError on Ctrl+D.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Protocol (structural typing) for terminal input/output. Production implementation wraps print() and input() with readline support. Test implementations inject mock I/O. Implementations must provide display() and prompt() methods."
+    },
+    {
+      "name": "EngineConfig",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "understand_min_rounds",
+          "type_ref": "int",
+          "required": true,
+          "default": "3",
+          "description": "Minimum rounds for understand phase.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "value >= 1",
+              "error_message": "understand_min_rounds must be at least 1"
+            }
+          ]
+        },
+        {
+          "name": "understand_max_rounds",
+          "type_ref": "int",
+          "required": true,
+          "default": "7",
+          "description": "Maximum rounds for understand phase.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "value >= 1",
+              "error_message": "understand_max_rounds must be at least 1"
+            }
+          ]
+        },
+        {
+          "name": "challenge_min_rounds",
+          "type_ref": "int",
+          "required": true,
+          "default": "2",
+          "description": "Minimum rounds for challenge phase.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "value >= 1",
+              "error_message": "challenge_min_rounds must be at least 1"
+            }
+          ]
+        },
+        {
+          "name": "challenge_max_rounds",
+          "type_ref": "int",
+          "required": true,
+          "default": "5",
+          "description": "Maximum rounds for challenge phase.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "value >= 1",
+              "error_message": "challenge_max_rounds must be at least 1"
+            }
+          ]
+        },
+        {
+          "name": "model_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "claude-sonnet-4-20250514",
+          "description": "Claude model identifier for all API calls.",
+          "validators": []
+        },
+        {
+          "name": "api_max_retries",
+          "type_ref": "int",
+          "required": true,
+          "default": "3",
+          "description": "Maximum API call retry attempts on transient errors (rate limit, timeout, connection).",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "value >= 1",
+              "error_message": "api_max_retries must be at least 1"
+            }
+          ]
+        },
+        {
+          "name": "parse_max_retries",
+          "type_ref": "int",
+          "required": true,
+          "default": "2",
+          "description": "Maximum re-prompt retries when JSON parse fails from LLM response.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "value >= 0",
+              "error_message": "parse_max_retries must be non-negative"
+            }
+          ]
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Top-level configuration for the ConversationEngine, combining phase configs and operational settings. Supports CLI flag and env var overrides."
+    },
+    {
+      "name": "ParsedResponseBlock",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "display_text",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "LLM response with the last ```json ... ``` block removed.",
+          "validators": []
+        },
+        {
+          "name": "json_data",
+          "type_ref": "dict",
+          "required": true,
+          "default": "",
+          "description": "Parsed contents of the last ```json ... ``` fenced block. Contains ready_to_proceed and problem_model_update keys.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Result of parsing an LLM response to extract the structured JSON block and natural language text. Output of the pure _parse_response function."
+    },
+    {
+      "name": "ApiCallParams",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "system_prompt",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "System prompt for this call, generated by posture module based on current phase.",
+          "validators": []
+        },
+        {
+          "name": "messages",
+          "type_ref": "MessageHistory",
+          "required": true,
+          "default": "",
+          "description": "Conversation message history to send.",
+          "validators": []
+        },
+        {
+          "name": "model",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Model identifier (e.g., claude-sonnet-4-20250514).",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Parameters for a single API call to the Anthropic client. Encapsulates everything needed for the _call_api method."
+    },
+    {
+      "name": "EngineError",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "API_EXHAUSTED",
+        "PARSE_EXHAUSTED",
+        "SESSION_SAVE_FAILED",
+        "INVALID_PHASE_CONFIG",
+        "SYNTHESIS_FAILED",
+        "INTERRUPTED"
+      ],
+      "inner_types": [],
+      "description": "Categories of errors the engine can produce."
+    }
+  ],
+  "functions": [
+    {
+      "name": "__init__",
+      "description": "Construct a ConversationEngine with all injectable dependencies. Builds PhaseConfig instances from EngineConfig. Validates that min_rounds <= max_rounds for each phase. Does NOT start any conversation — call run_session() or run_phase() after construction.",
+      "inputs": [
+        {
+          "name": "client",
+          "type_ref": "any",
+          "required": true,
+          "default": "",
+          "description": "Synchronous anthropic.Anthropic() client instance. Must be pre-configured with API key.",
+          "validators": []
+        },
+        {
+          "name": "session",
+          "type_ref": "any",
+          "required": true,
+          "default": "",
+          "description": "Session model instance (from models module). May be a fresh or resumed session. Engine reads and mutates session state.",
+          "validators": []
+        },
+        {
+          "name": "io",
+          "type_ref": "TerminalIO",
+          "required": true,
+          "default": "",
+          "description": "Terminal I/O implementation. Production uses real stdin/stdout with readline. Tests inject mock.",
+          "validators": []
+        },
+        {
+          "name": "config",
+          "type_ref": "EngineConfig",
+          "required": false,
+          "default": "EngineConfig()",
+          "description": "Engine configuration including round limits and retry settings.",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "invalid_phase_config",
+          "condition": "min_rounds > max_rounds for any phase",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "min_rounds must be <= max_rounds for each phase"
+          }
+        }
+      ],
+      "preconditions": [
+        "client is a valid synchronous anthropic.Anthropic instance with a configured API key",
+        "session is a valid Session model instance from models module",
+        "io implements the TerminalIO protocol (has display and prompt methods)",
+        "config.understand_min_rounds <= config.understand_max_rounds",
+        "config.challenge_min_rounds <= config.challenge_max_rounds"
+      ],
+      "postconditions": [
+        "Engine is ready to run via run_session() or run_phase()",
+        "PhaseConfig instances are constructed from EngineConfig values",
+        "No API calls or I/O have been performed"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "run_session",
+      "description": "Main orchestrator. Runs all remaining phases in sequence (understand → challenge → synthesize), managing phase transitions with terminal indicators (e.g., '--- Moving to challenge phase ---'). For resumed sessions, checks session state for current phase and round, skips completed phases, displays a resume summary via IO, and continues from the saved point. Catches KeyboardInterrupt at this level to save session state and exit gracefully. EOFError is handled per-phase within run_phase(). Returns the completed session with all artifacts populated.",
+      "inputs": [],
+      "output_type": "any",
+      "error_cases": [
+        {
+          "name": "keyboard_interrupt",
+          "condition": "Engineer presses Ctrl+C at any point during the session",
+          "error_type": "SystemExit",
+          "error_data": {
+            "message": "Session saved. Exiting gracefully.",
+            "exit_code": "0"
+          }
+        },
+        {
+          "name": "api_exhausted_fatal",
+          "condition": "API retry exhausted during any phase and session cannot continue",
+          "error_type": "SystemExit",
+          "error_data": {
+            "message": "API unavailable after retries. Session saved.",
+            "exit_code": "1"
+          }
+        },
+        {
+          "name": "session_save_failure",
+          "condition": "Failed to save session state on exit",
+          "error_type": "SystemExit",
+          "error_data": {
+            "message": "WARNING: Failed to save session state.",
+            "exit_code": "1"
+          }
+        }
+      ],
+      "preconditions": [
+        "Engine has been constructed via __init__ with valid dependencies",
+        "Session is in a valid state (fresh or partially completed)"
+      ],
+      "postconditions": [
+        "All remaining phases have been executed to completion (or interrupted)",
+        "Session state reflects final phase, round, problem model, and artifacts",
+        "If synthesis completed, session contains prompt_md and constraints_yaml",
+        "Session is saved via session manager on both success and interrupt",
+        "Phase transition indicators have been displayed to the engineer"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Displays conversation output and phase transitions to terminal via IO",
+        "Reads engineer input from terminal via IO",
+        "Makes multiple synchronous API calls to Anthropic Claude",
+        "Saves session state to disk via session manager",
+        "Delegates to synthesizer for artifact generation"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "network_call",
+          "target": "Anthropic Claude API (claude-sonnet-4-20250514)",
+          "description": "Multiple synchronous messages.create calls across all phases"
+        },
+        {
+          "kind": "writes_file",
+          "target": ".constrain/sessions/<id>.json",
+          "description": "Session state persisted on completion and on interrupt"
+        },
+        {
+          "kind": "mutates_state",
+          "target": "Session model",
+          "description": "Session phase, round, problem_model, messages, and artifacts are updated throughout"
+        },
+        {
+          "kind": "logging",
+          "target": "terminal via TerminalIO",
+          "description": "Displays LLM responses, phase transitions, resume summary, and error messages"
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 600000,
+        "max_memory_mb": null,
+        "complexity": "O(n) where n is total rounds across all phases"
+      }
+    },
+    {
+      "name": "run_phase",
+      "description": "Execute a single interview phase to completion. Loops: get system prompt from posture, send messages to Claude via _call_api, parse response via _execute_turn, display natural language to engineer, collect engineer input, enforce round limits. Below min_rounds, ready_to_proceed=true from LLM is ignored. At max_rounds, phase transitions regardless. Catches EOFError (Ctrl+D) at this level: in understand/challenge, it advances to the next phase; in synthesize, it accepts current artifacts as-is. Updates session state after each turn.",
+      "inputs": [
+        {
+          "name": "phase",
+          "type_ref": "Phase",
+          "required": true,
+          "default": "",
+          "description": "Which phase to execute.",
+          "validators": []
+        }
+      ],
+      "output_type": "PhaseResult",
+      "error_cases": [
+        {
+          "name": "api_exhausted",
+          "condition": "All API retry attempts exhausted for a turn in this phase",
+          "error_type": "EngineError",
+          "error_data": {
+            "variant": "API_EXHAUSTED",
+            "message": "Claude API unavailable after max retries"
+          }
+        },
+        {
+          "name": "parse_exhausted",
+          "condition": "JSON parse retry exhausted — LLM consistently returns malformed structured blocks",
+          "error_type": "EngineError",
+          "error_data": {
+            "variant": "PARSE_EXHAUSTED",
+            "message": "Failed to parse structured response after retries"
+          }
+        },
+        {
+          "name": "phase_already_completed",
+          "condition": "Session state indicates this phase was already completed",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Phase already completed in this session"
+          }
+        }
+      ],
+      "preconditions": [
+        "Engine has been constructed via __init__",
+        "The specified phase has not already been completed in the session",
+        "For CHALLENGE: UNDERSTAND phase must be completed",
+        "For SYNTHESIZE: UNDERSTAND and CHALLENGE phases must be completed"
+      ],
+      "postconditions": [
+        "PhaseResult contains all messages exchanged during the phase",
+        "PhaseResult.rounds_completed reflects actual rounds completed",
+        "PhaseResult.exit_reason accurately describes how the phase ended",
+        "Session state has been updated with phase results",
+        "If phase is UNDERSTAND or CHALLENGE, problem_model_snapshot reflects cumulative updates",
+        "If exit_reason is EOF_ADVANCE, the phase ended early but cleanly"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Displays LLM responses and prompts engineer for input via IO",
+        "Makes API calls to Claude for each turn",
+        "Mutates session state with conversation history and problem model updates"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "network_call",
+          "target": "Anthropic Claude API",
+          "description": "One API call per turn plus potential retries"
+        },
+        {
+          "kind": "mutates_state",
+          "target": "Session model",
+          "description": "Phase progress, messages, problem_model updated per turn"
+        },
+        {
+          "kind": "logging",
+          "target": "terminal via TerminalIO",
+          "description": "Displays assistant responses and reads engineer input"
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 300000,
+        "max_memory_mb": null,
+        "complexity": "O(max_rounds) for the phase"
+      }
+    },
+    {
+      "name": "_execute_turn",
+      "description": "Execute a single conversation turn: call the API, parse the response (with parse-level retry on failure), and return a structured TurnResult. On JSON parse failure, re-prompts the LLM with format correction instructions up to parse_max_retries times. Appends the assistant's raw response (including JSON) to the message history. This is the core turn-level method that combines API calling and response parsing with retry logic.",
+      "inputs": [
+        {
+          "name": "system_prompt",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Phase-appropriate system prompt from posture module.",
+          "validators": []
+        },
+        {
+          "name": "messages",
+          "type_ref": "MessageHistory",
+          "required": true,
+          "default": "",
+          "description": "Current conversation history including the latest user message.",
+          "validators": []
+        }
+      ],
+      "output_type": "TurnResult",
+      "error_cases": [
+        {
+          "name": "api_exhausted",
+          "condition": "API call failed after all retry attempts",
+          "error_type": "EngineError",
+          "error_data": {
+            "variant": "API_EXHAUSTED"
+          }
+        },
+        {
+          "name": "parse_exhausted",
+          "condition": "JSON parse failed after initial attempt + parse_max_retries re-prompts",
+          "error_type": "EngineError",
+          "error_data": {
+            "variant": "PARSE_EXHAUSTED"
+          }
+        }
+      ],
+      "preconditions": [
+        "system_prompt is non-empty",
+        "messages is non-empty and last message has role 'user'",
+        "API client is configured and available"
+      ],
+      "postconditions": [
+        "TurnResult.display_text contains only natural language (no JSON blocks)",
+        "TurnResult.model_update is a valid dict (may be empty)",
+        "TurnResult.raw_response is the complete unmodified LLM response",
+        "TurnResult.ready_to_proceed reflects the LLM's assessment (before round enforcement)"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "network_call",
+          "target": "Anthropic Claude API",
+          "description": "1 + up to parse_max_retries API calls"
+        },
+        {
+          "kind": "mutates_state",
+          "target": "messages list",
+          "description": "Appends assistant response(s) and retry prompts to message history"
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 90000,
+        "max_memory_mb": null,
+        "complexity": "O(1) per turn, O(parse_max_retries) worst case"
+      }
+    },
+    {
+      "name": "_call_api",
+      "description": "Make a single synchronous API call to Claude with exponential backoff retry on transient errors (RateLimitError, APITimeoutError, APIConnectionError). Uses the configured model name. Returns the raw text content from the response. Backoff schedule: 1s, 2s, 4s (doubling). Only retries on transient/retriable errors; auth errors and other permanent failures raise immediately.",
+      "inputs": [
+        {
+          "name": "params",
+          "type_ref": "ApiCallParams",
+          "required": true,
+          "default": "",
+          "description": "Encapsulated API call parameters: system prompt, messages, and model name.",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [
+        {
+          "name": "rate_limit_exhausted",
+          "condition": "RateLimitError persists after api_max_retries attempts with exponential backoff",
+          "error_type": "EngineError",
+          "error_data": {
+            "variant": "API_EXHAUSTED",
+            "original_error": "RateLimitError"
+          }
+        },
+        {
+          "name": "timeout_exhausted",
+          "condition": "APITimeoutError persists after api_max_retries attempts",
+          "error_type": "EngineError",
+          "error_data": {
+            "variant": "API_EXHAUSTED",
+            "original_error": "APITimeoutError"
+          }
+        },
+        {
+          "name": "connection_exhausted",
+          "condition": "APIConnectionError persists after api_max_retries attempts",
+          "error_type": "EngineError",
+          "error_data": {
+            "variant": "API_EXHAUSTED",
+            "original_error": "APIConnectionError"
+          }
+        },
+        {
+          "name": "auth_error",
+          "condition": "Authentication or authorization error from Anthropic API (not retried)",
+          "error_type": "EngineError",
+          "error_data": {
+            "variant": "API_EXHAUSTED",
+            "original_error": "AuthenticationError"
+          }
+        }
+      ],
+      "preconditions": [
+        "params.system_prompt is non-empty",
+        "params.messages is non-empty",
+        "params.model is a valid Claude model identifier",
+        "Anthropic client is configured with valid API key"
+      ],
+      "postconditions": [
+        "Return value is the text content from Claude's response",
+        "Return value is non-empty",
+        "If retries occurred, appropriate backoff delays were observed"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "network_call",
+          "target": "Anthropic Claude API (messages.create)",
+          "description": "1 to api_max_retries synchronous HTTP calls with exponential backoff"
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 60000,
+        "max_memory_mb": null,
+        "complexity": "O(api_max_retries)"
+      }
+    },
+    {
+      "name": "_parse_response",
+      "description": "Pure function. Parse an LLM response string to extract the structured JSON block and natural language text. Finds the LAST ```json ... ``` fenced code block using regex. Extracts and parses the JSON, expecting keys 'ready_to_proceed' (bool) and 'problem_model_update' (dict). Returns the display text (response with JSON block removed) and parsed data. Raises ValueError on parse failure — caller handles retry logic.",
+      "inputs": [
+        {
+          "name": "raw_response",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Complete raw LLM response text potentially containing a ```json ... ``` block.",
+          "validators": []
+        }
+      ],
+      "output_type": "ParsedResponseBlock",
+      "error_cases": [
+        {
+          "name": "no_json_block",
+          "condition": "No ```json ... ``` fenced block found in response",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "No JSON code block found in LLM response"
+          }
+        },
+        {
+          "name": "invalid_json",
+          "condition": "JSON block contents are not valid JSON",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Invalid JSON in response code block"
+          }
+        },
+        {
+          "name": "missing_required_keys",
+          "condition": "Parsed JSON lacks 'ready_to_proceed' or 'problem_model_update' keys",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "JSON block missing required keys: ready_to_proceed, problem_model_update"
+          }
+        },
+        {
+          "name": "wrong_types",
+          "condition": "ready_to_proceed is not bool or problem_model_update is not dict",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "JSON block has incorrect types for required keys"
+          }
+        }
+      ],
+      "preconditions": [
+        "raw_response is non-empty"
+      ],
+      "postconditions": [
+        "ParsedResponseBlock.display_text does not contain the parsed JSON fenced block",
+        "ParsedResponseBlock.json_data contains 'ready_to_proceed' key with bool value",
+        "ParsedResponseBlock.json_data contains 'problem_model_update' key with dict value",
+        "display_text preserves all non-JSON content from the original response",
+        "display_text is stripped of leading/trailing whitespace"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "_run_synthesis",
+      "description": "Execute the synthesis phase. Builds a SynthesisContext from accumulated session state (problem model + full conversation transcript). Delegates artifact generation to the Synthesizer component using a fresh messages array (NOT continued conversation). Parses prompt.md and constraints.yaml from synthesizer output. Presents both artifacts to the engineer via IO. Collects optional feedback. If feedback provided, regenerates ONCE (single retry) with feedback incorporated. Returns the final SynthesisResult.",
+      "inputs": [],
+      "output_type": "SynthesisResult",
+      "error_cases": [
+        {
+          "name": "synthesis_api_failure",
+          "condition": "API call for synthesis fails after retries",
+          "error_type": "EngineError",
+          "error_data": {
+            "variant": "SYNTHESIS_FAILED",
+            "message": "Failed to generate artifacts"
+          }
+        },
+        {
+          "name": "artifact_parse_failure",
+          "condition": "Cannot parse prompt.md or constraints.yaml from synthesizer output",
+          "error_type": "EngineError",
+          "error_data": {
+            "variant": "SYNTHESIS_FAILED",
+            "message": "Failed to parse artifacts from synthesis response"
+          }
+        },
+        {
+          "name": "eof_accept",
+          "condition": "Engineer presses Ctrl+D during feedback prompt, accepting current artifacts",
+          "error_type": "None",
+          "error_data": {
+            "behavior": "Returns current SynthesisResult with feedback_rounds=0"
+          }
+        }
+      ],
+      "preconditions": [
+        "UNDERSTAND and CHALLENGE phases are completed",
+        "Session has a populated problem model",
+        "Session has conversation history from both prior phases"
+      ],
+      "postconditions": [
+        "SynthesisResult.prompt_md is non-empty valid markdown",
+        "SynthesisResult.constraints_yaml is non-empty valid YAML",
+        "SynthesisResult.feedback_rounds is 0 or 1",
+        "If feedback was provided, artifacts reflect the regeneration",
+        "Synthesis used a fresh message array, not the continued conversation"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Displays generated artifacts to engineer for review",
+        "Prompts engineer for optional feedback",
+        "Makes API calls for initial synthesis and optional regeneration"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "network_call",
+          "target": "Anthropic Claude API via Synthesizer",
+          "description": "1-2 API calls (initial + optional regeneration)"
+        },
+        {
+          "kind": "logging",
+          "target": "terminal via TerminalIO",
+          "description": "Displays artifacts and collects feedback"
+        },
+        {
+          "kind": "mutates_state",
+          "target": "Session model",
+          "description": "Updates session with generated artifacts"
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 120000,
+        "max_memory_mb": null,
+        "complexity": "O(1)"
+      }
+    },
+    {
+      "name": "_display_resume_summary",
+      "description": "Display a summary of the resumed session state to the engineer. Shows: session ID, which phases are completed, current phase and round number, key problem model fields discovered so far. Does NOT replay conversation history to the LLM. Called by run_session() when resuming a partially completed session.",
+      "inputs": [
+        {
+          "name": "session",
+          "type_ref": "any",
+          "required": true,
+          "default": "",
+          "description": "The loaded Session model to summarize.",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [],
+      "preconditions": [
+        "session is a valid partially-completed Session model",
+        "IO is available for display"
+      ],
+      "postconditions": [
+        "Summary has been displayed via IO.display()",
+        "No session state has been modified",
+        "No API calls have been made"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "logging",
+          "target": "terminal via TerminalIO",
+          "description": "Displays resume summary to engineer"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "_apply_model_update",
+      "description": "Apply an incremental update dict to the session's ProblemModel. Merges update keys into the existing model. For list fields, appends new items rather than replacing. For scalar fields, overwrites with new value. Validates that update keys correspond to valid ProblemModel fields; ignores unknown keys with a warning.",
+      "inputs": [
+        {
+          "name": "update",
+          "type_ref": "dict",
+          "required": true,
+          "default": "",
+          "description": "Incremental update dict from TurnResult.model_update. Keys are ProblemModel field names.",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "invalid_update_type",
+          "condition": "Update value type is incompatible with ProblemModel field type",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Type mismatch in problem model update"
+          }
+        }
+      ],
+      "preconditions": [
+        "update is a dict (may be empty)",
+        "Session has an initialized ProblemModel"
+      ],
+      "postconditions": [
+        "Known scalar fields in ProblemModel are overwritten with update values",
+        "Known list fields in ProblemModel have new items appended",
+        "Unknown keys in update are ignored (warning displayed via IO)",
+        "ProblemModel remains in a valid state after update"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "mutates_state",
+          "target": "Session.problem_model",
+          "description": "Merges incremental updates into the problem model"
+        },
+        {
+          "kind": "logging",
+          "target": "terminal via TerminalIO",
+          "description": "Warns on unknown update keys"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "_build_phase_configs",
+      "description": "Pure function. Construct PhaseConfig instances from an EngineConfig. Maps understand/challenge round limits to their respective PhaseConfig with appropriate posture_id. Synthesize phase gets min_rounds=1, max_rounds=1 (single pass, feedback handled separately). Validates min <= max for each phase.",
+      "inputs": [
+        {
+          "name": "config",
+          "type_ref": "EngineConfig",
+          "required": true,
+          "default": "",
+          "description": "Engine configuration to convert.",
+          "validators": []
+        }
+      ],
+      "output_type": "dict",
+      "error_cases": [
+        {
+          "name": "invalid_bounds",
+          "condition": "min_rounds > max_rounds for any phase in config",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "min_rounds exceeds max_rounds"
+          }
+        }
+      ],
+      "preconditions": [
+        "config is a valid EngineConfig"
+      ],
+      "postconditions": [
+        "Returned dict has keys for all three Phase enum variants",
+        "Each value is a valid PhaseConfig",
+        "UNDERSTAND PhaseConfig has min/max from config.understand_min/max_rounds",
+        "CHALLENGE PhaseConfig has min/max from config.challenge_min/max_rounds",
+        "SYNTHESIZE PhaseConfig has min_rounds=1, max_rounds=1",
+        "All PhaseConfigs have appropriate posture_id values"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    }
+  ],
+  "dependencies": [
+    "session",
+    "posture",
+    "synthesizer",
+    "models"
+  ],
+  "dependency_contracts": {
+    "session": [
+      "save_session",
+      "load_session"
+    ],
+    "posture": [
+      "get_system_prompt"
+    ],
+    "synthesizer": [
+      "synthesize_artifacts"
+    ],
+    "models": [
+      "Session",
+      "ProblemModel",
+      "Constraint"
+    ]
+  },
+  "invariants": [
+    "Engine uses a single Claude model (claude-sonnet-4-20250514) for all phases — no model switching",
+    "System prompts swap per phase but are NEVER revealed to the engineer in terminal output",
+    "Conversation history is cumulative within understand and challenge phases — messages accumulate",
+    "Synthesis uses a fresh message array — NOT the continued conversation from prior phases",
+    "Full LLM responses (including JSON blocks) are stored in message history; only display_text is shown to engineer",
+    "Round enforcement is hard: below min_rounds, ready_to_proceed=true is ignored; at max_rounds, phase transitions regardless",
+    "Phase transitions display clear terminal indicators (e.g., '--- Moving to challenge phase ---')",
+    "On KeyboardInterrupt, session state is ALWAYS saved before exit",
+    "On EOFError in understand/challenge, phase advances to next; in synthesis, current artifacts are accepted",
+    "API retries use exponential backoff (1s, 2s, 4s) and only retry on transient errors (rate limit, timeout, connection)",
+    "Parse retries re-prompt the LLM with format correction instructions — they do NOT retry the same prompt",
+    "Session resume displays summary but does NOT replay history to the LLM — history is loaded from saved state",
+    "Synthesis feedback loop allows at most ONE regeneration cycle",
+    "TerminalIO abstraction ensures engine never directly calls print() or input() — all I/O goes through the protocol",
+    "All file I/O (session persistence) is delegated to the session module — engine never writes files directly",
+    "Engine mutates the Session model in place throughout execution; callers should not hold stale references"
+  ],
+  "requires": [
+    "anthropic"
+  ],
+  "processing_register": "rigorous-analytical"
+}

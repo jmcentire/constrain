@@ -1,0 +1,89 @@
+{
+  "root_id": "root",
+  "nodes": {
+    "models": {
+      "component_id": "models",
+      "name": "Data Models",
+      "description": "Pydantic models that define the shared data structures for the entire application. Includes:\n\n- **ProblemModel**: Accumulated understanding with fields: system_description (str), stakeholders (list[str]), failure_modes (list[dict] with description/severity/historical), dependencies (list[str]), assumptions (list[str]), boundaries (list[str]), history (list[str]), success_shape (list[str]). Supports incremental updates via shallow merge (update top-level keys, append to lists).\n- **Message**: A single conversation turn (role: 'user'|'assistant', content: str, timestamp).\n- **Constraint**: Structured constraint with id, boundary, condition, violation, severity ('must'|'should'), rationale.\n- **Session**: Full session state — id (UUID), posture (enum, stored but not displayed), current_phase (understand|challenge|synthesize|complete), current_round (int), conversation_history (list[Message]), problem_model (ProblemModel), artifacts (optional dict with prompt_md and constraints_yaml strings), timestamps (created, updated), status (incomplete|complete).\n- **Posture enum**: adversarial, contrarian, critic, skeptic, collaborator.\n- **LLMResponseMeta**: Parsed structured JSON block from LLM responses — ready_to_proceed (bool), problem_model_update (dict).\n\nAll models use Pydantic BaseModel with JSON serialization. Session model handles serialization to/from the .constrain/sessions/<id>.json format.",
+      "depth": 1,
+      "parent_id": "root",
+      "children": [],
+      "contract": null,
+      "implementation_status": "pending",
+      "test_results": null
+    },
+    "session": {
+      "component_id": "session",
+      "name": "Session Manager",
+      "description": "Session lifecycle and persistence management. Handles:\n\n- **Create**: Generate new session with UUID, random posture selection (or override via CONSTRAIN_POSTURE env var), initialize empty problem model, set phase to 'understand'.\n- **Save**: Write session state to `.constrain/sessions/<id>.json` using pathlib. Create `.constrain/sessions/` directory if it doesn't exist. On first run, check for .gitignore entry for `.constrain/` and suggest adding it if missing.\n- **Load**: Load a specific session by ID from disk.\n- **Resume**: Find the most recent incomplete session. Show brief summary (phase, round number, key topics covered from problem model) rather than replaying conversation.\n- **List**: Return all sessions with status, date, phase info.\n- **Complete**: Mark session as complete, write prompt.md and constraints.yaml to current working directory (with overwrite confirmation).\n- **Graceful save on Ctrl+C**: Save current state so session is resumable.\n\nAll file I/O uses pathlib. Human-readable error messages on failures.",
+      "depth": 1,
+      "parent_id": "root",
+      "children": [],
+      "contract": null,
+      "implementation_status": "pending",
+      "test_results": null
+    },
+    "posture": {
+      "component_id": "posture",
+      "name": "Posture & Prompt Generation",
+      "description": "System prompt generation for each phase and posture combination. All prompts are string constants or f-string templates defined inline (no external files).\n\n- **Phase 1 (Understand) system prompt**: Instructs LLM to be a collaborative interviewer. Provides the interview structure (system, stakes, history, dependencies, boundaries, assumptions). Instructs LLM to output a JSON block at end of each response with ready_to_proceed and problem_model_update. Includes the current problem model state as context.\n- **Phase 2 (Challenge) system prompts**: Five posture-specific prompts that inject the adversarial/contrarian/critic/skeptic/collaborator lens. Each describes what to look for and how to frame challenges. Includes accumulated problem model. Same JSON block requirement.\n- **Phase 3 (Synthesize) system prompt**: Instructs LLM to generate prompt.md and constraints.yaml from full conversation history and problem model. Specifies exact output formats — briefing style for prompt.md, YAML schema for constraints.\n- **Revision prompt**: For the single revision cycle, instructs LLM to regenerate artifacts based on engineer feedback.\n\nAlso provides posture selection logic: random.choice by default, CONSTRAIN_POSTURE env var override for testing.",
+      "depth": 1,
+      "parent_id": "root",
+      "children": [],
+      "contract": null,
+      "implementation_status": "pending",
+      "test_results": null
+    },
+    "engine": {
+      "component_id": "engine",
+      "name": "Conversation Engine",
+      "description": "Core conversation loop orchestrating the three-phase interview. Uses synchronous `anthropic.Anthropic()` client with claude-sonnet-4-20250514 for all calls.\n\n- **Phase orchestration**: Runs understand → challenge → synthesize phases in sequence. Manages phase transitions with clear terminal indicators (e.g., '--- Moving to challenge phase ---'). Does NOT reveal posture.\n- **Turn management**: Send accumulated conversation history + phase-appropriate system prompt to Claude. Receive response. Parse structured JSON block from response using regex (last ```json ... ``` fenced block). Extract natural language portion for display. Update problem model with incremental updates from JSON. Track round count.\n- **Round enforcement**: Hard-enforce minimums and maximums. Understand: min 3, max 7 (configurable). Challenge: min 2, max 5 (configurable). Below minimum, ignore ready_to_proceed=true. At maximum, force transition.\n- **JSON parse resilience**: On parse failure, retry by re-prompting LLM (up to 2 retries) before raising error.\n- **API error handling**: Exponential backoff retry (3 attempts) on rate limits/timeouts. On final failure, save session state and exit with clear message.\n- **Ctrl+C handling**: Catch KeyboardInterrupt, save session via session manager, exit gracefully.\n- **Ctrl+D handling**: Catch EOFError, end current phase early (Phase 1→proceed to Phase 2, Phase 3→accept artifacts as-is).\n- **Synthesis**: Separate conversation (new messages array) with full conversation history and problem model in system prompt. Parse prompt.md and constraints.yaml from response. Present to engineer, collect optional feedback, regenerate once if requested.\n- **Resume support**: Accept a loaded session, show summary, continue from saved phase/round.\n- **Terminal I/O**: Print LLM responses, read engineer input with standard readline support.",
+      "depth": 1,
+      "parent_id": "root",
+      "children": [],
+      "contract": null,
+      "implementation_status": "pending",
+      "test_results": null
+    },
+    "synthesizer": {
+      "component_id": "synthesizer",
+      "name": "Artifact Synthesizer",
+      "description": "Artifact generation and formatting. Handles the output-specific concerns that are separate from the conversation engine:\n\n- **Prompt.md generation**: Parse the LLM's synthesis output into the structured briefing format with sections: System Context, Consequence Map, Failure Archaeology, Dependency Landscape, Boundary Conditions, Success Shape. Ensure it reads like a briefing to a senior engineer, not a requirements document.\n- **Constraints.yaml generation**: Parse constraint data from LLM output into Constraint pydantic models. Serialize to YAML using pyyaml with the specified schema (id, boundary, condition, violation, severity, rationale). Auto-generate sequential IDs (C001, C002, ...).\n- **File writing**: Write prompt.md and constraints.yaml to current working directory using pathlib. Overwrite confirmation if files exist.\n- **Display**: Format artifacts for terminal display when showing to engineer for review or via `constrain show`.\n- **Validation**: Ensure constraints have all required fields, severity is must|should, IDs are unique.",
+      "depth": 1,
+      "parent_id": "root",
+      "children": [],
+      "contract": null,
+      "implementation_status": "pending",
+      "test_results": null
+    },
+    "cli": {
+      "component_id": "cli",
+      "name": "CLI Interface",
+      "description": "Click-based command interface. Pure delegation layer — no business logic.\n\n- **`constrain` (default)**: Check for incomplete sessions. If found, offer to resume most recent with summary, mention `constrain list` for others. Otherwise start new session. Accepts optional flags for round limits: `--min-understand`, `--max-understand`, `--min-challenge`, `--max-challenge`. Also reads from env vars (CONSTRAIN_MIN_UNDERSTAND, etc.).\n- **`constrain new`**: Always start a new session. Same optional flags.\n- **`constrain resume`**: Resume most recent incomplete session. Error if none found.\n- **`constrain show`**: Display prompt.md and constraints.yaml content from most recent completed session to stdout.\n- **`constrain list`**: List all sessions with status, date, phase, posture (hidden as '***').\n- **API key check**: On any command that needs the API, verify ANTHROPIC_API_KEY is set. If not: 'ANTHROPIC_API_KEY not set. Export it or add it to your shell profile.' Exit 1.\n- **Error handling**: Catch all exceptions at top level, display human-readable messages, no stack traces in normal operation.",
+      "depth": 1,
+      "parent_id": "root",
+      "children": [],
+      "contract": null,
+      "implementation_status": "pending",
+      "test_results": null
+    },
+    "root": {
+      "component_id": "root",
+      "name": "Root",
+      "description": "# Constrain\n\nA CLI tool that interviews engineers about their problem and produces two artifacts: an induced-understanding prompt and a structured constraint set. The prompt gives an AI agent the cont",
+      "depth": 0,
+      "parent_id": "",
+      "children": [
+        "cli",
+        "engine",
+        "models",
+        "posture",
+        "session",
+        "synthesizer"
+      ],
+      "contract": null,
+      "implementation_status": "pending",
+      "test_results": null
+    }
+  }
+}

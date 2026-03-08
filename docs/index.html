@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Constrain</title>
+  <style>
+    :root {
+      --fg: #1a1a2e;
+      --bg: #fafaf9;
+      --accent: #4a5568;
+      --border: #d1d5db;
+      --code-bg: #f3f4f6;
+      --link: #2563eb;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --fg: #e2e8f0;
+        --bg: #0f172a;
+        --accent: #94a3b8;
+        --border: #334155;
+        --code-bg: #1e293b;
+        --link: #60a5fa;
+      }
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      color: var(--fg);
+      background: var(--bg);
+      line-height: 1.6;
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 4rem 1.5rem;
+    }
+    h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 0.25rem; }
+    .tagline { color: var(--accent); font-size: 1.1rem; margin-bottom: 2.5rem; }
+    h2 { font-size: 1.1rem; font-weight: 600; margin: 2rem 0 0.75rem; }
+    p, li { margin-bottom: 0.5rem; }
+    ul { padding-left: 1.25rem; }
+    a { color: var(--link); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.875rem;
+      background: var(--code-bg);
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+    }
+    pre {
+      background: var(--code-bg);
+      padding: 1rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 0.75rem 0 1.25rem;
+    }
+    pre code { background: none; padding: 0; }
+    .install { margin: 1.5rem 0; }
+    .phase-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    .phase {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem;
+    }
+    .phase-name { font-weight: 600; margin-bottom: 0.25rem; }
+    .phase-desc { color: var(--accent); font-size: 0.9rem; }
+    .artifacts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    .artifact {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem;
+    }
+    .artifact-file { font-family: 'SF Mono', monospace; font-weight: 600; font-size: 0.9rem; margin-bottom: 0.25rem; }
+    .artifact-desc { color: var(--accent); font-size: 0.85rem; }
+    .postures {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.5rem;
+      margin: 0.75rem 0;
+    }
+    .posture {
+      text-align: center;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.5rem 0.25rem;
+      font-size: 0.8rem;
+    }
+    .posture-label { font-weight: 600; }
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      color: var(--accent);
+      font-size: 0.85rem;
+    }
+    @media (max-width: 600px) {
+      .artifacts { grid-template-columns: 1fr; }
+      .postures { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <h1>Constrain</h1>
+  <p class="tagline">Find the boundary between specification and intent.</p>
+
+  <p>Constrain interviews engineers about their problem and produces two artifacts: an <strong>induced-understanding prompt</strong> and a <strong>structured constraint set</strong>. The prompt gives an AI agent the context to build the right thing. The constraints give an evaluator the boundary conditions that define acceptable behavior&mdash;without specifying implementation.</p>
+
+  <div class="install">
+    <pre><code>pip install -e .
+export ANTHROPIC_API_KEY=sk-...
+constrain</code></pre>
+  </div>
+
+  <h2>Three phases</h2>
+  <div class="phase-grid">
+    <div class="phase">
+      <div class="phase-name">1. Understand</div>
+      <div class="phase-desc">Collaborative interview builds a problem model: system context, stakeholders, failure modes, dependencies, assumptions, boundaries. 2&ndash;10 rounds.</div>
+    </div>
+    <div class="phase">
+      <div class="phase-name">2. Challenge</div>
+      <div class="phase-desc">A randomly selected analytical posture probes for gaps, ambiguities, and hidden assumptions. The posture is hidden&mdash;you can't game it.</div>
+    </div>
+    <div class="phase">
+      <div class="phase-name">3. Synthesize</div>
+      <div class="phase-desc">Generates both artifacts from the accumulated conversation, with one revision cycle before writing to disk.</div>
+    </div>
+  </div>
+
+  <h2>Five postures</h2>
+  <p>Randomized per session so descriptions must be robust to all of them.</p>
+  <div class="postures">
+    <div class="posture"><div class="posture-label">Adversarial</div>Exploits ambiguity</div>
+    <div class="posture"><div class="posture-label">Contrarian</div>Challenges the problem</div>
+    <div class="posture"><div class="posture-label">Critic</div>Finds disagreement</div>
+    <div class="posture"><div class="posture-label">Skeptic</div>Tests metrics</div>
+    <div class="posture"><div class="posture-label">Collaborator</div>Constructive gaps</div>
+  </div>
+
+  <h2>Output</h2>
+  <div class="artifacts">
+    <div class="artifact">
+      <div class="artifact-file">prompt.md</div>
+      <div class="artifact-desc">Briefing for an AI agent. System context, consequence map, failure archaeology, dependency landscape, boundary conditions, success shape.</div>
+    </div>
+    <div class="artifact">
+      <div class="artifact-file">constraints.yaml</div>
+      <div class="artifact-desc">Black-box boundary conditions. Each constraint has an ID, boundary, condition, violation, severity, and rationale. Implementation-agnostic.</div>
+    </div>
+  </div>
+
+  <pre><code>constraints:
+  - id: C001
+    boundary: "file upload endpoint"
+    condition: "files > 10MB rejected before processing"
+    violation: "large file consumed memory, crashed worker"
+    severity: must
+    rationale: "production incident 2024-03"</code></pre>
+
+  <h2>CLI</h2>
+  <pre><code>constrain              # Start or resume a session
+constrain new          # Always start fresh
+constrain resume       # Resume most recent incomplete session
+constrain show         # Display last completed artifacts
+constrain list         # List all sessions</code></pre>
+
+  <p>Sessions persist to <code>.constrain/sessions/</code>. Ctrl+C saves and exits. Ctrl+D skips to the next phase.</p>
+
+  <footer>
+    <a href="https://github.com/jmcentire/constrain">GitHub</a> &middot; MIT License &middot; Python 3.12+
+  </footer>
+</body>
+</html>

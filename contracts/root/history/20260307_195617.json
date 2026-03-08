@@ -1,0 +1,973 @@
+{
+  "component_id": "root",
+  "name": "Root",
+  "description": "Constrain — A CLI tool that interviews engineers about their problem and produces two artifacts: an induced-understanding prompt (prompt.md) and a structured constraint set (constraints.yaml). The prompt gives an AI agent the context needed to work effectively on the problem; the constraints define the boundaries the solution must respect. This root contract defines the architectural spine: canonical type ownership, dependency DAG, error propagation, phase lifecycle state machine, and cross-cutting constants/configuration. It is the composition root — not a god module — re-exporting only the version string and CLI entry point.",
+  "version": 1,
+  "types": [
+    {
+      "name": "Version",
+      "kind": "primitive",
+      "fields": [],
+      "item_type": "str",
+      "variants": [],
+      "inner_types": [],
+      "description": "Semantic version string for the constrain package. Defined in __init__.py as __version__."
+    },
+    {
+      "name": "PhaseId",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "understand",
+        "challenge",
+        "synthesize",
+        "complete",
+        "abandoned"
+      ],
+      "inner_types": [],
+      "description": "Canonical phase identifiers for the interview pipeline. Authoritative definition lives in models.py as a Literal type alias. This enum enumerates all valid values for cross-module reference. The phase state machine is: understand → challenge → synthesize → complete. Additionally any of {understand, challenge, synthesize} → abandoned."
+    },
+    {
+      "name": "PostureId",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "adversarial",
+        "contrarian",
+        "critic",
+        "skeptic",
+        "collaborator"
+      ],
+      "inner_types": [],
+      "description": "Canonical posture identifiers controlling the adversarial lens applied during the challenge phase. Authoritative definition is models.Posture (StrEnum). Each posture produces a distinct system prompt tone. Posture is selected per-session and stored in session state but never revealed to the engineer."
+    },
+    {
+      "name": "StatusId",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "incomplete",
+        "complete"
+      ],
+      "inner_types": [],
+      "description": "Session completion status. Authoritative definition is models.Status Literal type alias."
+    },
+    {
+      "name": "SeverityId",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "must",
+        "should"
+      ],
+      "inner_types": [],
+      "description": "Constraint severity levels. 'must' is a hard boundary; 'should' is a strong preference. Authoritative definition in models.Severity."
+    },
+    {
+      "name": "RoleId",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "user",
+        "assistant"
+      ],
+      "inner_types": [],
+      "description": "Conversation message roles. Authoritative definition in models.Role."
+    },
+    {
+      "name": "ExitCode",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "SUCCESS_0",
+        "APPLICATION_ERROR_1",
+        "USAGE_ERROR_2",
+        "KEYBOARD_INTERRUPT_130"
+      ],
+      "inner_types": [],
+      "description": "Process exit codes used by the CLI layer. 0=success, 1=application error, 2=usage error (Click automatic), 130=keyboard interrupt (SIGINT convention)."
+    },
+    {
+      "name": "PhaseTransitionRule",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "from_phase",
+          "type_ref": "PhaseId",
+          "required": true,
+          "default": "",
+          "description": "Source phase of the transition.",
+          "validators": []
+        },
+        {
+          "name": "to_phase",
+          "type_ref": "PhaseId",
+          "required": true,
+          "default": "",
+          "description": "Target phase of the transition.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single allowed phase transition in the state machine. The authoritative transition map is enforced by session.transition_phase()."
+    },
+    {
+      "name": "PhaseTransitionMap",
+      "kind": "list",
+      "fields": [],
+      "item_type": "PhaseTransitionRule",
+      "variants": [],
+      "inner_types": [],
+      "description": "The complete set of allowed phase transitions. This is the authoritative state machine definition: understand→challenge, challenge→synthesize, synthesize→complete, understand→abandoned, challenge→abandoned, synthesize→abandoned. No other transitions are valid."
+    },
+    {
+      "name": "DependencyEdge",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "from_module",
+          "type_ref": "ModuleId",
+          "required": true,
+          "default": "",
+          "description": "The importing module.",
+          "validators": []
+        },
+        {
+          "name": "to_module",
+          "type_ref": "ModuleId",
+          "required": true,
+          "default": "",
+          "description": "The imported module.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A directed dependency edge in the module DAG. from_module imports from to_module."
+    },
+    {
+      "name": "ModuleId",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "models",
+        "posture",
+        "session",
+        "engine",
+        "synthesizer",
+        "cli"
+      ],
+      "inner_types": [],
+      "description": "Identifiers for the six source modules in the constrain package."
+    },
+    {
+      "name": "DependencyDAG",
+      "kind": "list",
+      "fields": [],
+      "item_type": "DependencyEdge",
+      "variants": [],
+      "inner_types": [],
+      "description": "The complete, strict, acyclic dependency graph for the constrain package. models→(none), posture→models, session→models, synthesizer→models, engine→(models, session, posture, synthesizer), cli→(engine, session, models). No upward or lateral imports outside this graph."
+    },
+    {
+      "name": "TypeOwnershipEntry",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "type_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Fully qualified type name (e.g. 'Posture', 'ProblemModel', 'Session').",
+          "validators": []
+        },
+        {
+          "name": "owning_module",
+          "type_ref": "ModuleId",
+          "required": true,
+          "default": "",
+          "description": "The module that defines this type.",
+          "validators": []
+        },
+        {
+          "name": "is_shared",
+          "type_ref": "bool",
+          "required": true,
+          "default": "",
+          "description": "True if multiple modules import this type. False if it is module-private.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Maps a shared domain type to its owning module. Other modules import from the owner; they never redefine the type."
+    },
+    {
+      "name": "TypeOwnershipMap",
+      "kind": "list",
+      "fields": [],
+      "item_type": "TypeOwnershipEntry",
+      "variants": [],
+      "inner_types": [],
+      "description": "Complete mapping of all shared domain types to their owning modules. models.py owns: Posture, Phase, Status, Severity, Role, FailureMode, ProblemModel, Message, Constraint, Artifacts, LLMResponseMeta, Session, OptionalArtifacts. Module-specific types (EngineConfig, SynthesizerConfig, SessionError hierarchy, SynthesisError, PhaseConfig, etc.) are owned by their respective modules and are NOT shared types — they are imported only by their direct dependents."
+    },
+    {
+      "name": "ErrorPropagationRule",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "source_module",
+          "type_ref": "ModuleId",
+          "required": true,
+          "default": "",
+          "description": "Module where the error originates.",
+          "validators": []
+        },
+        {
+          "name": "exception_base",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Base exception class name defined in the source module (e.g. 'SessionError', 'SynthesisError').",
+          "validators": []
+        },
+        {
+          "name": "caught_by",
+          "type_ref": "ModuleId",
+          "required": true,
+          "default": "",
+          "description": "Module that catches and handles or wraps this error.",
+          "validators": []
+        },
+        {
+          "name": "cli_exit_code",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Exit code produced when this error reaches the CLI boundary.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Defines how errors flow from a source module through the system to the CLI boundary. Each module defines its own base exception type. Engine catches lower-level exceptions and wraps them with context. CLI catches all domain exceptions and maps to (human message, exit code)."
+    },
+    {
+      "name": "ErrorPropagationMap",
+      "kind": "list",
+      "fields": [],
+      "item_type": "ErrorPropagationRule",
+      "variants": [],
+      "inner_types": [],
+      "description": "Complete error propagation rules. session errors → caught by engine → wrapped as EngineError → caught by CLI → exit 1. synthesizer errors → caught by engine → wrapped as EngineError → caught by CLI → exit 1. posture errors (ValueError) → caught by engine → wrapped as EngineError → caught by CLI → exit 1. engine errors → caught by CLI → exit 1. KeyboardInterrupt → caught by CLI SafeGroup → exit 130. click.ClickException → re-raised by SafeGroup → exit 1. click.Abort → caught by SafeGroup → exit 1. Unexpected Exception → caught by SafeGroup → exit 1 with generic message."
+    },
+    {
+      "name": "CrossCuttingConstants",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "MODEL_NAME",
+          "type_ref": "str",
+          "required": true,
+          "default": "claude-sonnet-4-20250514",
+          "description": "Claude model identifier used for all LLM calls.",
+          "validators": []
+        },
+        {
+          "name": "SESSION_DIR_NAME",
+          "type_ref": "str",
+          "required": true,
+          "default": ".constrain",
+          "description": "Directory name under project root for session storage.",
+          "validators": []
+        },
+        {
+          "name": "SESSIONS_SUBDIR",
+          "type_ref": "str",
+          "required": true,
+          "default": "sessions",
+          "description": "Subdirectory within SESSION_DIR_NAME for session JSON files.",
+          "validators": []
+        },
+        {
+          "name": "PROMPT_FILENAME",
+          "type_ref": "str",
+          "required": true,
+          "default": "prompt.md",
+          "description": "Output filename for the induced-understanding prompt.",
+          "validators": []
+        },
+        {
+          "name": "CONSTRAINTS_FILENAME",
+          "type_ref": "str",
+          "required": true,
+          "default": "constraints.yaml",
+          "description": "Output filename for the structured constraint set.",
+          "validators": []
+        },
+        {
+          "name": "DEFAULT_MIN_UNDERSTAND",
+          "type_ref": "int",
+          "required": true,
+          "default": "2",
+          "description": "Default minimum rounds for understand phase.",
+          "validators": []
+        },
+        {
+          "name": "DEFAULT_MAX_UNDERSTAND",
+          "type_ref": "int",
+          "required": true,
+          "default": "10",
+          "description": "Default maximum rounds for understand phase.",
+          "validators": []
+        },
+        {
+          "name": "DEFAULT_MIN_CHALLENGE",
+          "type_ref": "int",
+          "required": true,
+          "default": "2",
+          "description": "Default minimum rounds for challenge phase.",
+          "validators": []
+        },
+        {
+          "name": "DEFAULT_MAX_CHALLENGE",
+          "type_ref": "int",
+          "required": true,
+          "default": "10",
+          "description": "Default maximum rounds for challenge phase.",
+          "validators": []
+        },
+        {
+          "name": "API_MAX_RETRIES",
+          "type_ref": "int",
+          "required": true,
+          "default": "3",
+          "description": "Maximum API call retry attempts on transient errors.",
+          "validators": []
+        },
+        {
+          "name": "PARSE_MAX_RETRIES",
+          "type_ref": "int",
+          "required": true,
+          "default": "2",
+          "description": "Maximum re-prompt retries when JSON parse fails.",
+          "validators": []
+        },
+        {
+          "name": "SCHEMA_VERSION",
+          "type_ref": "int",
+          "required": true,
+          "default": "1",
+          "description": "Current session schema version for forward compatibility.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Application-wide constants that flow inward as typed config objects constructed at the CLI/composition layer. These are never read from environment variables deep in library code — env var resolution happens at the CLI boundary."
+    },
+    {
+      "name": "ApplicationConfig",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "api_key",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Anthropic API key resolved from ANTHROPIC_API_KEY environment variable.",
+          "validators": []
+        },
+        {
+          "name": "model_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "claude-sonnet-4-20250514",
+          "description": "Claude model identifier.",
+          "validators": []
+        },
+        {
+          "name": "min_understand",
+          "type_ref": "int",
+          "required": true,
+          "default": "2",
+          "description": "Minimum rounds for understand phase.",
+          "validators": []
+        },
+        {
+          "name": "max_understand",
+          "type_ref": "int",
+          "required": true,
+          "default": "10",
+          "description": "Maximum rounds for understand phase.",
+          "validators": []
+        },
+        {
+          "name": "min_challenge",
+          "type_ref": "int",
+          "required": true,
+          "default": "2",
+          "description": "Minimum rounds for challenge phase.",
+          "validators": []
+        },
+        {
+          "name": "max_challenge",
+          "type_ref": "int",
+          "required": true,
+          "default": "10",
+          "description": "Maximum rounds for challenge phase.",
+          "validators": []
+        },
+        {
+          "name": "api_max_retries",
+          "type_ref": "int",
+          "required": true,
+          "default": "3",
+          "description": "Maximum API retry attempts.",
+          "validators": []
+        },
+        {
+          "name": "parse_max_retries",
+          "type_ref": "int",
+          "required": true,
+          "default": "2",
+          "description": "Maximum parse re-prompt retries.",
+          "validators": []
+        },
+        {
+          "name": "output_dir",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Directory for output artifacts. Defaults to current working directory.",
+          "validators": []
+        },
+        {
+          "name": "base_path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Base path for .constrain/ session storage. Defaults to current working directory.",
+          "validators": []
+        },
+        {
+          "name": "posture_override",
+          "type_ref": "str",
+          "required": false,
+          "default": "",
+          "description": "Explicit posture override, or empty string for random selection.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Top-level configuration assembled at the CLI composition layer from resolved CLI flags, environment variables, and defaults. Decomposed into EngineConfig and SynthesizerConfig before passing to respective modules. This is the single point where environment variable resolution has already occurred."
+    },
+    {
+      "name": "EntryPoint",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "console_script_name",
+          "type_ref": "str",
+          "required": true,
+          "default": "constrain",
+          "description": "Name of the console_scripts entry point.",
+          "validators": []
+        },
+        {
+          "name": "module_path",
+          "type_ref": "str",
+          "required": true,
+          "default": "constrain.cli:create_cli",
+          "description": "Dotted path to the CLI factory function.",
+          "validators": []
+        },
+        {
+          "name": "version_location",
+          "type_ref": "str",
+          "required": true,
+          "default": "constrain.__init__",
+          "description": "Module that defines __version__.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Package entry point metadata. The console_scripts entry point calls cli.create_cli() to obtain the Click group, which is the application's main entry point. __init__.py re-exports only __version__ and the CLI factory."
+    }
+  ],
+  "functions": [
+    {
+      "name": "create_cli",
+      "description": "Application entry point factory. Delegates to cli.create_cli() to construct the fully configured Click group with all subcommands. This is the function referenced by the console_scripts entry point in pyproject.toml. The root __init__.py re-exports this as the sole executable entry point.",
+      "inputs": [],
+      "output_type": "any",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Return value is a callable Click group instance with SafeGroup as its class",
+        "Group has subcommands: new, resume, show, list",
+        "Group callback is cmd_default with invoke_without_command=True",
+        "Calling the returned object starts the CLI application"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "get_version",
+      "description": "Return the package version string. Reads from constrain.__init__.__version__. This is the only metadata the root module exposes beyond the CLI entry point.",
+      "inputs": [],
+      "output_type": "str",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Return value is a non-empty semantic version string (e.g. '0.1.0')",
+        "Return value matches __version__ defined in constrain/__init__.py"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "compose_application",
+      "description": "Composition root function that wires all modules together for a single session run. Called by CLI commands (cmd_default, cmd_new, cmd_resume) after resolving configuration. Constructs the Anthropic client, SessionManager, Synthesizer, and ConversationEngine with proper dependency injection. This function embodies the dependency DAG: it imports from all modules and passes dependencies downward. No module other than this composition layer and the CLI holds references to all components simultaneously.",
+      "inputs": [
+        {
+          "name": "config",
+          "type_ref": "ApplicationConfig",
+          "required": true,
+          "default": "",
+          "description": "Fully resolved application configuration from CLI layer.",
+          "validators": []
+        },
+        {
+          "name": "session",
+          "type_ref": "any",
+          "required": false,
+          "default": "None",
+          "description": "Session model instance (new or loaded for resume). From models.Session or session.Session.",
+          "validators": []
+        }
+      ],
+      "output_type": "any",
+      "error_cases": [
+        {
+          "name": "invalid_api_key_format",
+          "condition": "config.api_key is empty or clearly malformed (checked before constructing Anthropic client)",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "API key is empty or invalid"
+          }
+        },
+        {
+          "name": "invalid_round_limits",
+          "condition": "min_understand > max_understand or min_challenge > max_challenge",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Round limit configuration invalid: min exceeds max"
+          }
+        },
+        {
+          "name": "output_dir_invalid",
+          "condition": "config.output_dir does not exist or is not writable",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Output directory does not exist or is not writable: {path}"
+          }
+        }
+      ],
+      "preconditions": [
+        "config.api_key is a non-empty string",
+        "config.min_understand <= config.max_understand",
+        "config.min_challenge <= config.max_challenge",
+        "config.output_dir is a valid writable directory path",
+        "config.base_path is a valid directory path"
+      ],
+      "postconditions": [
+        "Return value is a ConversationEngine instance ready for run_session()",
+        "Engine has been constructed with: a synchronous anthropic.Anthropic client configured with config.api_key, a Session instance (new or provided), a production TerminalIO implementation, an EngineConfig derived from the ApplicationConfig",
+        "SessionManager has been initialized with config.base_path",
+        "Synthesizer has been initialized with config.output_dir",
+        "No API calls have been made yet",
+        "No conversation has started yet"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "validate_dependency_dag",
+      "description": "Development-time validation function that checks the import graph of all constrain modules matches the declared dependency DAG. Ensures no circular imports and no undeclared cross-module dependencies. Intended for use in CI/test suites, not at runtime. Inspects module __import__ statements or uses importlib metadata to verify the DAG: models→(none), posture→models, session→models, synthesizer→models, engine→(models,session,posture,synthesizer), cli→(engine,session,models).",
+      "inputs": [],
+      "output_type": "bool",
+      "error_cases": [
+        {
+          "name": "import_failure",
+          "condition": "One or more constrain modules cannot be imported",
+          "error_type": "ImportError",
+          "error_data": {
+            "message": "Cannot import module: {module_name}"
+          }
+        }
+      ],
+      "preconditions": [
+        "All constrain modules are importable"
+      ],
+      "postconditions": [
+        "Returns True if the actual import graph matches the declared DAG",
+        "Returns False if any undeclared dependency edge is detected",
+        "Returns False if any circular import is detected"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "get_allowed_phase_transitions",
+      "description": "Returns the authoritative set of allowed phase transitions as a list of (from_phase, to_phase) pairs. This is the canonical definition of the state machine. session.transition_phase() enforces these rules; other modules reference them for documentation. Transitions: understand→challenge, challenge→synthesize, synthesize→complete, understand→abandoned, challenge→abandoned, synthesize→abandoned.",
+      "inputs": [],
+      "output_type": "PhaseTransitionMap",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Returned list contains exactly 6 transition rules",
+        "Forward path: understand→challenge, challenge→synthesize, synthesize→complete",
+        "Abandon path: understand→abandoned, challenge→abandoned, synthesize→abandoned",
+        "No transitions from 'complete' or 'abandoned' states exist",
+        "The graph is acyclic — no transition leads back to an earlier phase"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "get_dependency_dag",
+      "description": "Returns the declared dependency DAG as a list of directed edges. Used for documentation, validation, and architectural enforcement. The DAG is: models→(none), posture→models, session→models, synthesizer→models, engine→(models,session,posture,synthesizer), cli→(engine,session,models).",
+      "inputs": [],
+      "output_type": "DependencyDAG",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Returned list contains exactly 10 dependency edges",
+        "models has zero outgoing edges (leaf node)",
+        "posture has exactly 1 outgoing edge to models",
+        "session has exactly 1 outgoing edge to models",
+        "synthesizer has exactly 1 outgoing edge to models",
+        "engine has exactly 4 outgoing edges to models, session, posture, synthesizer",
+        "cli has exactly 3 outgoing edges to engine, session, models",
+        "The graph is a DAG — no cycles exist"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "get_type_ownership_map",
+      "description": "Returns the canonical type ownership map declaring which module owns each shared domain type. models.py owns all shared domain types (Posture, Phase, Status, Severity, Role, FailureMode, ProblemModel, Message, Constraint, Artifacts, LLMResponseMeta, Session, OptionalArtifacts). Module-specific types are owned by their respective modules. Other modules import shared types from the owner — they never redefine them.",
+      "inputs": [],
+      "output_type": "TypeOwnershipMap",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "All 13 shared domain types from models.py are listed with owning_module='models' and is_shared=True",
+        "Module-specific types (EngineConfig, SynthesizerConfig, SessionError, etc.) are listed with is_shared=False",
+        "No type name appears more than once as a shared type",
+        "Every type referenced in dependency_contracts can be traced to an owner in this map"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "get_error_propagation_map",
+      "description": "Returns the error propagation rules defining how exceptions flow from source modules through the system to the CLI boundary. Each module's base exception type, which module catches it, and the resulting CLI exit code are specified. This is the authoritative reference for the error handling contract.",
+      "inputs": [],
+      "output_type": "ErrorPropagationMap",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "session.SessionError and subtypes are caught by engine, wrapped as EngineError, CLI exit 1",
+        "session.SessionNotFoundError is caught by engine or CLI depending on context, CLI exit 1",
+        "synthesizer.SynthesisError is caught by engine, wrapped as EngineError, CLI exit 1",
+        "posture ValueError is caught by engine, wrapped as EngineError, CLI exit 1",
+        "engine.EngineError is caught by CLI, mapped to click.ClickException, exit 1",
+        "KeyboardInterrupt is caught by CLI SafeGroup, exit 130",
+        "click.ClickException is re-raised by SafeGroup for Click handling, exit 1",
+        "click.Abort is caught by SafeGroup, exit 1",
+        "Unexpected Exception is caught by SafeGroup, exit 1 with generic message"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "get_cross_cutting_constants",
+      "description": "Returns the application-wide constants as a CrossCuttingConstants struct. These values are the single source of truth for model name, directory names, filenames, default round limits, retry counts, and schema version. They flow inward as typed config objects constructed at the CLI/composition layer. Environment variable resolution happens at the CLI boundary, not deep in library code.",
+      "inputs": [],
+      "output_type": "CrossCuttingConstants",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "MODEL_NAME is 'claude-sonnet-4-20250514'",
+        "SESSION_DIR_NAME is '.constrain'",
+        "SESSIONS_SUBDIR is 'sessions'",
+        "PROMPT_FILENAME is 'prompt.md'",
+        "CONSTRAINTS_FILENAME is 'constraints.yaml'",
+        "DEFAULT_MIN_UNDERSTAND is 2",
+        "DEFAULT_MAX_UNDERSTAND is 10",
+        "DEFAULT_MIN_CHALLENGE is 2",
+        "DEFAULT_MAX_CHALLENGE is 10",
+        "API_MAX_RETRIES is 3",
+        "PARSE_MAX_RETRIES is 2",
+        "SCHEMA_VERSION is 1"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    }
+  ],
+  "dependencies": [
+    "cli",
+    "engine",
+    "models",
+    "posture",
+    "session",
+    "synthesizer"
+  ],
+  "dependency_contracts": {
+    "models": [
+      "Posture",
+      "Phase",
+      "Status",
+      "Severity",
+      "Role",
+      "FailureMode",
+      "ProblemModel",
+      "Message",
+      "Constraint",
+      "Artifacts",
+      "LLMResponseMeta",
+      "Session",
+      "OptionalArtifacts",
+      "ProblemModel.apply_update",
+      "LLMResponseMeta.safe_parse",
+      "Session.touch",
+      "Session.to_json",
+      "Session.from_json",
+      "Constraint.to_yaml_dict"
+    ],
+    "posture": [
+      "get_system_prompt",
+      "get_revision_prompt",
+      "select_posture",
+      "get_posture_description",
+      "_format_problem_model",
+      "_understand_prompt",
+      "_challenge_prompt",
+      "_synthesize_prompt"
+    ],
+    "session": [
+      "create",
+      "save",
+      "load",
+      "find_latest_incomplete",
+      "get_resume_summary",
+      "list_all",
+      "transition_phase",
+      "update_problem_model",
+      "add_message",
+      "is_round_limit_reached",
+      "check_output_conflicts",
+      "check_gitignore",
+      "delete_session",
+      "Phase",
+      "SessionError",
+      "SessionNotFoundError",
+      "SessionCorruptedError",
+      "SessionStorageError",
+      "InvalidPhaseTransitionError",
+      "GitignoreStatus"
+    ],
+    "engine": [
+      "run_session",
+      "run_phase",
+      "_execute_turn",
+      "_call_api",
+      "_parse_response",
+      "_run_synthesis",
+      "_display_resume_summary",
+      "_apply_model_update",
+      "_build_phase_configs",
+      "Phase",
+      "PhaseConfig",
+      "Message",
+      "MessageHistory",
+      "TurnResult",
+      "PhaseResult",
+      "PhaseExitReason",
+      "SynthesisContext",
+      "SynthesisResult",
+      "TerminalIO",
+      "EngineConfig",
+      "ParsedResponseBlock",
+      "ApiCallParams",
+      "EngineError"
+    ],
+    "synthesizer": [
+      "init_synthesizer",
+      "parse_prompt_sections",
+      "parse_constraints",
+      "render_prompt_md",
+      "render_constraints_yaml",
+      "write_artifacts",
+      "check_existing_artifacts",
+      "format_prompt_for_terminal",
+      "format_constraints_for_terminal",
+      "validate_constraints",
+      "validate_prompt_sections",
+      "synthesize",
+      "assign_constraint_ids",
+      "Severity",
+      "Constraint",
+      "PromptSections",
+      "SynthesisInput",
+      "ArtifactPaths",
+      "ConstraintList",
+      "SynthesisError",
+      "SynthesisErrorKind",
+      "OverwritePolicy",
+      "SynthesizerConfig",
+      "TerminalFormattedOutput"
+    ],
+    "cli": [
+      "create_cli",
+      "ensure_api_key",
+      "resolve_round_limits",
+      "check_gitignore_suggestion",
+      "cmd_default",
+      "cmd_new",
+      "cmd_resume",
+      "cmd_show",
+      "cmd_list",
+      "format_session_table",
+      "format_session_summary",
+      "confirm_overwrite",
+      "safe_group_invoke",
+      "ExitCode",
+      "RoundLimits",
+      "RoundLimitSource",
+      "SessionListRow",
+      "ResumePromptResult",
+      "GitignoreSuggestion",
+      "DisplayableArtifacts",
+      "ApiKeyCheckResult"
+    ]
+  },
+  "invariants": [
+    "Dependency DAG is strict and acyclic: models→(none), posture→models, session→models, synthesizer→models, engine→(models,session,posture,synthesizer), cli→(engine,session,models). No upward or lateral imports outside this graph. No circular dependencies.",
+    "models.py is the single source of truth for all shared domain types: Posture, Phase, Status, Severity, Role, FailureMode, ProblemModel, Message, Constraint, Artifacts, LLMResponseMeta, Session, OptionalArtifacts. Other modules import these types from models — they never redefine them.",
+    "Module-specific types (EngineConfig, PhaseConfig, TerminalIO, SynthesizerConfig, SynthesisError, SessionError hierarchy, etc.) are owned by their defining module and imported only by direct dependents per the DAG.",
+    "Phase state machine is authoritative and enforced by session.transition_phase(): understand→challenge→synthesize→complete is the forward path. Any of {understand, challenge, synthesize}→abandoned is the abandon path. No transitions from 'complete' or 'abandoned'. No backward transitions.",
+    "Error propagation follows a strict chain: module-specific exceptions → caught by engine (wrapped as EngineError with context) → caught by CLI (mapped to human message + exit code). CLI SafeGroup is the final exception boundary — stack traces never reach the user in normal operation.",
+    "All environment variable resolution happens at the CLI boundary (cli.py). Resolved values flow inward as typed config objects (EngineConfig, SynthesizerConfig, ApplicationConfig). No module below cli.py reads environment variables for configuration (posture.select_posture reads CONSTRAIN_POSTURE as a documented exception for posture override).",
+    "A single Claude model (claude-sonnet-4-20250514) is used for all LLM interactions across all phases. The model identifier is defined as a cross-cutting constant and injected via EngineConfig.",
+    "All file I/O uses pathlib.Path — never os.path or raw string operations. File I/O is restricted to session.py (session persistence), synthesizer.py (artifact writing), and cli.py (gitignore check). models.py, posture.py, and engine.py perform zero file I/O.",
+    "Session state is the single source of truth for interview progress. Engine mutates the Session model in-place. Session serialization is roundtrip-stable: Session.from_json(session.to_json()) produces an equivalent Session.",
+    "System prompts are string constants or f-string templates defined inline in posture.py — no external prompt files. System prompts are never revealed to the engineer in terminal output.",
+    "Conversation history is cumulative within understand and challenge phases. Synthesis uses a fresh message array — NOT the continued conversation from prior phases. Full LLM responses (including JSON blocks) are stored in history; only display_text is shown to the engineer.",
+    "Round enforcement is hard: below min_rounds, ready_to_proceed=true from the LLM is ignored. At max_rounds, phase transitions regardless of ready_to_proceed. Round counters are monotonically increasing and never decrease.",
+    "Synthesis feedback loop allows at most ONE regeneration cycle. Engineer reviews artifacts, optionally provides feedback, and receives at most one revision.",
+    "On KeyboardInterrupt during a session, session state is ALWAYS saved before exit. Exit code is 130. On EOFError in understand/challenge, phase advances. On EOFError in synthesis, current artifacts are accepted.",
+    "Output file overwrites (prompt.md, constraints.yaml) always require explicit user confirmation via the CLI layer. Overwrite control is delegated to cli.py; synthesizer.py accepts an overwrite boolean.",
+    "All Pydantic models use Field(default_factory=list) for list fields and Field(default_factory=...) for mutable defaults — never mutable default arguments.",
+    "The root __init__.py re-exports only __version__ (str) and the CLI entry point factory (create_cli). It is not a god module — it contains no business logic.",
+    "Python 3.12+ is required. No async — synchronous conversation loop throughout. Type hints on all public functions."
+  ],
+  "requires": [
+    "anthropic",
+    "click",
+    "pydantic",
+    "pyyaml"
+  ],
+  "processing_register": "rigorous-analytical"
+}

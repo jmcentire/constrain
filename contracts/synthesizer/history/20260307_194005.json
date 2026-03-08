@@ -1,0 +1,1213 @@
+{
+  "component_id": "synthesizer",
+  "name": "Artifact Synthesizer",
+  "description": "Artifact generation and formatting module with clear separation between three concerns: PARSING (extracting structured data from LLM synthesis output), RENDERING (formatting prompt.md and constraints.yaml as strings), and WRITING (file I/O with overwrite control). Initialized with an output directory (defaults to cwd), the Synthesizer class provides the public API for generating, validating, displaying, and writing the two primary artifacts: an induced-understanding prompt (prompt.md) and a structured constraint set (constraints.yaml).",
+  "version": 1,
+  "types": [
+    {
+      "name": "Severity",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "must",
+        "should"
+      ],
+      "inner_types": [],
+      "description": "Constraint severity level. 'must' indicates a hard boundary that cannot be violated. 'should' indicates a strong preference that may be relaxed with justification."
+    },
+    {
+      "name": "Constraint",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "id",
+          "type_ref": "ConstraintId",
+          "required": false,
+          "default": "None",
+          "description": "Sequential constraint identifier (e.g. C001). None before assignment.",
+          "validators": []
+        },
+        {
+          "name": "boundary",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The domain or area this constraint applies to (e.g. 'data-integrity', 'performance', 'security').",
+          "validators": []
+        },
+        {
+          "name": "condition",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The specific condition that must hold. A declarative statement of what is required.",
+          "validators": []
+        },
+        {
+          "name": "violation",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "What constitutes a violation of this constraint — observable, testable criteria.",
+          "validators": []
+        },
+        {
+          "name": "severity",
+          "type_ref": "Severity",
+          "required": true,
+          "default": "",
+          "description": "Whether this is a hard boundary ('must') or strong preference ('should').",
+          "validators": []
+        },
+        {
+          "name": "rationale",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Why this constraint exists, grounded in the problem context from the interview.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A single structured constraint extracted from the LLM synthesis output. The id field is None when first parsed and assigned sequentially (C001, C002, ...) during rendering/serialization."
+    },
+    {
+      "name": "ConstraintId",
+      "kind": "optional",
+      "fields": [],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [
+        "str"
+      ],
+      "description": "Optional constraint identifier. None before assignment, 'CNNN' pattern after."
+    },
+    {
+      "name": "PromptSections",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "system_context",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "High-level description of the system, its purpose, stakeholders, and operational environment.",
+          "validators": []
+        },
+        {
+          "name": "consequence_map",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "What happens when things go wrong — failure impacts mapped to stakeholders and business outcomes.",
+          "validators": []
+        },
+        {
+          "name": "failure_archaeology",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Known failure modes, past incidents, edge cases, and the lessons learned from them.",
+          "validators": []
+        },
+        {
+          "name": "dependency_landscape",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "External systems, services, libraries, and assumptions the solution depends on.",
+          "validators": []
+        },
+        {
+          "name": "boundary_conditions",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Hard limits, non-negotiable requirements, regulatory constraints, and scope boundaries.",
+          "validators": []
+        },
+        {
+          "name": "success_shape",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "What a correct, complete solution looks like — acceptance criteria and quality attributes.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "The six required sections of the induced-understanding prompt (prompt.md). Each section contains markdown-formatted content written as a briefing to a senior engineer."
+    },
+    {
+      "name": "SynthesisInput",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "raw_prompt_output",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Raw LLM output string containing the prompt sections as a JSON block with keys matching the six section names.",
+          "validators": []
+        },
+        {
+          "name": "raw_constraints_output",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Raw LLM output string containing constraint data as a JSON array of constraint objects.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "The raw LLM output from the synthesis phase, expected to contain JSON-structured prompt sections and constraint data."
+    },
+    {
+      "name": "ArtifactPaths",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "prompt_md_path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Absolute path to the written prompt.md file as a string.",
+          "validators": []
+        },
+        {
+          "name": "constraints_yaml_path",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Absolute path to the written constraints.yaml file as a string.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Paths to the written artifact files on disk."
+    },
+    {
+      "name": "ConstraintList",
+      "kind": "list",
+      "fields": [],
+      "item_type": "Constraint",
+      "variants": [],
+      "inner_types": [],
+      "description": "A list of Constraint objects."
+    },
+    {
+      "name": "SynthesisError",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "message",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Human-readable error message for display to the engineer.",
+          "validators": []
+        },
+        {
+          "name": "error_kind",
+          "type_ref": "SynthesisErrorKind",
+          "required": true,
+          "default": "",
+          "description": "Categorized error type for programmatic handling.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Base error type for all synthesizer failures. Contains a human-readable message suitable for CLI display (not a stack trace)."
+    },
+    {
+      "name": "SynthesisErrorKind",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "parse_error",
+        "validation_error",
+        "missing_section",
+        "duplicate_id",
+        "file_exists",
+        "io_error",
+        "yaml_serialization_error"
+      ],
+      "inner_types": [],
+      "description": "Categorized error types for synthesis failures."
+    },
+    {
+      "name": "OverwritePolicy",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "error_if_exists",
+        "overwrite",
+        "prompt_user"
+      ],
+      "inner_types": [],
+      "description": "Policy for handling existing artifact files on disk."
+    },
+    {
+      "name": "SynthesizerConfig",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "output_dir",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Directory path where artifacts will be written. Defaults to current working directory.",
+          "validators": []
+        },
+        {
+          "name": "overwrite_policy",
+          "type_ref": "OverwritePolicy",
+          "required": false,
+          "default": "prompt_user",
+          "description": "Policy for handling existing artifact files.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Configuration for the Synthesizer instance."
+    },
+    {
+      "name": "TerminalFormattedOutput",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "content",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The formatted string content ready for terminal display.",
+          "validators": []
+        },
+        {
+          "name": "line_count",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Number of lines in the formatted output, for paging decisions.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Terminal-formatted string output with optional color/style hints."
+    }
+  ],
+  "functions": [
+    {
+      "name": "init_synthesizer",
+      "description": "Create and configure a Synthesizer instance with the given output directory and overwrite policy. Validates that the output directory exists and is writable.",
+      "inputs": [
+        {
+          "name": "config",
+          "type_ref": "SynthesizerConfig",
+          "required": true,
+          "default": "",
+          "description": "Synthesizer configuration including output directory and overwrite policy.",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "output_dir_not_found",
+          "condition": "config.output_dir does not exist",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "io_error"
+          }
+        },
+        {
+          "name": "output_dir_not_writable",
+          "condition": "config.output_dir exists but is not writable",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "io_error"
+          }
+        }
+      ],
+      "preconditions": [
+        "config.output_dir is a valid filesystem path",
+        "config.output_dir exists and is a directory",
+        "config.output_dir is writable by the current process"
+      ],
+      "postconditions": [
+        "Synthesizer instance is ready to accept parse/render/write calls",
+        "output_dir is stored as a resolved pathlib.Path"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "output_dir filesystem metadata",
+          "description": "Checks existence and writability of the output directory."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "parse_prompt_sections",
+      "description": "Parse the raw LLM synthesis output for prompt.md into a structured PromptSections model. Expects the raw string to contain a JSON block (delimited by ```json ... ```) with keys: system_context, consequence_map, failure_archaeology, dependency_landscape, boundary_conditions, success_shape. Each value is a markdown string. Raises SynthesisError if JSON is malformed or any required section is missing.",
+      "inputs": [
+        {
+          "name": "raw_output",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Raw LLM output string containing a JSON block with the six prompt section keys.",
+          "validators": []
+        }
+      ],
+      "output_type": "PromptSections",
+      "error_cases": [
+        {
+          "name": "no_json_block",
+          "condition": "raw_output does not contain a ```json ... ``` delimited block",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "parse_error"
+          }
+        },
+        {
+          "name": "malformed_json",
+          "condition": "The JSON block cannot be parsed as valid JSON",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "parse_error"
+          }
+        },
+        {
+          "name": "missing_section",
+          "condition": "One or more of the six required section keys is missing from the parsed JSON",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "missing_section"
+          }
+        },
+        {
+          "name": "empty_section",
+          "condition": "One or more section values is empty or whitespace-only",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "validation_error"
+          }
+        },
+        {
+          "name": "empty_input",
+          "condition": "raw_output is empty or whitespace-only",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "parse_error"
+          }
+        }
+      ],
+      "preconditions": [
+        "raw_output is a non-empty string",
+        "raw_output contains a ```json ... ``` delimited block"
+      ],
+      "postconditions": [
+        "Returned PromptSections has all six section fields populated with non-empty strings",
+        "No file I/O or side effects occurred",
+        "Section content preserves original markdown formatting from LLM output"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure parsing function with no side effects."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 50,
+        "max_memory_mb": null,
+        "complexity": "O(n) where n is raw_output length"
+      }
+    },
+    {
+      "name": "parse_constraints",
+      "description": "Parse the raw LLM synthesis output for constraints into a list of Constraint models. Expects the raw string to contain a JSON block (delimited by ```json ... ```) with an array of constraint objects, each having keys: boundary, condition, violation, severity, rationale. The id field is NOT expected in the LLM output — IDs are assigned later during rendering. Validates each constraint via Pydantic model validation.",
+      "inputs": [
+        {
+          "name": "raw_output",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Raw LLM output string containing a JSON block with an array of constraint objects.",
+          "validators": []
+        }
+      ],
+      "output_type": "ConstraintList",
+      "error_cases": [
+        {
+          "name": "no_json_block",
+          "condition": "raw_output does not contain a ```json ... ``` delimited block",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "parse_error"
+          }
+        },
+        {
+          "name": "malformed_json",
+          "condition": "The JSON block cannot be parsed as valid JSON",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "parse_error"
+          }
+        },
+        {
+          "name": "not_array",
+          "condition": "The parsed JSON is not an array",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "parse_error"
+          }
+        },
+        {
+          "name": "missing_field",
+          "condition": "A constraint object is missing one or more required fields (boundary, condition, violation, severity, rationale)",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "validation_error"
+          }
+        },
+        {
+          "name": "invalid_severity",
+          "condition": "A constraint has a severity value other than 'must' or 'should'",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "validation_error"
+          }
+        },
+        {
+          "name": "empty_input",
+          "condition": "raw_output is empty or whitespace-only",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "parse_error"
+          }
+        },
+        {
+          "name": "empty_array",
+          "condition": "The parsed JSON array contains zero constraints",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "validation_error"
+          }
+        }
+      ],
+      "preconditions": [
+        "raw_output is a non-empty string",
+        "raw_output contains a ```json ... ``` delimited block"
+      ],
+      "postconditions": [
+        "All returned Constraint objects have boundary, condition, violation, severity, and rationale populated",
+        "All returned Constraint objects have severity equal to 'must' or 'should'",
+        "All returned Constraint objects have id set to None (not yet assigned)",
+        "Returned list preserves the order from the LLM output",
+        "No file I/O or side effects occurred"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure parsing function with no side effects."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 50,
+        "max_memory_mb": null,
+        "complexity": "O(n) where n is number of constraints"
+      }
+    },
+    {
+      "name": "render_prompt_md",
+      "description": "Render a PromptSections model into the final prompt.md markdown string. Produces a document structured with H2 headers for each section (## System Context, ## Consequence Map, etc.) that reads like a briefing to a senior engineer. Includes a title header and brief preamble.",
+      "inputs": [
+        {
+          "name": "sections",
+          "type_ref": "PromptSections",
+          "required": true,
+          "default": "",
+          "description": "The validated prompt sections to render.",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [],
+      "preconditions": [
+        "sections has all six fields populated with non-empty strings"
+      ],
+      "postconditions": [
+        "Returned string starts with a markdown H1 title header",
+        "Returned string contains exactly six H2 section headers in order: System Context, Consequence Map, Failure Archaeology, Dependency Landscape, Boundary Conditions, Success Shape",
+        "Returned string is valid markdown",
+        "No file I/O or side effects occurred"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure rendering function with no side effects."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 10,
+        "max_memory_mb": null,
+        "complexity": "O(n) where n is total section content length"
+      }
+    },
+    {
+      "name": "render_constraints_yaml",
+      "description": "Render a list of Constraint models into the final constraints.yaml string. Assigns sequential IDs (C001, C002, ...) to constraints that have id=None. Uses pyyaml with a custom Dumper for multiline string block scalars and guaranteed field ordering (id, boundary, condition, violation, severity, rationale). The output is a YAML list of constraint mappings.",
+      "inputs": [
+        {
+          "name": "constraints",
+          "type_ref": "ConstraintList",
+          "required": true,
+          "default": "",
+          "description": "The validated constraints to render. IDs will be assigned if not already set.",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [
+        {
+          "name": "empty_constraints",
+          "condition": "constraints list is empty",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "validation_error"
+          }
+        },
+        {
+          "name": "duplicate_pre_assigned_ids",
+          "condition": "Two or more constraints have the same non-None id value",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "duplicate_id"
+          }
+        },
+        {
+          "name": "yaml_serialization_failure",
+          "condition": "pyyaml fails to serialize the constraint data",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "yaml_serialization_error"
+          }
+        }
+      ],
+      "preconditions": [
+        "constraints is a non-empty list",
+        "All constraints have required fields populated (boundary, condition, violation, severity, rationale)"
+      ],
+      "postconditions": [
+        "Returned string is valid YAML",
+        "All constraints in the YAML have unique IDs matching pattern C followed by three zero-padded digits",
+        "YAML field order per constraint is: id, boundary, condition, violation, severity, rationale",
+        "Multiline string fields use YAML block scalar style (literal or folded)",
+        "No file I/O or side effects occurred",
+        "IDs are assigned sequentially starting from C001 for constraints with id=None"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure rendering function with no side effects."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 20,
+        "max_memory_mb": null,
+        "complexity": "O(n) where n is number of constraints"
+      }
+    },
+    {
+      "name": "write_artifacts",
+      "description": "Write the rendered prompt.md and constraints.yaml strings to the configured output directory. Handles overwrite control according to the configured OverwritePolicy: 'error_if_exists' raises an error if either file exists, 'overwrite' silently overwrites, 'prompt_user' is handled by the caller (CLI layer) before invoking this function. Returns the absolute paths of the written files.",
+      "inputs": [
+        {
+          "name": "prompt_md",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The rendered prompt.md content to write.",
+          "validators": []
+        },
+        {
+          "name": "constraints_yaml",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The rendered constraints.yaml content to write.",
+          "validators": []
+        },
+        {
+          "name": "overwrite",
+          "type_ref": "bool",
+          "required": true,
+          "default": "false",
+          "description": "If true, overwrite existing files without error. If false, raise error if files exist.",
+          "validators": []
+        }
+      ],
+      "output_type": "ArtifactPaths",
+      "error_cases": [
+        {
+          "name": "prompt_md_exists",
+          "condition": "output_dir/prompt.md exists and overwrite is false",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "file_exists"
+          }
+        },
+        {
+          "name": "constraints_yaml_exists",
+          "condition": "output_dir/constraints.yaml exists and overwrite is false",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "file_exists"
+          }
+        },
+        {
+          "name": "write_io_error",
+          "condition": "Filesystem error during write (permissions, disk full, etc.)",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "io_error"
+          }
+        },
+        {
+          "name": "empty_prompt_md",
+          "condition": "prompt_md is empty or whitespace-only",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "validation_error"
+          }
+        },
+        {
+          "name": "empty_constraints_yaml",
+          "condition": "constraints_yaml is empty or whitespace-only",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "validation_error"
+          }
+        }
+      ],
+      "preconditions": [
+        "prompt_md is a non-empty string",
+        "constraints_yaml is a non-empty string",
+        "Synthesizer has been initialized with a valid, writable output_dir",
+        "If overwrite is false, caller has confirmed no existing files or has handled the prompt_user policy"
+      ],
+      "postconditions": [
+        "prompt.md file exists at output_dir/prompt.md with content equal to prompt_md",
+        "constraints.yaml file exists at output_dir/constraints.yaml with content equal to constraints_yaml",
+        "Both files are written with UTF-8 encoding",
+        "Returned ArtifactPaths contains the absolute paths of the written files"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "writes_file",
+          "target": "output_dir/prompt.md",
+          "description": "Writes the rendered prompt markdown to disk."
+        },
+        {
+          "kind": "writes_file",
+          "target": "output_dir/constraints.yaml",
+          "description": "Writes the rendered constraints YAML to disk."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "check_existing_artifacts",
+      "description": "Check whether prompt.md and/or constraints.yaml already exist in the output directory. Used by the CLI layer to implement the prompt_user overwrite policy before calling write_artifacts.",
+      "inputs": [],
+      "output_type": "ExistingArtifacts",
+      "error_cases": [
+        {
+          "name": "io_error",
+          "condition": "Filesystem error while checking for file existence",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "io_error"
+          }
+        }
+      ],
+      "preconditions": [
+        "Synthesizer has been initialized with a valid output_dir"
+      ],
+      "postconditions": [
+        "Returned ExistingArtifacts accurately reflects current filesystem state"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "output_dir/prompt.md and output_dir/constraints.yaml",
+          "description": "Checks existence of artifact files."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "format_prompt_for_terminal",
+      "description": "Format the PromptSections for display in the terminal. Produces a human-readable, optionally color-enhanced representation suitable for CLI review. Truncates extremely long sections with a note about the full content being in the file.",
+      "inputs": [
+        {
+          "name": "sections",
+          "type_ref": "PromptSections",
+          "required": true,
+          "default": "",
+          "description": "The prompt sections to format for terminal display.",
+          "validators": []
+        },
+        {
+          "name": "max_lines_per_section",
+          "type_ref": "int",
+          "required": false,
+          "default": "20",
+          "description": "Maximum number of lines to display per section before truncating.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "1 <= value <= 500",
+              "error_message": "max_lines_per_section must be between 1 and 500"
+            }
+          ]
+        }
+      ],
+      "output_type": "TerminalFormattedOutput",
+      "error_cases": [],
+      "preconditions": [
+        "sections has all six fields populated"
+      ],
+      "postconditions": [
+        "Returned content is suitable for terminal display (no raw escape codes unless terminal supports them)",
+        "Sections longer than max_lines_per_section are truncated with a truncation notice",
+        "All six section headers are present in the output"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure formatting function with no side effects."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 10,
+        "max_memory_mb": null,
+        "complexity": "O(n) where n is total section content length"
+      }
+    },
+    {
+      "name": "format_constraints_for_terminal",
+      "description": "Format a list of Constraints for display in the terminal. Produces a tabular or structured text representation showing each constraint's ID, boundary, condition, severity, and a truncated rationale. Suitable for CLI review or the 'constrain show' command.",
+      "inputs": [
+        {
+          "name": "constraints",
+          "type_ref": "ConstraintList",
+          "required": true,
+          "default": "",
+          "description": "The constraints to format for terminal display.",
+          "validators": []
+        },
+        {
+          "name": "verbose",
+          "type_ref": "bool",
+          "required": false,
+          "default": "false",
+          "description": "If true, show full rationale and violation fields. If false, show compact summary.",
+          "validators": []
+        }
+      ],
+      "output_type": "TerminalFormattedOutput",
+      "error_cases": [
+        {
+          "name": "missing_ids",
+          "condition": "One or more constraints have id=None",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "validation_error"
+          }
+        }
+      ],
+      "preconditions": [
+        "All constraints have IDs assigned (non-None)"
+      ],
+      "postconditions": [
+        "Returned content is suitable for terminal display",
+        "Each constraint appears exactly once in the output",
+        "Constraints are displayed in ID order"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure formatting function with no side effects."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 10,
+        "max_memory_mb": null,
+        "complexity": "O(n) where n is number of constraints"
+      }
+    },
+    {
+      "name": "validate_constraints",
+      "description": "Perform synthesizer-level validation on a list of constraints beyond what Pydantic model validation provides. Checks for unique IDs (among those assigned), non-empty required fields, valid severity values, and overall list integrity. Returns the validated list or raises SynthesisError.",
+      "inputs": [
+        {
+          "name": "constraints",
+          "type_ref": "ConstraintList",
+          "required": true,
+          "default": "",
+          "description": "The constraints to validate.",
+          "validators": []
+        }
+      ],
+      "output_type": "ConstraintList",
+      "error_cases": [
+        {
+          "name": "empty_list",
+          "condition": "constraints list is empty",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "validation_error"
+          }
+        },
+        {
+          "name": "duplicate_ids",
+          "condition": "Two or more constraints share the same non-None id",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "duplicate_id"
+          }
+        },
+        {
+          "name": "invalid_severity",
+          "condition": "A constraint has severity not in {'must', 'should'}",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "validation_error"
+          }
+        },
+        {
+          "name": "empty_required_field",
+          "condition": "A required string field (boundary, condition, violation, rationale) is empty or whitespace",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "validation_error"
+          }
+        },
+        {
+          "name": "invalid_id_format",
+          "condition": "An assigned id does not match the CNNN pattern",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "validation_error"
+          }
+        }
+      ],
+      "preconditions": [
+        "constraints is a non-empty list"
+      ],
+      "postconditions": [
+        "All returned constraints pass Pydantic model validation",
+        "All assigned IDs (non-None) are unique",
+        "All severity values are 'must' or 'should'",
+        "All required string fields are non-empty and non-whitespace"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure validation function with no side effects."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 10,
+        "max_memory_mb": null,
+        "complexity": "O(n) where n is number of constraints"
+      }
+    },
+    {
+      "name": "validate_prompt_sections",
+      "description": "Validate that a PromptSections model has all six sections present and non-empty. Performs content-level checks beyond Pydantic field presence.",
+      "inputs": [
+        {
+          "name": "sections",
+          "type_ref": "PromptSections",
+          "required": true,
+          "default": "",
+          "description": "The prompt sections to validate.",
+          "validators": []
+        }
+      ],
+      "output_type": "PromptSections",
+      "error_cases": [
+        {
+          "name": "empty_section",
+          "condition": "One or more of the six section fields is empty or whitespace-only",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "missing_section"
+          }
+        },
+        {
+          "name": "section_too_short",
+          "condition": "A section contains fewer than 10 characters, suggesting placeholder or stub content",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "validation_error"
+          }
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "All six section fields are non-empty and non-whitespace strings",
+        "Returned sections are identical to input (pass-through on success)"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure validation function with no side effects."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "synthesize",
+      "description": "Orchestrate the full synthesis pipeline: parse both raw LLM outputs, validate, render, and write artifacts. This is the primary high-level entry point used by the engine after the synthesis LLM call completes. Coordinates parse_prompt_sections -> validate_prompt_sections -> render_prompt_md, parse_constraints -> validate_constraints -> render_constraints_yaml -> write_artifacts in sequence. Returns the paths to written files.",
+      "inputs": [
+        {
+          "name": "synthesis_input",
+          "type_ref": "SynthesisInput",
+          "required": true,
+          "default": "",
+          "description": "The raw LLM outputs from the synthesis phase.",
+          "validators": []
+        },
+        {
+          "name": "overwrite",
+          "type_ref": "bool",
+          "required": true,
+          "default": "false",
+          "description": "Whether to overwrite existing artifact files.",
+          "validators": []
+        }
+      ],
+      "output_type": "ArtifactPaths",
+      "error_cases": [
+        {
+          "name": "prompt_parse_error",
+          "condition": "raw_prompt_output cannot be parsed into PromptSections",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "parse_error"
+          }
+        },
+        {
+          "name": "constraints_parse_error",
+          "condition": "raw_constraints_output cannot be parsed into Constraint list",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "parse_error"
+          }
+        },
+        {
+          "name": "validation_failure",
+          "condition": "Parsed data fails validation checks",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "validation_error"
+          }
+        },
+        {
+          "name": "file_exists_no_overwrite",
+          "condition": "Artifact files exist and overwrite is false",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "file_exists"
+          }
+        },
+        {
+          "name": "write_failure",
+          "condition": "File write fails due to I/O error",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "io_error"
+          }
+        }
+      ],
+      "preconditions": [
+        "Synthesizer has been initialized with a valid, writable output_dir",
+        "synthesis_input contains non-empty raw_prompt_output and raw_constraints_output"
+      ],
+      "postconditions": [
+        "prompt.md has been written to output_dir",
+        "constraints.yaml has been written to output_dir",
+        "Both files contain valid, well-formatted content",
+        "Returned ArtifactPaths contains absolute paths to both files"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "writes_file",
+          "target": "output_dir/prompt.md",
+          "description": "Writes the rendered prompt markdown to disk."
+        },
+        {
+          "kind": "writes_file",
+          "target": "output_dir/constraints.yaml",
+          "description": "Writes the rendered constraints YAML to disk."
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "assign_constraint_ids",
+      "description": "Assign sequential IDs (C001, C002, ...) to constraints that have id=None. Constraints with pre-assigned IDs are left unchanged. New IDs start after the highest existing ID in the list. Returns a new list with all IDs assigned.",
+      "inputs": [
+        {
+          "name": "constraints",
+          "type_ref": "ConstraintList",
+          "required": true,
+          "default": "",
+          "description": "Constraints to assign IDs to. May have some or all IDs as None.",
+          "validators": []
+        }
+      ],
+      "output_type": "ConstraintList",
+      "error_cases": [
+        {
+          "name": "empty_list",
+          "condition": "constraints list is empty",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "validation_error"
+          }
+        },
+        {
+          "name": "invalid_existing_id",
+          "condition": "A pre-assigned ID does not match the CNNN pattern",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "validation_error"
+          }
+        },
+        {
+          "name": "duplicate_existing_ids",
+          "condition": "Two or more pre-assigned IDs are identical",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "duplicate_id"
+          }
+        },
+        {
+          "name": "id_overflow",
+          "condition": "More than 999 constraints would require IDs beyond C999",
+          "error_type": "SynthesisError",
+          "error_data": {
+            "error_kind": "validation_error"
+          }
+        }
+      ],
+      "preconditions": [
+        "constraints is a non-empty list",
+        "Any pre-assigned IDs match the CNNN pattern"
+      ],
+      "postconditions": [
+        "All returned constraints have non-None IDs",
+        "All IDs match the CNNN pattern (C followed by three zero-padded digits)",
+        "All IDs are unique",
+        "Constraints with pre-assigned IDs retain their original IDs",
+        "New IDs are assigned sequentially starting after the highest pre-existing ID",
+        "Order of constraints is preserved"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure function that returns a new list with IDs assigned."
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": 5,
+        "max_memory_mb": null,
+        "complexity": "O(n) where n is number of constraints"
+      }
+    }
+  ],
+  "dependencies": [
+    "models"
+  ],
+  "dependency_contracts": {
+    "models": [
+      "Constraint",
+      "PromptSections",
+      "ProblemModel"
+    ]
+  },
+  "invariants": [
+    "All Constraint IDs follow the pattern C followed by three zero-padded digits (e.g. C001, C002)",
+    "Constraint IDs are unique within any single list of constraints produced by the synthesizer",
+    "Constraint severity is always exactly 'must' or 'should'",
+    "PromptSections always contains all six required sections: system_context, consequence_map, failure_archaeology, dependency_landscape, boundary_conditions, success_shape",
+    "All file I/O uses pathlib.Path, never raw string paths",
+    "Rendering functions are pure — no side effects, no file I/O",
+    "Parsing functions are pure — no side effects, no file I/O",
+    "YAML output preserves field ordering: id, boundary, condition, violation, severity, rationale",
+    "YAML output uses block scalar style for multiline string fields",
+    "prompt.md reads like a briefing to a senior engineer, not a requirements document"
+  ],
+  "requires": [
+    "pyyaml",
+    "pathlib"
+  ],
+  "processing_register": "rigorous-analytical"
+}

@@ -1,0 +1,9 @@
+model: claude-sonnet-4-20250514
+build_mode: auto
+processing_register: rigorous-analytical
+plan_only: false
+parallel_components: true
+max_concurrent_agents: 3
+health_thresholds:
+  output_planning_ratio_critical: 0.0
+  output_planning_ratio_warning: 0.0

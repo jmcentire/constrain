@@ -1,0 +1,1129 @@
+{
+  "component_id": "cli",
+  "name": "CLI Interface",
+  "description": "Click-based command interface using a custom SafeGroup subclass for centralized exception handling. Pure delegation layer — no business logic. All commands delegate to session/engine modules via typed Pydantic models. Shared round-limit options via decorator factory. API key validation as explicit helper. Exit codes: 0 success, 1 application error, 2 usage error (Click automatic), 130 keyboard interrupt.",
+  "version": 1,
+  "types": [
+    {
+      "name": "ExitCode",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "SUCCESS_0",
+        "APPLICATION_ERROR_1",
+        "USAGE_ERROR_2",
+        "KEYBOARD_INTERRUPT_130"
+      ],
+      "inner_types": [],
+      "description": "Process exit codes used by CLI commands."
+    },
+    {
+      "name": "RoundLimits",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "min_understand",
+          "type_ref": "int",
+          "required": false,
+          "default": "2",
+          "description": "Minimum rounds in understand phase before auto-proceed is allowed.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "1 <= value <= 50",
+              "error_message": "min_understand must be between 1 and 50"
+            }
+          ]
+        },
+        {
+          "name": "max_understand",
+          "type_ref": "int",
+          "required": false,
+          "default": "10",
+          "description": "Hard maximum rounds in understand phase.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "1 <= value <= 100",
+              "error_message": "max_understand must be between 1 and 100"
+            }
+          ]
+        },
+        {
+          "name": "min_challenge",
+          "type_ref": "int",
+          "required": false,
+          "default": "2",
+          "description": "Minimum rounds in challenge phase before auto-proceed is allowed.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "1 <= value <= 50",
+              "error_message": "min_challenge must be between 1 and 50"
+            }
+          ]
+        },
+        {
+          "name": "max_challenge",
+          "type_ref": "int",
+          "required": false,
+          "default": "10",
+          "description": "Hard maximum rounds in challenge phase.",
+          "validators": [
+            {
+              "kind": "range",
+              "expression": "1 <= value <= 100",
+              "error_message": "max_challenge must be between 1 and 100"
+            }
+          ]
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Configurable round limits for understand and challenge phases. Resolved from CLI flags, then env vars, then defaults. Validated by Pydantic model in models.py; this is the shape the CLI constructs."
+    },
+    {
+      "name": "RoundLimitSource",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "CLI_FLAG",
+        "ENV_VAR",
+        "DEFAULT"
+      ],
+      "inner_types": [],
+      "description": "Where a round limit value was resolved from, in priority order."
+    },
+    {
+      "name": "SessionListRow",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "session_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Unique session identifier.",
+          "validators": []
+        },
+        {
+          "name": "status",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Session status: incomplete, completed, or abandoned.",
+          "validators": []
+        },
+        {
+          "name": "created_at",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "ISO 8601 formatted creation timestamp.",
+          "validators": []
+        },
+        {
+          "name": "current_phase",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Current phase name (understand, challenge, synthesis, done).",
+          "validators": []
+        },
+        {
+          "name": "posture_display",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Posture field masked as '***' for display.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "One row in the session list display table."
+    },
+    {
+      "name": "ResumePromptResult",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "RESUME",
+        "NEW",
+        "LIST",
+        "QUIT"
+      ],
+      "inner_types": [],
+      "description": "User's response when offered to resume an existing session."
+    },
+    {
+      "name": "GitignoreSuggestion",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "should_suggest",
+          "type_ref": "bool",
+          "required": true,
+          "default": "",
+          "description": "True if .constrain/ was just created and is not in .gitignore.",
+          "validators": []
+        },
+        {
+          "name": "gitignore_exists",
+          "type_ref": "bool",
+          "required": true,
+          "default": "",
+          "description": "True if a .gitignore file exists in the current directory.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Information about whether to suggest adding .constrain/ to .gitignore."
+    },
+    {
+      "name": "DisplayableArtifacts",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "prompt_md",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Full content of prompt.md.",
+          "validators": []
+        },
+        {
+          "name": "constraints_yaml",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Full content of constraints.yaml.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Content of the two output artifacts for display via `constrain show`."
+    },
+    {
+      "name": "ApiKeyCheckResult",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "key",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The API key value if found.",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Result of checking for the ANTHROPIC_API_KEY environment variable."
+    }
+  ],
+  "functions": [
+    {
+      "name": "ensure_api_key",
+      "description": "Check that ANTHROPIC_API_KEY is set in the environment. If not, raise click.ClickException with prescribed message. Returns the key string on success. Called explicitly by commands that need API access (default, new, resume).",
+      "inputs": [],
+      "output_type": "str",
+      "error_cases": [
+        {
+          "name": "api_key_not_set",
+          "condition": "ANTHROPIC_API_KEY environment variable is not set or is empty string",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "ANTHROPIC_API_KEY not set. Export it or add it to your shell profile."
+          }
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Return value is a non-empty string",
+        "Return value equals os.environ['ANTHROPIC_API_KEY']"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure environment read, no mutation"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "resolve_round_limits",
+      "description": "Resolve round limit values from CLI flags, falling back to environment variables (CONSTRAIN_MIN_UNDERSTAND, CONSTRAIN_MAX_UNDERSTAND, CONSTRAIN_MIN_CHALLENGE, CONSTRAIN_MAX_CHALLENGE), then to defaults. Validates that min <= max for each phase pair. Returns a fully populated RoundLimits struct.",
+      "inputs": [
+        {
+          "name": "min_understand",
+          "type_ref": "int",
+          "required": false,
+          "default": "None",
+          "description": "CLI flag value for --min-understand, None if not provided.",
+          "validators": []
+        },
+        {
+          "name": "max_understand",
+          "type_ref": "int",
+          "required": false,
+          "default": "None",
+          "description": "CLI flag value for --max-understand, None if not provided.",
+          "validators": []
+        },
+        {
+          "name": "min_challenge",
+          "type_ref": "int",
+          "required": false,
+          "default": "None",
+          "description": "CLI flag value for --min-challenge, None if not provided.",
+          "validators": []
+        },
+        {
+          "name": "max_challenge",
+          "type_ref": "int",
+          "required": false,
+          "default": "None",
+          "description": "CLI flag value for --max-challenge, None if not provided.",
+          "validators": []
+        }
+      ],
+      "output_type": "RoundLimits",
+      "error_cases": [
+        {
+          "name": "min_exceeds_max_understand",
+          "condition": "Resolved min_understand > resolved max_understand",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "min-understand ({min}) cannot exceed max-understand ({max})."
+          }
+        },
+        {
+          "name": "min_exceeds_max_challenge",
+          "condition": "Resolved min_challenge > resolved max_challenge",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "min-challenge ({min}) cannot exceed max-challenge ({max})."
+          }
+        },
+        {
+          "name": "invalid_env_var_value",
+          "condition": "An environment variable is set but not a valid positive integer",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "Invalid value for {env_var}: expected a positive integer, got '{value}'."
+          }
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "result.min_understand <= result.max_understand",
+        "result.min_challenge <= result.max_challenge",
+        "All four fields are populated with positive integers"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Reads environment variables but does not mutate state"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "check_gitignore_suggestion",
+      "description": "Check whether .constrain/ directory was newly created and whether .gitignore already covers it. If suggestion is warranted, display a message via click.echo advising the user to add '.constrain/' to .gitignore. Called after session creation.",
+      "inputs": [
+        {
+          "name": "constrain_dir_existed_before",
+          "type_ref": "bool",
+          "required": true,
+          "default": "",
+          "description": "Whether .constrain/ directory existed before the session was created.",
+          "validators": []
+        }
+      ],
+      "output_type": "GitignoreSuggestion",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "If should_suggest is true, a suggestion message has been echoed to stderr"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": ".gitignore",
+          "description": "Reads .gitignore to check if .constrain/ is already listed"
+        },
+        {
+          "kind": "logging",
+          "target": "stderr",
+          "description": "Echoes suggestion message to stderr via click.echo if applicable"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "cmd_default",
+      "description": "Default command invoked as `constrain` (group callback with invoke_without_command=True). Checks for incomplete sessions. If found, displays summary of most recent and offers to resume it, mentions `constrain list` for others. If user declines or no incomplete sessions, starts a new session. Accepts round limit options. Validates API key before any API interaction.",
+      "inputs": [
+        {
+          "name": "min_understand",
+          "type_ref": "int",
+          "required": false,
+          "default": "None",
+          "description": "CLI flag --min-understand or None.",
+          "validators": []
+        },
+        {
+          "name": "max_understand",
+          "type_ref": "int",
+          "required": false,
+          "default": "None",
+          "description": "CLI flag --max-understand or None.",
+          "validators": []
+        },
+        {
+          "name": "min_challenge",
+          "type_ref": "int",
+          "required": false,
+          "default": "None",
+          "description": "CLI flag --min-challenge or None.",
+          "validators": []
+        },
+        {
+          "name": "max_challenge",
+          "type_ref": "int",
+          "required": false,
+          "default": "None",
+          "description": "CLI flag --max-challenge or None.",
+          "validators": []
+        },
+        {
+          "name": "click_context",
+          "type_ref": "any",
+          "required": true,
+          "default": "",
+          "description": "Click context object. If ctx.invoked_subcommand is not None, this callback is a no-op (subcommand handles execution).",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "api_key_missing",
+          "condition": "ANTHROPIC_API_KEY not set and no subcommand was invoked",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "ANTHROPIC_API_KEY not set. Export it or add it to your shell profile."
+          }
+        },
+        {
+          "name": "session_load_failure",
+          "condition": "Incomplete session found but its state file is corrupted or unreadable",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "Could not load session {session_id}: {reason}"
+          }
+        },
+        {
+          "name": "engine_error",
+          "condition": "Engine raises an exception during conversation loop",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "Session error: {reason}"
+          }
+        }
+      ],
+      "preconditions": [
+        "Called as Click group callback; click_context is a valid click.Context"
+      ],
+      "postconditions": [
+        "If no subcommand invoked: either a session was resumed, a new session was started and run to completion or interruption, or user quit",
+        "Exit code 0 on success, 1 on application error, 130 on keyboard interrupt"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": ".constrain/sessions/",
+          "description": "Checks for existing incomplete sessions"
+        },
+        {
+          "kind": "writes_file",
+          "target": ".constrain/sessions/<id>.json",
+          "description": "Creates or updates session state file via session module"
+        },
+        {
+          "kind": "writes_file",
+          "target": "prompt.md",
+          "description": "Writes output artifact on synthesis completion"
+        },
+        {
+          "kind": "writes_file",
+          "target": "constraints.yaml",
+          "description": "Writes output artifact on synthesis completion"
+        },
+        {
+          "kind": "network_call",
+          "target": "Anthropic API",
+          "description": "LLM calls via engine module"
+        },
+        {
+          "kind": "logging",
+          "target": "stdout",
+          "description": "Displays conversation, prompts, and status messages via click.echo"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "cmd_new",
+      "description": "Subcommand `constrain new`. Always starts a new session regardless of existing incomplete sessions. Validates API key. Resolves round limits. Creates session via session.create(), runs engine.run(). Checks for .gitignore suggestion on first run.",
+      "inputs": [
+        {
+          "name": "min_understand",
+          "type_ref": "int",
+          "required": false,
+          "default": "None",
+          "description": "CLI flag --min-understand or None.",
+          "validators": []
+        },
+        {
+          "name": "max_understand",
+          "type_ref": "int",
+          "required": false,
+          "default": "None",
+          "description": "CLI flag --max-understand or None.",
+          "validators": []
+        },
+        {
+          "name": "min_challenge",
+          "type_ref": "int",
+          "required": false,
+          "default": "None",
+          "description": "CLI flag --min-challenge or None.",
+          "validators": []
+        },
+        {
+          "name": "max_challenge",
+          "type_ref": "int",
+          "required": false,
+          "default": "None",
+          "description": "CLI flag --max-challenge or None.",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "api_key_missing",
+          "condition": "ANTHROPIC_API_KEY not set",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "ANTHROPIC_API_KEY not set. Export it or add it to your shell profile."
+          }
+        },
+        {
+          "name": "round_limit_invalid",
+          "condition": "Round limit resolution fails (min > max or bad env var)",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "Round limit configuration error: {detail}"
+          }
+        },
+        {
+          "name": "session_create_failure",
+          "condition": "Cannot create session directory or state file",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "Could not create session: {reason}"
+          }
+        },
+        {
+          "name": "engine_error",
+          "condition": "Engine raises an exception during conversation loop",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "Session error: {reason}"
+          }
+        },
+        {
+          "name": "overwrite_declined",
+          "condition": "prompt.md or constraints.yaml exist and user declines overwrite confirmation",
+          "error_type": "click.Abort",
+          "error_data": {}
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "A new session JSON file exists in .constrain/sessions/",
+        "If session completed: prompt.md and constraints.yaml written to cwd",
+        "Exit code 0 on success"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": ".constrain/",
+          "description": "Checks if .constrain/ directory existed before creation for gitignore suggestion"
+        },
+        {
+          "kind": "writes_file",
+          "target": ".constrain/sessions/<id>.json",
+          "description": "Creates new session state file"
+        },
+        {
+          "kind": "writes_file",
+          "target": "prompt.md",
+          "description": "Writes output artifact on synthesis completion"
+        },
+        {
+          "kind": "writes_file",
+          "target": "constraints.yaml",
+          "description": "Writes output artifact on synthesis completion"
+        },
+        {
+          "kind": "network_call",
+          "target": "Anthropic API",
+          "description": "LLM calls via engine module"
+        },
+        {
+          "kind": "logging",
+          "target": "stdout",
+          "description": "Displays conversation and status via click.echo"
+        },
+        {
+          "kind": "logging",
+          "target": "stderr",
+          "description": "May display .gitignore suggestion"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "cmd_resume",
+      "description": "Subcommand `constrain resume [SESSION_ID]`. Resumes the most recent incomplete session, or a specific session if SESSION_ID is provided. Displays a session summary (phase, round count, problem model snapshot) but does NOT replay history to the LLM. Validates API key.",
+      "inputs": [
+        {
+          "name": "session_id",
+          "type_ref": "str",
+          "required": false,
+          "default": "None",
+          "description": "Optional session ID to resume. If None, resumes the most recent incomplete session.",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "api_key_missing",
+          "condition": "ANTHROPIC_API_KEY not set",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "ANTHROPIC_API_KEY not set. Export it or add it to your shell profile."
+          }
+        },
+        {
+          "name": "no_incomplete_sessions",
+          "condition": "No session_id provided and no incomplete sessions exist",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "No incomplete sessions found. Use 'constrain new' to start one."
+          }
+        },
+        {
+          "name": "session_not_found",
+          "condition": "Provided session_id does not match any existing session",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "Session '{session_id}' not found."
+          }
+        },
+        {
+          "name": "session_already_completed",
+          "condition": "Provided session_id refers to a completed session",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "Session '{session_id}' is already completed. Use 'constrain show' to view its artifacts."
+          }
+        },
+        {
+          "name": "session_corrupted",
+          "condition": "Session state file exists but cannot be deserialized",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "Could not load session '{session_id}': {reason}"
+          }
+        },
+        {
+          "name": "engine_error",
+          "condition": "Engine raises an exception during resumed conversation loop",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "Session error: {reason}"
+          }
+        },
+        {
+          "name": "overwrite_declined",
+          "condition": "Output artifacts exist and user declines overwrite on synthesis completion",
+          "error_type": "click.Abort",
+          "error_data": {}
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Session is loaded and engine.run() called with resume=True",
+        "Session summary displayed before conversation resumes",
+        "If session completed: prompt.md and constraints.yaml written to cwd"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": ".constrain/sessions/",
+          "description": "Loads session state from disk"
+        },
+        {
+          "kind": "writes_file",
+          "target": ".constrain/sessions/<id>.json",
+          "description": "Updates session state during conversation"
+        },
+        {
+          "kind": "writes_file",
+          "target": "prompt.md",
+          "description": "Writes output artifact on synthesis completion"
+        },
+        {
+          "kind": "writes_file",
+          "target": "constraints.yaml",
+          "description": "Writes output artifact on synthesis completion"
+        },
+        {
+          "kind": "network_call",
+          "target": "Anthropic API",
+          "description": "LLM calls via engine module"
+        },
+        {
+          "kind": "logging",
+          "target": "stdout",
+          "description": "Displays session summary, conversation, and status"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "cmd_show",
+      "description": "Subcommand `constrain show`. Displays the content of prompt.md and constraints.yaml from the most recent completed session to stdout. Does not require API key.",
+      "inputs": [],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "no_completed_sessions",
+          "condition": "No completed sessions exist",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "No completed sessions found. Use 'constrain' to start one."
+          }
+        },
+        {
+          "name": "artifacts_missing",
+          "condition": "Completed session exists but prompt.md or constraints.yaml not found on disk",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "Artifacts not found. They may have been moved or deleted. Session: {session_id}"
+          }
+        },
+        {
+          "name": "artifact_read_error",
+          "condition": "File exists but cannot be read (permissions, encoding)",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "Could not read {filename}: {reason}"
+          }
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "prompt.md content displayed to stdout with header separator",
+        "constraints.yaml content displayed to stdout with header separator"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": ".constrain/sessions/",
+          "description": "Finds most recent completed session"
+        },
+        {
+          "kind": "reads_file",
+          "target": "prompt.md",
+          "description": "Reads artifact content for display"
+        },
+        {
+          "kind": "reads_file",
+          "target": "constraints.yaml",
+          "description": "Reads artifact content for display"
+        },
+        {
+          "kind": "logging",
+          "target": "stdout",
+          "description": "Displays artifact contents via click.echo"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "cmd_list",
+      "description": "Subcommand `constrain list`. Lists all sessions with status, creation date, current phase, and posture (masked as '***'). Formatted as an aligned table. Does not require API key.",
+      "inputs": [],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "no_sessions",
+          "condition": "No sessions directory or no session files exist",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "No sessions found. Use 'constrain' to start one."
+          }
+        },
+        {
+          "name": "session_dir_unreadable",
+          "condition": ".constrain/sessions/ directory exists but cannot be read",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "Could not read sessions directory: {reason}"
+          }
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "All sessions listed in reverse chronological order (most recent first)",
+        "Posture field always displayed as '***' to avoid leaking prompt strategy",
+        "If no sessions exist, a helpful message is displayed instead of an empty table"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": ".constrain/sessions/",
+          "description": "Reads all session state files for listing"
+        },
+        {
+          "kind": "logging",
+          "target": "stdout",
+          "description": "Displays formatted session table via click.echo"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "format_session_table",
+      "description": "Format a list of session summaries into an aligned text table for terminal display. Pure formatting function with no I/O.",
+      "inputs": [
+        {
+          "name": "sessions",
+          "type_ref": "list",
+          "required": true,
+          "default": "",
+          "description": "List of SessionListRow structs to format.",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [],
+      "preconditions": [
+        "sessions is a non-empty list of SessionListRow instances"
+      ],
+      "postconditions": [
+        "Return value contains one header row and one data row per session",
+        "Columns are: ID, STATUS, CREATED, PHASE, POSTURE",
+        "All posture_display values are '***'",
+        "Rows are whitespace-aligned"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure formatting function"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "format_session_summary",
+      "description": "Format a session summary for display when offering to resume. Shows session ID, current phase, round counts, and a brief problem model snapshot. Pure formatting function.",
+      "inputs": [
+        {
+          "name": "session_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "The session identifier.",
+          "validators": []
+        },
+        {
+          "name": "status",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Current session status.",
+          "validators": []
+        },
+        {
+          "name": "current_phase",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Name of the current phase.",
+          "validators": []
+        },
+        {
+          "name": "round_count",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Number of conversation rounds completed so far.",
+          "validators": []
+        },
+        {
+          "name": "problem_summary",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Brief text summary of the problem model so far.",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Return value is a multi-line human-readable summary string",
+        "Contains session_id, current_phase, and round_count"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure formatting function"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "confirm_overwrite",
+      "description": "Check if prompt.md or constraints.yaml already exist in cwd. If either exists, prompt the user for confirmation to overwrite. Raises click.Abort if user declines.",
+      "inputs": [
+        {
+          "name": "cwd",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Current working directory path as string.",
+          "validators": []
+        }
+      ],
+      "output_type": "bool",
+      "error_cases": [
+        {
+          "name": "user_declined",
+          "condition": "User responds 'no' to overwrite confirmation prompt",
+          "error_type": "click.Abort",
+          "error_data": {}
+        }
+      ],
+      "preconditions": [
+        "cwd is a valid directory path"
+      ],
+      "postconditions": [
+        "Returns True if no files exist or user confirmed overwrite",
+        "Raises click.Abort if user declined"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "prompt.md",
+          "description": "Checks if file exists in cwd"
+        },
+        {
+          "kind": "reads_file",
+          "target": "constraints.yaml",
+          "description": "Checks if file exists in cwd"
+        },
+        {
+          "kind": "logging",
+          "target": "stdout",
+          "description": "Prompts user for confirmation via click.confirm"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "create_cli",
+      "description": "Factory function that constructs and returns the fully configured Click group with all subcommands registered. The group uses the SafeGroup custom class for centralized exception handling. This is the entry point used by the package's console_scripts entrypoint.",
+      "inputs": [],
+      "output_type": "any",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Return value is a click.Group instance with SafeGroup as its class",
+        "Group has subcommands: new, resume, show, list",
+        "Group callback is cmd_default with invoke_without_command=True",
+        "Round limit options are applied to both group callback and new subcommand"
+      ],
+      "idempotent": true,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": "Pure construction, no I/O"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "safe_group_invoke",
+      "description": "Override of click.Group.invoke() in the SafeGroup subclass. Wraps all command execution in centralized exception handling. Catches KeyboardInterrupt (exit 130 with friendly message), click.ClickException (re-raised for Click to handle, exit 1), click.Abort (exit 1 with 'Aborted.' message), and unexpected exceptions (exit 1 with generic 'An unexpected error occurred: {type}: {message}' — no stack trace).",
+      "inputs": [
+        {
+          "name": "click_context",
+          "type_ref": "any",
+          "required": true,
+          "default": "",
+          "description": "Click context object passed by Click framework.",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "keyboard_interrupt",
+          "condition": "User presses Ctrl+C during any command execution",
+          "error_type": "SystemExit",
+          "error_data": {
+            "exit_code": "130"
+          }
+        },
+        {
+          "name": "application_error",
+          "condition": "Any click.ClickException raised by command logic",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "exit_code": "1"
+          }
+        },
+        {
+          "name": "user_abort",
+          "condition": "User aborts a confirmation prompt",
+          "error_type": "SystemExit",
+          "error_data": {
+            "exit_code": "1"
+          }
+        },
+        {
+          "name": "unexpected_error",
+          "condition": "Any non-Click exception escapes command logic",
+          "error_type": "SystemExit",
+          "error_data": {
+            "exit_code": "1"
+          }
+        }
+      ],
+      "preconditions": [
+        "Called by Click framework during command dispatch"
+      ],
+      "postconditions": [
+        "On KeyboardInterrupt: sys.exit(130) after echoing newline and 'Interrupted.' to stderr",
+        "On click.ClickException: re-raised for Click's default handling (exit 1)",
+        "On click.Abort: sys.exit(1) after echoing 'Aborted.'",
+        "On unexpected Exception: sys.exit(1) after echoing generic error to stderr",
+        "Stack traces never shown in normal operation"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "logging",
+          "target": "stderr",
+          "description": "Writes error messages to stderr via click.echo"
+        }
+      ],
+      "performance_budget": null
+    }
+  ],
+  "dependencies": [
+    "session",
+    "engine",
+    "models"
+  ],
+  "dependency_contracts": {
+    "session": [
+      "create_session",
+      "load_session",
+      "load_most_recent_incomplete",
+      "load_most_recent_completed",
+      "list_sessions",
+      "constrain_dir_exists"
+    ],
+    "engine": [
+      "run"
+    ],
+    "models": [
+      "RoundLimits",
+      "Session",
+      "SessionSummary",
+      "SessionStatus",
+      "PhaseKind"
+    ]
+  },
+  "invariants": [
+    "CLI module contains zero business logic — all domain operations delegated to session, engine, and models modules",
+    "All exceptions are caught by SafeGroup.invoke() — stack traces never reach the user in normal operation",
+    "API key is validated before any network call — ensure_api_key() called in cmd_default, cmd_new, cmd_resume",
+    "Round limit options use identical Click option declarations on both cmd_default and cmd_new via shared decorator factory",
+    "Environment variable fallback order: CLI flag > env var > default, consistently for all four round limit values",
+    "Posture is always displayed as '***' in cmd_list output — never revealed to user",
+    "All file I/O uses pathlib.Path, never os.path or raw string operations",
+    "Exit codes are consistent: 0 success, 1 application error, 2 usage error (Click), 130 keyboard interrupt",
+    "Output file overwrites (prompt.md, constraints.yaml) always require explicit user confirmation",
+    ".gitignore suggestion is displayed at most once — on the first session creation when .constrain/ is newly created",
+    "Session summary on resume shows current state but does NOT replay conversation history to the LLM"
+  ],
+  "requires": [
+    "click",
+    "os (stdlib)",
+    "pathlib (stdlib)",
+    "sys (stdlib)"
+  ],
+  "processing_register": "rigorous-analytical"
+}

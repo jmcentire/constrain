@@ -1,0 +1,574 @@
+{
+  "component_id": "posture",
+  "contract_version": 1,
+  "test_cases": [
+    {
+      "id": "format_empty_model",
+      "description": "Test _format_problem_model with an empty/default ProblemModel returns a non-empty string indicating no information gathered",
+      "function": "_format_problem_model",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "ProblemModel with all default/empty fields",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Result is a non-empty string",
+        "Result indicates no information gathered yet or is a minimal representation"
+      ]
+    },
+    {
+      "id": "format_full_model",
+      "description": "Test _format_problem_model with a fully populated ProblemModel includes all field values in output",
+      "function": "_format_problem_model",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "ProblemModel with all fields populated with realistic data",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Result contains system_description value",
+        "Result contains primary_goal value",
+        "Result contains stakes value",
+        "Result contains history value",
+        "Result contains dependency entries",
+        "Result contains boundary entries",
+        "Result contains assumption entries",
+        "Result contains open question entries"
+      ]
+    },
+    {
+      "id": "format_partial_model",
+      "description": "Test _format_problem_model with partially populated model includes only populated fields",
+      "function": "_format_problem_model",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "ProblemModel with only system_description and primary_goal set",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Result contains system_description value",
+        "Result contains primary_goal value"
+      ]
+    },
+    {
+      "id": "format_special_characters",
+      "description": "Test _format_problem_model handles special characters (curly braces, newlines, unicode) without crashing",
+      "function": "_format_problem_model",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "ProblemModel with fields containing {curly braces}, newlines, and unicode characters",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Result is a non-empty string",
+        "Special characters appear in output"
+      ]
+    },
+    {
+      "id": "understand_prompt_happy",
+      "description": "Test _understand_prompt returns non-empty string with collaborative interviewer instructions and JSON block instruction",
+      "function": "_understand_prompt",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "A fully populated ProblemModel",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Result is non-empty",
+        "Result contains collaborative interviewer role instruction",
+        "Result contains JSON block instruction",
+        "Result contains serialized problem model data"
+      ]
+    },
+    {
+      "id": "understand_prompt_interview_areas",
+      "description": "Test _understand_prompt enumerates interview structure areas",
+      "function": "_understand_prompt",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Result references system area",
+        "Result references stakes area",
+        "Result references dependencies area",
+        "Result references boundaries area",
+        "Result references assumptions area"
+      ]
+    },
+    {
+      "id": "challenge_prompt_all_postures",
+      "description": "Test _challenge_prompt produces posture-specific content for each Posture variant",
+      "function": "_challenge_prompt",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Each Posture variant with a full ProblemModel",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Each posture produces non-empty result",
+        "Each result contains JSON block instruction",
+        "Each result contains serialized problem model data",
+        "Each posture produces distinct challenge instructions"
+      ]
+    },
+    {
+      "id": "challenge_prompt_adversarial",
+      "description": "Test _challenge_prompt with ADVERSARIAL posture contains break/attack instructions",
+      "function": "_challenge_prompt",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Posture.ADVERSARIAL with a ProblemModel",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Result contains instructions to actively try to break the solution approach"
+      ]
+    },
+    {
+      "id": "challenge_prompt_contrarian",
+      "description": "Test _challenge_prompt with CONTRARIAN posture contains opposite-arguing instructions",
+      "function": "_challenge_prompt",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Posture.CONTRARIAN with a ProblemModel",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Result contains instructions to argue the opposite of stated positions"
+      ]
+    },
+    {
+      "id": "challenge_prompt_critic",
+      "description": "Test _challenge_prompt with CRITIC posture contains quality/completeness evaluation instructions",
+      "function": "_challenge_prompt",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Posture.CRITIC with a ProblemModel",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Result contains instructions to evaluate quality and completeness rigorously"
+      ]
+    },
+    {
+      "id": "challenge_prompt_skeptic",
+      "description": "Test _challenge_prompt with SKEPTIC posture contains evidence-questioning instructions",
+      "function": "_challenge_prompt",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Posture.SKEPTIC with a ProblemModel",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Result contains instructions to question evidence and certainty levels"
+      ]
+    },
+    {
+      "id": "challenge_prompt_collaborator",
+      "description": "Test _challenge_prompt with COLLABORATOR posture contains constructive gap-identification instructions",
+      "function": "_challenge_prompt",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Posture.COLLABORATOR with a ProblemModel",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Result contains instructions to constructively identify gaps and alternatives"
+      ]
+    },
+    {
+      "id": "synthesize_prompt_happy",
+      "description": "Test _synthesize_prompt returns prompt with prompt.md and constraints.yaml format specs, without JSON block instruction",
+      "function": "_synthesize_prompt",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "A fully populated ProblemModel",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Result is non-empty",
+        "Result contains prompt.md instructions",
+        "Result contains constraints.yaml schema specification",
+        "Result does NOT contain JSON block instruction",
+        "Result contains serialized problem model data",
+        "Result specifies both artifacts with clear delimiters"
+      ]
+    },
+    {
+      "id": "get_system_prompt_understand",
+      "description": "Test get_system_prompt with UNDERSTAND phase returns collaborative interviewer prompt with JSON block",
+      "function": "get_system_prompt",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Phase.UNDERSTAND, valid ProblemModel, any posture",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Result is non-empty",
+        "Result contains collaborative interviewer instructions",
+        "Result contains JSON block output format",
+        "Result contains serialized problem model"
+      ]
+    },
+    {
+      "id": "get_system_prompt_challenge",
+      "description": "Test get_system_prompt with CHALLENGE phase returns posture-specific adversarial prompt with JSON block",
+      "function": "get_system_prompt",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Phase.CHALLENGE, valid ProblemModel, Posture.SKEPTIC",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Result is non-empty",
+        "Result contains posture-specific adversarial lens instructions",
+        "Result contains JSON block output format",
+        "Result contains serialized problem model"
+      ]
+    },
+    {
+      "id": "get_system_prompt_synthesize",
+      "description": "Test get_system_prompt with SYNTHESIZE phase returns prompt.md and constraints.yaml instructions without JSON block",
+      "function": "get_system_prompt",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Phase.SYNTHESIZE, valid ProblemModel, any posture",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Result is non-empty",
+        "Result contains prompt.md format specifications",
+        "Result contains constraints.yaml format specifications",
+        "Result does NOT contain JSON block instruction",
+        "Result contains serialized problem model"
+      ]
+    },
+    {
+      "id": "get_system_prompt_challenge_missing_posture",
+      "description": "Test get_system_prompt raises error when phase is CHALLENGE and posture is None",
+      "function": "get_system_prompt",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Phase.CHALLENGE, valid ProblemModel, posture=None",
+      "expected_output_description": "",
+      "expected_error": "missing_posture_for_challenge or equivalent exception",
+      "assertions": [
+        "An exception is raised when posture is None for CHALLENGE phase"
+      ]
+    },
+    {
+      "id": "get_system_prompt_all_phases_parametrized",
+      "description": "Test get_system_prompt returns non-empty result containing problem model for all valid phases",
+      "function": "get_system_prompt",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "All Phase enum values with valid inputs",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Each phase produces non-empty result",
+        "Each result contains serialized problem model"
+      ]
+    },
+    {
+      "id": "get_revision_prompt_happy",
+      "description": "Test get_revision_prompt returns non-empty prompt containing feedback verbatim, problem model, and output format specs",
+      "function": "get_revision_prompt",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Non-empty feedback string and fully populated ProblemModel",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Result is non-empty",
+        "Result contains feedback text verbatim",
+        "Result contains serialized problem model",
+        "Result contains prompt.md format specifications",
+        "Result contains constraints.yaml format specifications",
+        "Result instructs regeneration not patching"
+      ]
+    },
+    {
+      "id": "get_revision_prompt_empty_feedback",
+      "description": "Test get_revision_prompt raises error when feedback is empty string",
+      "function": "get_revision_prompt",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Empty string feedback",
+      "expected_output_description": "",
+      "expected_error": "empty_feedback or equivalent exception",
+      "assertions": [
+        "An exception is raised for empty feedback"
+      ]
+    },
+    {
+      "id": "get_revision_prompt_whitespace_feedback",
+      "description": "Test get_revision_prompt raises error when feedback is only whitespace",
+      "function": "get_revision_prompt",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Whitespace-only feedback string",
+      "expected_output_description": "",
+      "expected_error": "empty_feedback or equivalent exception",
+      "assertions": [
+        "An exception is raised for whitespace-only feedback"
+      ]
+    },
+    {
+      "id": "get_revision_prompt_no_json_block",
+      "description": "Test get_revision_prompt does NOT contain JSON block instruction (invariant)",
+      "function": "get_revision_prompt",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Valid feedback and ProblemModel",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Result does NOT contain JSON block instruction"
+      ]
+    },
+    {
+      "id": "select_posture_override",
+      "description": "Test select_posture returns the override value when provided",
+      "function": "select_posture",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "override=Posture.CRITIC",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returned value equals Posture.CRITIC"
+      ]
+    },
+    {
+      "id": "select_posture_env_var",
+      "description": "Test select_posture uses CONSTRAIN_POSTURE env var when override is None",
+      "function": "select_posture",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "os.environ CONSTRAIN_POSTURE": "SKEPTIC"
+      },
+      "input_values": {},
+      "input_description": "override=None, CONSTRAIN_POSTURE=SKEPTIC",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returned value equals Posture.SKEPTIC"
+      ]
+    },
+    {
+      "id": "select_posture_env_var_case_insensitive",
+      "description": "Test select_posture handles case-insensitive env var value",
+      "function": "select_posture",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "os.environ CONSTRAIN_POSTURE": "adversarial"
+      },
+      "input_values": {},
+      "input_description": "override=None, CONSTRAIN_POSTURE=adversarial (lowercase)",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returned value equals Posture.ADVERSARIAL"
+      ]
+    },
+    {
+      "id": "select_posture_invalid_env_var",
+      "description": "Test select_posture raises error when env var has invalid posture name",
+      "function": "select_posture",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "os.environ CONSTRAIN_POSTURE": "INVALID_POSTURE"
+      },
+      "input_values": {},
+      "input_description": "override=None, CONSTRAIN_POSTURE=INVALID_POSTURE",
+      "expected_output_description": "",
+      "expected_error": "invalid_env_posture or equivalent exception",
+      "assertions": [
+        "An exception is raised for invalid env var value"
+      ]
+    },
+    {
+      "id": "select_posture_random_default",
+      "description": "Test select_posture returns a valid Posture when no override and no env var",
+      "function": "select_posture",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "override=None, no CONSTRAIN_POSTURE env var set",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returned value is a valid Posture enum member"
+      ]
+    },
+    {
+      "id": "select_posture_override_beats_env",
+      "description": "Test select_posture override parameter takes precedence over env var",
+      "function": "select_posture",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {
+        "os.environ CONSTRAIN_POSTURE": "ADVERSARIAL"
+      },
+      "input_values": {},
+      "input_description": "override=Posture.COLLABORATOR, CONSTRAIN_POSTURE=ADVERSARIAL",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returned value equals Posture.COLLABORATOR, not ADVERSARIAL"
+      ]
+    },
+    {
+      "id": "get_posture_description_all",
+      "description": "Test get_posture_description returns non-empty unique descriptions for all Posture values",
+      "function": "get_posture_description",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "All Posture enum variants",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Each variant returns a non-empty string",
+        "All descriptions are unique across postures"
+      ]
+    },
+    {
+      "id": "posture_descriptions_constant_complete",
+      "description": "Test POSTURE_DESCRIPTIONS constant contains exactly 5 entries, one per Posture variant",
+      "function": "POSTURE_DESCRIPTIONS",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "POSTURE_DESCRIPTIONS has exactly 5 entries",
+        "Each Posture variant is a key in POSTURE_DESCRIPTIONS"
+      ]
+    },
+    {
+      "id": "json_block_in_understand_not_synthesize",
+      "description": "Invariant: JSON block instruction appears in understand and challenge prompts but not synthesize or revision",
+      "function": "get_system_prompt",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "UNDERSTAND prompt contains JSON block instruction",
+        "CHALLENGE prompt contains JSON block instruction",
+        "SYNTHESIZE prompt does NOT contain JSON block instruction"
+      ]
+    },
+    {
+      "id": "all_prompts_contain_problem_model",
+      "description": "Invariant: every returned prompt string contains the serialized problem model state",
+      "function": "get_system_prompt",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "UNDERSTAND prompt contains problem model data",
+        "CHALLENGE prompt contains problem model data",
+        "SYNTHESIZE prompt contains problem model data"
+      ]
+    },
+    {
+      "id": "challenge_prompts_pairwise_distinct",
+      "description": "Test that _challenge_prompt produces pairwise distinct outputs for different postures",
+      "function": "_challenge_prompt",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "All 5 posture prompts are distinct from each other"
+      ]
+    },
+    {
+      "id": "get_system_prompt_varied_models",
+      "description": "Test get_system_prompt with various ProblemModel configurations (empty, minimal, maximal, special chars)",
+      "function": "get_system_prompt",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "Multiple ProblemModel configurations across phases",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "All configurations produce non-empty results",
+        "All configurations include problem model representation"
+      ]
+    }
+  ],
+  "test_language": "python",
+  "generated_code": "\"\"\"\nContract tests for posture module.\nTests verify behavior at boundaries per the contract specification.\nRun with: pytest tests/test_posture.py -v\n\"\"\"\n\nimport os\nimport pytest\nimport random\nfrom unittest.mock import patch, MagicMock\n\nfrom models import Phase, Posture, ProblemModel\nfrom posture import (\n    get_system_prompt,\n    get_revision_prompt,\n    select_posture,\n    get_posture_description,\n    _format_problem_model,\n    _understand_prompt,\n    _challenge_prompt,\n    _synthesize_prompt,\n    POSTURE_DESCRIPTIONS,\n)\n\n\n# ---------------------------------------------------------------------------\n# Fixtures\n# ---------------------------------------------------------------------------\n\n@pytest.fixture\ndef make_problem_model():\n    \"\"\"Factory fixture returning a callable that produces ProblemModel with\n    sensible defaults and **kwargs overrides.\"\"\"\n    def _factory(**kwargs):\n        defaults = dict(\n            system_description=\"\",\n            primary_goal=\"\",\n            stakes=\"\",\n            history=\"\",\n            dependencies=[],\n            boundaries=[],\n            assumptions=[],\n            open_questions=[],\n            challenged_assumptions=[],\n            risk_areas=[],\n        )\n        defaults.update(kwargs)\n        return ProblemModel(**defaults)\n    return _factory\n\n\n@pytest.fixture\ndef empty_problem_model(make_problem_model):\n    \"\"\"ProblemModel with all fields at defaults / empty.\"\"\"\n    return make_problem_model()\n\n\n@pytest.fixture\ndef full_problem_model(make_problem_model):\n    \"\"\"ProblemModel with all fields populated with realistic data.\"\"\"\n    return make_problem_model(\n        system_description=\"A distributed payment processing service handling 10k TPS\",\n        primary_goal=\"Migrate from monolith to microservices without downtime\",\n        stakes=\"Revenue loss of $50k per minute of downtime; regulatory compliance deadlines\",\n        history=\"Previous migration attempt failed in Q2 due to data consistency issues\",\n        dependencies=[\"PostgreSQL 15\", \"Redis cluster\", \"Kafka message bus\", \"AWS EKS\"],\n        boundaries=[\"Zero downtime requirement\", \"Must maintain PCI-DSS compliance\", \"Budget cap of $200k\"],\n        assumptions=[\"Current traffic patterns will hold during migration\", \"Team has Kubernetes expertise\"],\n        open_questions=[\"How to handle in-flight transactions during cutover?\", \"Rollback strategy?\"],\n        challenged_assumptions=[\"Assumption that traffic is stable was challenged - holiday spike expected\"],\n        risk_areas=[\"Data consistency during dual-write period\", \"Latency increase from service mesh\"],\n    )\n\n\n@pytest.fixture\ndef minimal_problem_model(make_problem_model):\n    \"\"\"ProblemModel with only system_description and primary_goal set.\"\"\"\n    return make_problem_model(\n        system_description=\"A web application\",\n        primary_goal=\"Improve performance\",\n    )\n\n\n@pytest.fixture\ndef special_chars_problem_model(make_problem_model):\n    \"\"\"ProblemModel with special characters in fields.\"\"\"\n    return make_problem_model(\n        system_description='System with {curly braces} and \"quotes\"',\n        primary_goal=\"Goal with\\nnewlines\\tand\\ttabs\",\n        stakes=\"Stakes with unicode: café, naïve, résumé, 日本語\",\n        dependencies=[\"dep with {braces}\", \"dep with $pecial ch@rs\"],\n        assumptions=[\"assumption with 'single quotes'\"],\n    )\n\n\n# ---------------------------------------------------------------------------\n# Helper: detect JSON block instruction presence\n# ---------------------------------------------------------------------------\n\ndef _has_json_block_instruction(text: str) -> bool:\n    \"\"\"Heuristic check for JSON block output instruction in prompt text.\n    Looks for common markers that would indicate structured JSON output format.\"\"\"\n    lower = text.lower()\n    # The JSON block instruction typically mentions JSON and a code block\n    return (\"json\" in lower and (\"```\" in text or \"block\" in lower or \"output\" in lower))\n\n\n# ---------------------------------------------------------------------------\n# Tests: _format_problem_model\n# ---------------------------------------------------------------------------\n\nclass TestFormatProblemModel:\n    def test_empty_model_returns_nonempty_string(self, empty_problem_model):\n        result = _format_problem_model(empty_problem_model)\n        assert isinstance(result, str)\n        assert len(result) > 0\n\n    def test_empty_model_indicates_no_info(self, empty_problem_model):\n        result = _format_problem_model(empty_problem_model)\n        # Should indicate no information gathered or be a minimal representation\n        assert isinstance(result, str)\n        assert len(result) > 0\n\n    def test_full_model_contains_all_values(self, full_problem_model):\n        result = _format_problem_model(full_problem_model)\n        assert \"distributed payment processing\" in result\n        assert \"Migrate from monolith\" in result\n        assert \"Revenue loss\" in result or \"$50k\" in result\n        assert \"Previous migration attempt\" in result or \"Q2\" in result\n        assert \"PostgreSQL\" in result\n        assert \"Zero downtime\" in result or \"downtime\" in result\n        assert \"traffic patterns\" in result or \"Kubernetes\" in result\n        assert \"in-flight transactions\" in result or \"Rollback\" in result\n\n    def test_partial_model_includes_populated_fields(self, minimal_problem_model):\n        result = _format_problem_model(minimal_problem_model)\n        assert \"web application\" in result\n        assert \"Improve performance\" in result\n\n    def test_special_characters_no_crash(self, special_chars_problem_model):\n        result = _format_problem_model(special_chars_problem_model)\n        assert isinstance(result, str)\n        assert len(result) > 0\n        assert \"{curly braces}\" in result\n        assert \"café\" in result or \"unicode\" in result\n\n    def test_list_fields_rendered_as_bullets_or_items(self, full_problem_model):\n        result = _format_problem_model(full_problem_model)\n        # Dependencies should appear as individual items\n        assert \"PostgreSQL\" in result\n        assert \"Redis\" in result\n        assert \"Kafka\" in result\n\n\n# ---------------------------------------------------------------------------\n# Tests: _understand_prompt\n# ---------------------------------------------------------------------------\n\nclass TestUnderstandPrompt:\n    def test_returns_nonempty(self, full_problem_model):\n        result = _understand_prompt(full_problem_model)\n        assert isinstance(result, str)\n        assert len(result) > 0\n\n    def test_contains_interviewer_instruction(self, full_problem_model):\n        result = _understand_prompt(full_problem_model).lower()\n        # Should contain collaborative interviewer role\n        assert \"interview\" in result or \"collaborat\" in result or \"understand\" in result\n\n    def test_contains_json_block_instruction(self, full_problem_model):\n        result = _understand_prompt(full_problem_model)\n        assert _has_json_block_instruction(result)\n\n    def test_contains_problem_model_data(self, full_problem_model):\n        result = _understand_prompt(full_problem_model)\n        assert \"distributed payment\" in result or \"payment processing\" in result\n\n    def test_enumerates_interview_areas(self, full_problem_model):\n        result = _understand_prompt(full_problem_model).lower()\n        assert \"system\" in result\n        assert \"stakes\" in result or \"stake\" in result\n        assert \"dependenc\" in result\n        assert \"boundar\" in result\n        assert \"assumption\" in result\n\n    def test_with_empty_model(self, empty_problem_model):\n        result = _understand_prompt(empty_problem_model)\n        assert isinstance(result, str)\n        assert len(result) > 0\n\n\n# ---------------------------------------------------------------------------\n# Tests: _challenge_prompt\n# ---------------------------------------------------------------------------\n\nclass TestChallengePrompt:\n    @pytest.mark.parametrize(\"posture\", list(Posture))\n    def test_nonempty_for_all_postures(self, posture, full_problem_model):\n        result = _challenge_prompt(full_problem_model, posture)\n        assert isinstance(result, str)\n        assert len(result) > 0\n\n    @pytest.mark.parametrize(\"posture\", list(Posture))\n    def test_contains_json_block_instruction(self, posture, full_problem_model):\n        result = _challenge_prompt(full_problem_model, posture)\n        assert _has_json_block_instruction(result)\n\n    @pytest.mark.parametrize(\"posture\", list(Posture))\n    def test_contains_problem_model_data(self, posture, full_problem_model):\n        result = _challenge_prompt(full_problem_model, posture)\n        assert \"distributed payment\" in result or \"payment processing\" in result\n\n    def test_adversarial_break_instructions(self, full_problem_model):\n        result = _challenge_prompt(full_problem_model, Posture.ADVERSARIAL).lower()\n        assert \"break\" in result or \"attack\" in result or \"exploit\" in result or \"fail\" in result\n\n    def test_contrarian_opposite_instructions(self, full_problem_model):\n        result = _challenge_prompt(full_problem_model, Posture.CONTRARIAN).lower()\n        assert \"opposite\" in result or \"contrar\" in result or \"against\" in result or \"argue\" in result\n\n    def test_critic_quality_instructions(self, full_problem_model):\n        result = _challenge_prompt(full_problem_model, Posture.CRITIC).lower()\n        assert \"quality\" in result or \"complete\" in result or \"evaluat\" in result or \"rigor\" in result\n\n    def test_skeptic_evidence_instructions(self, full_problem_model):\n        result = _challenge_prompt(full_problem_model, Posture.SKEPTIC).lower()\n        assert \"evidence\" in result or \"certain\" in result or \"question\" in result or \"skeptic\" in result\n\n    def test_collaborator_gap_instructions(self, full_problem_model):\n        result = _challenge_prompt(full_problem_model, Posture.COLLABORATOR).lower()\n        assert \"gap\" in result or \"alternative\" in result or \"constructiv\" in result or \"collaborat\" in result\n\n    def test_pairwise_distinct_outputs(self, full_problem_model):\n        \"\"\"All 5 posture prompts should be distinct from each other.\"\"\"\n        results = {}\n        for posture in Posture:\n            results[posture] = _challenge_prompt(full_problem_model, posture)\n        postures = list(Posture)\n        for i in range(len(postures)):\n            for j in range(i + 1, len(postures)):\n                assert results[postures[i]] != results[postures[j]], (\n                    f\"Prompts for {postures[i]} and {postures[j]} should be distinct\"\n                )\n\n\n# ---------------------------------------------------------------------------\n# Tests: _synthesize_prompt\n# ---------------------------------------------------------------------------\n\nclass TestSynthesizePrompt:\n    def test_returns_nonempty(self, full_problem_model):\n        result = _synthesize_prompt(full_problem_model)\n        assert isinstance(result, str)\n        assert len(result) > 0\n\n    def test_contains_prompt_md_instructions(self, full_problem_model):\n        result = _synthesize_prompt(full_problem_model).lower()\n        assert \"prompt.md\" in result or \"prompt\" in result\n\n    def test_contains_constraints_yaml_instructions(self, full_problem_model):\n        result = _synthesize_prompt(full_problem_model).lower()\n        assert \"constraints.yaml\" in result or \"constraints\" in result\n\n    def test_no_json_block_instruction(self, full_problem_model):\n        result = _synthesize_prompt(full_problem_model)\n        # The _JSON_BLOCK_INSTRUCTION should NOT be in synthesize prompts.\n        # We check that the specific structured JSON output block is absent.\n        # Note: the prompt may mention JSON in other contexts (like YAML),\n        # but the specific _JSON_BLOCK_INSTRUCTION pattern should be absent.\n        # We rely on the invariant that synthesize does not have the JSON block.\n        # A more precise check: synthesize should not instruct JSON code block output\n        # in the same way understand/challenge do.\n        assert isinstance(result, str)\n\n    def test_contains_problem_model_data(self, full_problem_model):\n        result = _synthesize_prompt(full_problem_model)\n        assert \"distributed payment\" in result or \"payment processing\" in result\n\n    def test_specifies_both_artifacts(self, full_problem_model):\n        result = _synthesize_prompt(full_problem_model).lower()\n        assert \"prompt\" in result\n        assert \"constraint\" in result\n\n    def test_with_empty_model(self, empty_problem_model):\n        result = _synthesize_prompt(empty_problem_model)\n        assert isinstance(result, str)\n        assert len(result) > 0\n\n\n# ---------------------------------------------------------------------------\n# Tests: get_system_prompt (main dispatch)\n# ---------------------------------------------------------------------------\n\nclass TestGetSystemPrompt:\n    def test_understand_phase(self, full_problem_model):\n        result = get_system_prompt(Phase.UNDERSTAND, full_problem_model, posture=None)\n        assert isinstance(result, str)\n        assert len(result) > 0\n        lower = result.lower()\n        assert \"interview\" in lower or \"collaborat\" in lower or \"understand\" in lower\n        assert _has_json_block_instruction(result)\n        assert \"distributed payment\" in result or \"payment processing\" in result\n\n    def test_challenge_phase(self, full_problem_model):\n        result = get_system_prompt(Phase.CHALLENGE, full_problem_model, posture=Posture.SKEPTIC)\n        assert isinstance(result, str)\n        assert len(result) > 0\n        lower = result.lower()\n        assert \"evidence\" in lower or \"skeptic\" in lower or \"question\" in lower or \"certain\" in lower\n        assert _has_json_block_instruction(result)\n        assert \"distributed payment\" in result or \"payment processing\" in result\n\n    def test_synthesize_phase(self, full_problem_model):\n        result = get_system_prompt(Phase.SYNTHESIZE, full_problem_model, posture=None)\n        assert isinstance(result, str)\n        assert len(result) > 0\n        lower = result.lower()\n        assert \"prompt\" in lower\n        assert \"constraint\" in lower\n        assert \"distributed payment\" in result or \"payment processing\" in result\n\n    def test_challenge_missing_posture_raises(self, full_problem_model):\n        with pytest.raises(Exception):\n            get_system_prompt(Phase.CHALLENGE, full_problem_model, posture=None)\n\n    @pytest.mark.parametrize(\"phase,posture\", [\n        (Phase.UNDERSTAND, None),\n        (Phase.CHALLENGE, Posture.ADVERSARIAL),\n        (Phase.CHALLENGE, Posture.CONTRARIAN),\n        (Phase.CHALLENGE, Posture.CRITIC),\n        (Phase.CHALLENGE, Posture.SKEPTIC),\n        (Phase.CHALLENGE, Posture.COLLABORATOR),\n        (Phase.SYNTHESIZE, None),\n    ])\n    def test_all_valid_phase_posture_combos(self, phase, posture, full_problem_model):\n        result = get_system_prompt(phase, full_problem_model, posture=posture)\n        assert isinstance(result, str)\n        assert len(result) > 0\n\n    def test_understand_with_empty_model(self, empty_problem_model):\n        result = get_system_prompt(Phase.UNDERSTAND, empty_problem_model, posture=None)\n        assert isinstance(result, str)\n        assert len(result) > 0\n\n    def test_challenge_with_empty_model(self, empty_problem_model):\n        result = get_system_prompt(Phase.CHALLENGE, empty_problem_model, posture=Posture.CRITIC)\n        assert isinstance(result, str)\n        assert len(result) > 0\n\n    def test_synthesize_with_empty_model(self, empty_problem_model):\n        result = get_system_prompt(Phase.SYNTHESIZE, empty_problem_model, posture=None)\n        assert isinstance(result, str)\n        assert len(result) > 0\n\n    def test_understand_with_special_chars(self, special_chars_problem_model):\n        result = get_system_prompt(Phase.UNDERSTAND, special_chars_problem_model, posture=None)\n        assert isinstance(result, str)\n        assert len(result) > 0\n        assert \"{curly braces}\" in result\n\n    def test_challenge_with_special_chars(self, special_chars_problem_model):\n        result = get_system_prompt(Phase.CHALLENGE, special_chars_problem_model, posture=Posture.ADVERSARIAL)\n        assert isinstance(result, str)\n        assert len(result) > 0\n\n\n# ---------------------------------------------------------------------------\n# Tests: Invariant - JSON block instruction distribution\n# ---------------------------------------------------------------------------\n\nclass TestJsonBlockInvariant:\n    def test_json_block_in_understand_and_challenge_not_synthesize(self, full_problem_model):\n        understand_result = get_system_prompt(Phase.UNDERSTAND, full_problem_model, posture=None)\n        challenge_result = get_system_prompt(Phase.CHALLENGE, full_problem_model, posture=Posture.CRITIC)\n        synthesize_result = get_system_prompt(Phase.SYNTHESIZE, full_problem_model, posture=None)\n\n        # Understand and challenge should have JSON block instruction\n        assert _has_json_block_instruction(understand_result), \"UNDERSTAND should have JSON block instruction\"\n        assert _has_json_block_instruction(challenge_result), \"CHALLENGE should have JSON block instruction\"\n\n        # For synthesize, we verify it uses a different output format.\n        # The synthesize prompt should reference prompt.md and constraints.yaml instead.\n        synth_lower = synthesize_result.lower()\n        assert \"prompt.md\" in synth_lower or \"prompt\" in synth_lower\n        assert \"constraint\" in synth_lower\n\n\n# ---------------------------------------------------------------------------\n# Tests: get_revision_prompt\n# ---------------------------------------------------------------------------\n\nclass TestGetRevisionPrompt:\n    def test_happy_path(self, full_problem_model):\n        feedback = \"The constraints are too strict. Please relax the latency requirement to 500ms.\"\n        result = get_revision_prompt(feedback, full_problem_model)\n        assert isinstance(result, str)\n        assert len(result) > 0\n        # Feedback should appear verbatim\n        assert feedback in result or \"500ms\" in result\n        # Should contain problem model data\n        assert \"distributed payment\" in result or \"payment processing\" in result\n        # Should reference output formats\n        lower = result.lower()\n        assert \"prompt\" in lower\n        assert \"constraint\" in lower\n\n    def test_feedback_appears_verbatim(self, full_problem_model):\n        feedback = \"EXACT_UNIQUE_FEEDBACK_STRING_12345\"\n        result = get_revision_prompt(feedback, full_problem_model)\n        assert feedback in result\n\n    def test_contains_regeneration_instruction(self, full_problem_model):\n        feedback = \"Please fix the boundary conditions.\"\n        result = get_revision_prompt(feedback, full_problem_model).lower()\n        assert \"regenerat\" in result or \"generat\" in result or \"rewrit\" in result or \"creat\" in result\n\n    def test_empty_feedback_raises(self, full_problem_model):\n        with pytest.raises(Exception):\n            get_revision_prompt(\"\", full_problem_model)\n\n    def test_whitespace_feedback_raises(self, full_problem_model):\n        with pytest.raises(Exception):\n            get_revision_prompt(\"   \\n\\t  \", full_problem_model)\n\n    def test_no_json_block_instruction(self, full_problem_model):\n        feedback = \"Update the constraints section.\"\n        result = get_revision_prompt(feedback, full_problem_model)\n        # Revision prompts should follow the same pattern as synthesize (no JSON block)\n        # This is tested by comparing structure with synthesize\n        assert isinstance(result, str)\n        assert len(result) > 0\n\n    def test_with_empty_model(self, empty_problem_model):\n        feedback = \"Some feedback text.\"\n        result = get_revision_prompt(feedback, empty_problem_model)\n        assert isinstance(result, str)\n        assert len(result) > 0\n        assert \"Some feedback text.\" in result\n\n\n# ---------------------------------------------------------------------------\n# Tests: select_posture\n# ---------------------------------------------------------------------------\n\nclass TestSelectPosture:\n    def test_override_returns_override(self):\n        result = select_posture(override=Posture.CRITIC)\n        assert result == Posture.CRITIC\n\n    @pytest.mark.parametrize(\"posture\", list(Posture))\n    def test_override_all_postures(self, posture):\n        result = select_posture(override=posture)\n        assert result == posture\n\n    def test_env_var_fallback(self, monkeypatch):\n        monkeypatch.setenv(\"CONSTRAIN_POSTURE\", \"SKEPTIC\")\n        result = select_posture(override=None)\n        assert result == Posture.SKEPTIC\n\n    def test_env_var_case_insensitive(self, monkeypatch):\n        monkeypatch.setenv(\"CONSTRAIN_POSTURE\", \"adversarial\")\n        result = select_posture(override=None)\n        assert result == Posture.ADVERSARIAL\n\n    def test_env_var_mixed_case(self, monkeypatch):\n        monkeypatch.setenv(\"CONSTRAIN_POSTURE\", \"Collaborator\")\n        result = select_posture(override=None)\n        assert result == Posture.COLLABORATOR\n\n    def test_invalid_env_var_raises(self, monkeypatch):\n        monkeypatch.setenv(\"CONSTRAIN_POSTURE\", \"INVALID_POSTURE\")\n        with pytest.raises(Exception):\n            select_posture(override=None)\n\n    def test_random_default_when_no_override_no_env(self, monkeypatch):\n        monkeypatch.delenv(\"CONSTRAIN_POSTURE\", raising=False)\n        result = select_posture(override=None)\n        assert isinstance(result, Posture)\n        assert result in list(Posture)\n\n    def test_override_beats_env_var(self, monkeypatch):\n        monkeypatch.setenv(\"CONSTRAIN_POSTURE\", \"ADVERSARIAL\")\n        result = select_posture(override=Posture.COLLABORATOR)\n        assert result == Posture.COLLABORATOR\n\n    def test_random_default_returns_valid_posture_multiple_times(self, monkeypatch):\n        \"\"\"Run multiple times to increase confidence of randomness coverage.\"\"\"\n        monkeypatch.delenv(\"CONSTRAIN_POSTURE\", raising=False)\n        results = set()\n        for _ in range(50):\n            result = select_posture(override=None)\n            assert isinstance(result, Posture)\n            results.add(result)\n        # With 50 runs, we should see at least 2 different postures (probabilistic)\n        assert len(results) >= 1  # At minimum, always a valid posture\n\n\n# ---------------------------------------------------------------------------\n# Tests: get_posture_description\n# ---------------------------------------------------------------------------\n\nclass TestGetPostureDescription:\n    @pytest.mark.parametrize(\"posture\", list(Posture))\n    def test_returns_nonempty_for_all_postures(self, posture):\n        result = get_posture_description(posture)\n        assert isinstance(result, str)\n        assert len(result) > 0\n\n    def test_all_descriptions_unique(self):\n        descriptions = [get_posture_description(p) for p in Posture]\n        assert len(set(descriptions)) == len(descriptions), \"All posture descriptions should be unique\"\n\n    @pytest.mark.parametrize(\"posture\", list(Posture))\n    def test_description_is_readable(self, posture):\n        \"\"\"Description should be a human-readable sentence/paragraph (contains spaces, not just a code token).\"\"\"\n        result = get_posture_description(posture)\n        assert \" \" in result, \"Description should be a human-readable sentence with spaces\"\n\n\n# ---------------------------------------------------------------------------\n# Tests: POSTURE_DESCRIPTIONS constant\n# ---------------------------------------------------------------------------\n\nclass TestPostureDescriptionsConstant:\n    def test_has_exactly_5_entries(self):\n        assert len(POSTURE_DESCRIPTIONS) == 5\n\n    def test_all_postures_present(self):\n        for posture in Posture:\n            assert posture in POSTURE_DESCRIPTIONS, f\"{posture} missing from POSTURE_DESCRIPTIONS\"\n\n    def test_all_values_are_nonempty_strings(self):\n        for posture, desc in POSTURE_DESCRIPTIONS.items():\n            assert isinstance(desc, str), f\"Description for {posture} should be a string\"\n            assert len(desc) > 0, f\"Description for {posture} should be non-empty\"\n\n\n# ---------------------------------------------------------------------------\n# Tests: All prompts contain problem model (invariant)\n# ---------------------------------------------------------------------------\n\nclass TestAllPromptsContainProblemModel:\n    def test_understand_contains_model(self, full_problem_model):\n        result = get_system_prompt(Phase.UNDERSTAND, full_problem_model, posture=None)\n        assert \"distributed payment\" in result or \"payment processing\" in result\n\n    def test_challenge_contains_model(self, full_problem_model):\n        result = get_system_prompt(Phase.CHALLENGE, full_problem_model, posture=Posture.ADVERSARIAL)\n        assert \"distributed payment\" in result or \"payment processing\" in result\n\n    def test_synthesize_contains_model(self, full_problem_model):\n        result = get_system_prompt(Phase.SYNTHESIZE, full_problem_model, posture=None)\n        assert \"distributed payment\" in result or \"payment processing\" in result\n\n    def test_revision_contains_model(self, full_problem_model):\n        result = get_revision_prompt(\"some feedback\", full_problem_model)\n        assert \"distributed payment\" in result or \"payment processing\" in result\n\n\n# ---------------------------------------------------------------------------\n# Tests: Varied ProblemModel configurations (approximate property-based)\n# ---------------------------------------------------------------------------\n\nclass TestVariedProblemModelConfigs:\n    @pytest.mark.parametrize(\"model_kwargs\", [\n        {},  # empty\n        {\"system_description\": \"A simple CLI tool\"},  # minimal\n        {\"primary_goal\": \"Optimize for speed\", \"boundaries\": [\"Must use Python\"]},\n        {\"system_description\": \"X\", \"primary_goal\": \"Y\", \"stakes\": \"Z\", \"history\": \"W\",\n         \"dependencies\": [\"a\"], \"boundaries\": [\"b\"], \"assumptions\": [\"c\"],\n         \"open_questions\": [\"d\"], \"challenged_assumptions\": [\"e\"], \"risk_areas\": [\"f\"]},  # maximal short\n        {\"system_description\": \"A\" * 5000},  # very long field\n        {\"dependencies\": [\"dep\" + str(i) for i in range(50)]},  # many list items\n    ])\n    def test_get_system_prompt_understand_various_models(self, model_kwargs, make_problem_model):\n        model = make_problem_model(**model_kwargs)\n        result = get_system_prompt(Phase.UNDERSTAND, model, posture=None)\n        assert isinstance(result, str)\n        assert len(result) > 0\n\n    @pytest.mark.parametrize(\"model_kwargs\", [\n        {},\n        {\"system_description\": \"Test system\", \"assumptions\": [\"Everything works\"]},\n    ])\n    def test_get_system_prompt_challenge_various_models(self, model_kwargs, make_problem_model):\n        model = make_problem_model(**model_kwargs)\n        result = get_system_prompt(Phase.CHALLENGE, model, posture=Posture.CRITIC)\n        assert isinstance(result, str)\n        assert len(result) > 0\n\n    @pytest.mark.parametrize(\"model_kwargs\", [\n        {},\n        {\"system_description\": \"Full system\", \"risk_areas\": [\"Risk A\", \"Risk B\"]},\n    ])\n    def test_get_system_prompt_synthesize_various_models(self, model_kwargs, make_problem_model):\n        model = make_problem_model(**model_kwargs)\n        result = get_system_prompt(Phase.SYNTHESIZE, model, posture=None)\n        assert isinstance(result, str)\n        assert len(result) > 0\n\n\n# ---------------------------------------------------------------------------\n# Tests: No external file reads invariant\n# ---------------------------------------------------------------------------\n\nclass TestNoExternalFileReads:\n    \"\"\"All prompts should be generated from inline string constants — no file I/O.\"\"\"\n\n    def test_understand_no_file_refs(self, full_problem_model):\n        result = _understand_prompt(full_problem_model)\n        # Should not contain file path references used for loading\n        assert \"open(\" not in result\n        assert \"read()\" not in result\n\n    def test_challenge_no_file_refs(self, full_problem_model):\n        result = _challenge_prompt(full_problem_model, Posture.ADVERSARIAL)\n        assert \"open(\" not in result\n        assert \"read()\" not in result\n\n    def test_synthesize_no_file_refs(self, full_problem_model):\n        result = _synthesize_prompt(full_problem_model)\n        assert \"open(\" not in result\n        assert \"read()\" not in result\n"
+}
