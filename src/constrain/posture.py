@@ -42,7 +42,7 @@ At the end of your response, include a JSON block with your assessment:
 }
 ```
 
-Valid problem model fields: system_description (str), stakeholders (list), failure_modes (list of {description, severity, historical}), dependencies (list), assumptions (list), boundaries (list), history (list), success_shape (list).
+Valid problem model fields: system_description (str), stakeholders (list), failure_modes (list of {description, severity, historical}), dependencies (list), assumptions (list), boundaries (list), history (list), success_shape (list), acceptance_criteria (list).
 
 Set ready_to_proceed to true only when you have enough context to move to the next phase.
 """.strip()
@@ -52,7 +52,7 @@ def _format_problem_model(model: ProblemModel) -> str:
     lines = []
     if model.system_description:
         lines.append(f"System: {model.system_description}")
-    for field in ["stakeholders", "dependencies", "assumptions", "boundaries", "history", "success_shape"]:
+    for field in ["stakeholders", "dependencies", "assumptions", "boundaries", "history", "success_shape", "acceptance_criteria"]:
         items = getattr(model, field)
         if items:
             lines.append(f"{field.replace('_', ' ').title()}:")
@@ -76,6 +76,7 @@ def _understand_prompt(problem_model: ProblemModel) -> str:
 4. **Dependencies**: What this system depends on, what depends on it
 5. **Boundaries**: Where the system ends, what's out of scope
 6. **Assumptions**: What's being taken for granted
+7. **Acceptance criteria**: What specific, testable conditions must be true for this to be considered DONE? Push for concrete, observable outcomes — not vague qualities. "Users can log in" not "the auth system works well."
 
 Ask focused questions. One or two per response. Build on what's been said. Don't repeat what you already know.
 
@@ -112,6 +113,7 @@ An induced-understanding prompt that reads like a briefing to a senior engineer.
 - Dependency Landscape: what this touches, what touches it
 - Boundary Conditions: scope, non-goals, constraints
 - Success Shape: qualities of a good solution (not exact behavior)
+- Done When: specific, testable acceptance criteria — the concrete conditions that must be true for this work to be considered complete
 
 **Artifact 2: constraints.yaml**
 A structured constraint set. Each constraint is a black-box boundary condition:

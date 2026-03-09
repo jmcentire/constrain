@@ -44,6 +44,7 @@ class ProblemModel(BaseModel):
     boundaries: list[str] = Field(default_factory=list)
     history: list[str] = Field(default_factory=list)
     success_shape: list[str] = Field(default_factory=list)
+    acceptance_criteria: list[str] = Field(default_factory=list)
 
     def apply_update(self, update: dict) -> None:
         for key, value in update.items():
