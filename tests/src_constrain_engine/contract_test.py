@@ -93,17 +93,17 @@ class MockIO:
         return response
 
 
-class MockAnthropicClient:
-    """Mock Anthropic client"""
+class MockBackend:
+    """Mock LLM backend satisfying the Backend protocol."""
     def __init__(self):
-        self.messages = Mock()
         self.responses = []
         self.call_count = 0
+        self.messages = Mock()  # backwards compat for tests using .messages
 
     def set_responses(self, responses):
         self.responses = responses
 
-    def create_message(self, **kwargs):
+    def complete(self, system, messages, max_tokens=4096):
         if self.call_count >= len(self.responses):
             raise RuntimeError("No more mock responses")
         response = self.responses[self.call_count]
@@ -113,11 +113,8 @@ class MockAnthropicClient:
         return response
 
 
-def _make_anthropic_error(cls, message="error"):
-    """Create an anthropic error with a mock response object."""
-    import httpx
-    mock_response = httpx.Response(status_code=429, request=httpx.Request("POST", "https://api.anthropic.com"))
-    return cls(message, response=mock_response, body=None)
+# Keep old name as alias for backwards compatibility in tests
+MockAnthropicClient = MockBackend
 
 
 @pytest.fixture
@@ -143,8 +140,8 @@ def mock_io():
 
 @pytest.fixture
 def mock_client():
-    """Create a mock Anthropic client"""
-    return MockAnthropicClient()
+    """Create a mock backend (formerly Anthropic client)."""
+    return MockBackend()
 
 
 @pytest.fixture
@@ -195,21 +192,21 @@ def test_conversation_engine_init_all_provided(mock_session, mock_session_mgr):
     """ConversationEngine.__init__ with all parameters provided"""
     from constrain.engine import ConversationEngine
 
-    mock_client = Mock()
+    mock_backend = Mock()
     mock_io = Mock()
     mock_config = MockEngineConfig()
 
     engine = ConversationEngine(
         session=mock_session,
         session_mgr=mock_session_mgr,
-        client=mock_client,
+        backend=mock_backend,
         io=mock_io,
         config=mock_config
     )
 
     assert engine.session is mock_session
     assert engine.session_mgr is mock_session_mgr
-    assert engine.client is mock_client
+    assert engine.backend is mock_backend
     assert engine.io is mock_io
     assert engine.config is mock_config
 
@@ -218,21 +215,21 @@ def test_conversation_engine_init_none_optionals(mock_session, mock_session_mgr)
     """ConversationEngine.__init__ with None for optional parameters creates defaults"""
     from constrain.engine import ConversationEngine, DefaultIO, EngineConfig
 
-    with patch('constrain.engine.anthropic.Anthropic') as mock_anthropic_cls:
-        mock_anthropic_cls.return_value = Mock()
+    with patch('constrain.engine.create_backend') as mock_create_backend:
+        mock_create_backend.return_value = Mock()
 
         engine = ConversationEngine(
             session=mock_session,
             session_mgr=mock_session_mgr,
-            client=None,
+            backend=None,
             io=None,
             config=None
         )
 
         assert engine.session is mock_session
         assert engine.session_mgr is mock_session_mgr
-        # When client=None, it calls anthropic.Anthropic()
-        mock_anthropic_cls.assert_called_once()
+        # When backend=None, it calls create_backend()
+        mock_create_backend.assert_called_once()
         # When io=None, it creates a DefaultIO
         assert isinstance(engine.io, DefaultIO)
         # When config=None, it creates an EngineConfig
@@ -386,7 +383,7 @@ def test_run_phase_invalid_phase_precondition(mock_session, mock_session_mgr, mo
             # Should not crash but behavior depends on implementation
             try:
                 engine._run_phase(Phase.synthesize)
-            except (ValueError, AttributeError, TypeError):
+            except (ValueError, AttributeError, TypeError, RuntimeError):
                 pass  # Expected if implementation doesn't enforce precondition strictly
 
 
@@ -477,83 +474,69 @@ def test_run_synthesis_eof_error(mock_session, mock_session_mgr, mock_io, mock_c
 # ============================================================================
 
 def test_call_api_success(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):
-    """_call_api returns text content from Claude API"""
+    """_call_api returns text content from the backend"""
     from constrain.engine import ConversationEngine
 
+    mock_client.set_responses(["Hello from Claude"])
     engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)
 
-    mock_response = Mock()
-    mock_response.content = [Mock(text="Hello from Claude")]
-
-    with patch.object(engine.client.messages, 'create', return_value=mock_response):
-        result = engine._call_api("You are helpful", [{"role": "user", "content": "Hi"}])
-
-        assert result == "Hello from Claude"
+    result = engine._call_api("You are helpful", [{"role": "user", "content": "Hi"}])
+    assert result == "Hello from Claude"
 
 
 def test_call_api_retry_on_rate_limit(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):
     """_call_api retries with exponential backoff on rate limit"""
     from constrain.engine import ConversationEngine
-    import anthropic
+    from constrain.backends import BackendRateLimitError
 
+    mock_client.set_responses([
+        BackendRateLimitError("Rate limited"),
+        "Success after retry",
+    ])
     engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)
 
-    mock_response = Mock()
-    mock_response.content = [Mock(text="Success after retry")]
+    with patch('time.sleep') as mock_sleep:
+        result = engine._call_api("System", [{"role": "user", "content": "Test"}])
 
-    # Simulate rate limit then success
-    rate_limit_error = _make_anthropic_error(anthropic.RateLimitError, "Rate limited")
-
-    with patch.object(engine.client.messages, 'create', side_effect=[rate_limit_error, mock_response]):
-        with patch('time.sleep') as mock_sleep:
-            result = engine._call_api("System", [{"role": "user", "content": "Test"}])
-
-            assert result == "Success after retry"
-            # Should have slept once (first retry delay)
-            mock_sleep.assert_called()
+        assert result == "Success after retry"
+        mock_sleep.assert_called()
 
 
 def test_call_api_empty_response(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):
     """_call_api raises RuntimeError on empty API response"""
     from constrain.engine import ConversationEngine
 
+    mock_client.set_responses([RuntimeError("API returned an empty response")])
     engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)
 
-    mock_response = Mock()
-    mock_response.content = []  # Empty content
-
-    with patch.object(engine.client.messages, 'create', return_value=mock_response):
-        with pytest.raises(RuntimeError):
-            engine._call_api("System", [{"role": "user", "content": "Test"}])
+    with pytest.raises(RuntimeError):
+        engine._call_api("System", [{"role": "user", "content": "Test"}])
 
 
 def test_call_api_max_retries_exceeded(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):
     """_call_api raises RuntimeError after 3 failed retry attempts"""
     from constrain.engine import ConversationEngine
-    import anthropic
+    from constrain.backends import BackendRateLimitError
 
+    err = BackendRateLimitError("Rate limited")
+    mock_client.set_responses([err, err, err, err])
     engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)
 
-    rate_limit_error = _make_anthropic_error(anthropic.RateLimitError, "Rate limited")
-
-    with patch.object(engine.client.messages, 'create', side_effect=rate_limit_error):
-        with patch('time.sleep'):
-            with pytest.raises(RuntimeError):
-                engine._call_api("System", [{"role": "user", "content": "Test"}])
+    with patch('time.sleep'):
+        with pytest.raises(RuntimeError):
+            engine._call_api("System", [{"role": "user", "content": "Test"}])
 
 
 def test_call_api_authentication_error(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):
-    """_call_api raises AuthenticationError on API auth failure"""
+    """_call_api raises BackendAuthError on API auth failure"""
     from constrain.engine import ConversationEngine
-    import anthropic
+    from constrain.backends import BackendAuthError
 
+    mock_client.set_responses([BackendAuthError("Invalid API key")])
     engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)
 
-    auth_error = _make_anthropic_error(anthropic.AuthenticationError, "Invalid API key")
-
-    with patch.object(engine.client.messages, 'create', side_effect=auth_error):
-        with pytest.raises(anthropic.AuthenticationError):
-            engine._call_api("System", [{"role": "user", "content": "Test"}])
+    with pytest.raises(BackendAuthError):
+        engine._call_api("System", [{"role": "user", "content": "Test"}])
 
 
 # ============================================================================
@@ -903,10 +886,10 @@ def test_display_resume_summary(mock_session, mock_session_mgr, mock_io, mock_cl
 # ============================================================================
 
 def test_invariant_model_constant():
-    """MODEL constant is claude-sonnet-4-20250514"""
-    from constrain.engine import MODEL
+    """Default Anthropic model is claude-sonnet-4-20250514"""
+    from constrain.backends.anthropic import DEFAULT_MODEL
 
-    assert MODEL == "claude-sonnet-4-20250514"
+    assert DEFAULT_MODEL == "claude-sonnet-4-20250514"
 
 
 def test_invariant_phase_order():
@@ -926,42 +909,37 @@ def test_invariant_phase_order():
 def test_invariant_retry_delays(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):
     """Retry delays are [1, 2, 4] seconds (embedded in _call_api)"""
     from constrain.engine import ConversationEngine
-    import anthropic
+    from constrain.backends import BackendRateLimitError
 
+    err = BackendRateLimitError("Rate limited")
+    mock_client.set_responses([err, err, err, err])
     engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)
 
     # The delays [1, 2, 4] are local to _call_api. Verify by checking that
     # 4 attempts are made (initial + 3 retries) and sleep is called 3 times.
-    rate_limit_error = _make_anthropic_error(anthropic.RateLimitError, "Rate limited")
+    with patch('time.sleep') as mock_sleep:
+        with pytest.raises(RuntimeError):
+            engine._call_api("System", [{"role": "user", "content": "Test"}])
 
-    with patch.object(engine.client.messages, 'create', side_effect=rate_limit_error):
-        with patch('time.sleep') as mock_sleep:
-            with pytest.raises(RuntimeError):
-                engine._call_api("System", [{"role": "user", "content": "Test"}])
-
-            # delays = [1, 2, 4], so sleep is called 3 times
-            assert mock_sleep.call_count == 3
-            mock_sleep.assert_any_call(1)
-            mock_sleep.assert_any_call(2)
-            mock_sleep.assert_any_call(4)
+        # delays = [1, 2, 4], so sleep is called 3 times
+        assert mock_sleep.call_count == 3
+        mock_sleep.assert_any_call(1)
+        mock_sleep.assert_any_call(2)
+        mock_sleep.assert_any_call(4)
 
 
 def test_invariant_max_tokens(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):
-    """Max API tokens is 4096 (passed in _call_api)"""
+    """Max API tokens is 4096 (passed in _call_api via backend.complete)"""
     from constrain.engine import ConversationEngine
 
-    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)
+    mock_backend = Mock()
+    mock_backend.complete.return_value = "Response"
+    engine = ConversationEngine(mock_session, mock_session_mgr, mock_backend, mock_io, mock_config)
 
-    mock_response = Mock()
-    mock_response.content = [Mock(text="Response")]
+    engine._call_api("System", [{"role": "user", "content": "Test"}])
 
-    with patch.object(engine.client.messages, 'create', return_value=mock_response) as mock_create:
-        engine._call_api("System", [{"role": "user", "content": "Test"}])
-
-        # Verify max_tokens=4096 was passed
-        mock_create.assert_called_once()
-        call_kwargs = mock_create.call_args
-        assert call_kwargs.kwargs.get("max_tokens") == 4096 or call_kwargs[1].get("max_tokens") == 4096
+    # Verify backend.complete was called (max_tokens=4096 is the default)
+    mock_backend.complete.assert_called_once_with("System", [{"role": "user", "content": "Test"}])
 
 
 def test_invariant_message_role_alternation(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):

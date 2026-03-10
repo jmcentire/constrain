@@ -4,18 +4,24 @@ build-backend = "hatchling.build"
 
 [project]
 name = "constrain"
-version = "0.1.0"
+version = "0.2.0"
 description = "Find the boundary between specification and intent"
 requires-python = ">=3.12"
 dependencies = [
-    "anthropic>=0.40",
     "click>=8.0",
     "pydantic>=2.0",
     "pyyaml>=6.0",
 ]
 
+[project.optional-dependencies]
+anthropic = ["anthropic>=0.40"]
+openai = ["openai>=1.0"]
+mcp = ["mcp[cli]>=1.26.0"]
+all = ["constrain[anthropic,openai,mcp]"]
+
 [project.scripts]
 constrain = "constrain.cli:main"
+constrain-mcp = "constrain.mcp_server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/constrain"]

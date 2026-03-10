@@ -7,10 +7,13 @@ Constrain is a CLI tool that interviews engineers about their problem and produc
 ## Install
 
 ```bash
-pip install -e .
+pip install -e ".[anthropic]"    # Anthropic backend (default)
+pip install -e ".[openai]"       # OpenAI-compatible backend
+pip install -e ".[mcp]"          # MCP server
+pip install -e ".[all]"          # Everything
 ```
 
-Requires Python 3.12+ and an `ANTHROPIC_API_KEY` environment variable.
+Requires Python 3.12+ and an API key for your chosen backend.
 
 ## Usage
 
@@ -20,6 +23,25 @@ constrain new          # Always start fresh
 constrain resume       # Resume the most recent incomplete session
 constrain show         # Display artifacts from the last completed session
 constrain list         # List all sessions
+constrain mcp-server   # Run MCP server (stdio transport)
+```
+
+### Backend Selection
+
+```bash
+# Anthropic (default)
+export ANTHROPIC_API_KEY=sk-...
+constrain
+
+# OpenAI
+constrain --backend openai --model gpt-4o
+
+# Local model via OpenAI-compatible API
+CONSTRAIN_BACKEND=openai OPENAI_BASE_URL=http://localhost:11434/v1 constrain --model llama3
+
+# Environment variables
+CONSTRAIN_BACKEND=anthropic|openai
+CONSTRAIN_MODEL=<model-name>
 ```
 
 ## How It Works
@@ -76,12 +98,32 @@ Constraints are implementation-agnostic. They describe what must hold, not how t
 
 Sessions save to `.constrain/sessions/` in the current directory. Ctrl+C saves and exits (resumable). Ctrl+D ends the current phase early.
 
+## MCP Server
+
+Constrain exposes sessions and artifacts to AI assistants via MCP:
+
+```bash
+# Standalone
+constrain-mcp
+
+# Via CLI
+constrain mcp-server --project-dir /path/to/project
+
+# Register with Claude Code
+claude mcp add --scope user --transport stdio constrain -- constrain-mcp
+```
+
+**Tools**: `constrain_list_sessions`, `constrain_show_session`, `constrain_show_artifacts`, `constrain_search_sessions`
+**Resources**: `constrain://sessions`, `constrain://session/{id}`, `constrain://artifacts/{id}`
+
 ## Dependencies
 
-- [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-python) (claude-sonnet-4)
 - [Click](https://click.palletsprojects.com/) (CLI)
 - [Pydantic](https://docs.pydantic.dev/) (data models)
 - [PyYAML](https://pyyaml.org/) (constraint output)
+- [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-python) (optional, default backend)
+- [OpenAI SDK](https://github.com/openai/openai-python) (optional, OpenAI-compatible backend)
+- [MCP](https://github.com/modelcontextprotocol/python-sdk) (optional, MCP server)
 
 ## License
 

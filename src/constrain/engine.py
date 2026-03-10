@@ -10,14 +10,18 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
-import anthropic
-
+from .backends import (
+    Backend,
+    BackendAuthError,
+    BackendConnectionError,
+    BackendRateLimitError,
+    BackendTimeoutError,
+    create_backend,
+)
 from .models import Message, Phase, Session
 from .posture import get_prime_prompt, get_revision_prompt, get_system_prompt
 from .session import SessionManager
 from .synthesizer import parse_synthesis_output
-
-MODEL = "claude-sonnet-4-20250514"
 
 
 class TerminalIO(Protocol):
@@ -50,13 +54,13 @@ class ConversationEngine:
         self,
         session: Session,
         session_mgr: SessionManager,
-        client: anthropic.Anthropic | None = None,
+        backend: Backend | None = None,
         io: TerminalIO | None = None,
         config: EngineConfig | None = None,
     ) -> None:
         self.session = session
         self.session_mgr = session_mgr
-        self.client = client or anthropic.Anthropic()
+        self.backend: Backend = backend or create_backend()
         self.io: TerminalIO = io or DefaultIO()
         self.config = config or EngineConfig()
 
@@ -334,30 +338,22 @@ class ConversationEngine:
     def _call_api(
         self, system: str, messages: list[dict]
     ) -> str:
-        """Call Claude with exponential backoff on transient errors."""
+        """Call the backend with exponential backoff on transient errors."""
         delays = [1, 2, 4]
         last_err: Exception | None = None
 
         for attempt in range(len(delays) + 1):
             try:
-                resp = self.client.messages.create(
-                    model=MODEL,
-                    max_tokens=4096,
-                    system=system,
-                    messages=messages,
-                )
-                if not resp.content:
-                    raise RuntimeError("API returned an empty response")
-                return resp.content[0].text
+                return self.backend.complete(system, messages)
             except (
-                anthropic.RateLimitError,
-                anthropic.APITimeoutError,
-                anthropic.APIConnectionError,
+                BackendRateLimitError,
+                BackendTimeoutError,
+                BackendConnectionError,
             ) as e:
                 last_err = e
                 if attempt < len(delays):
                     time.sleep(delays[attempt])
-            except anthropic.AuthenticationError:
+            except BackendAuthError:
                 raise
         raise RuntimeError(f"API unavailable after retries: {last_err}")
 

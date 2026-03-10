@@ -8,6 +8,7 @@ from pathlib import Path
 
 import click
 
+from .backends import create_backend
 from .engine import ConversationEngine, EngineConfig
 from .models import Phase, Posture, Session
 from .session import SessionManager
@@ -35,13 +36,22 @@ class SafeGroup(click.Group):
             sys.exit(1)
 
 
-def ensure_api_key() -> str:
-    key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-    if not key:
-        raise click.ClickException(
-            "ANTHROPIC_API_KEY not set. Export it or add it to your shell profile."
-        )
-    return key
+def ensure_api_key() -> None:
+    """Validate that the required API key is set for the active backend."""
+    backend_name = os.environ.get("CONSTRAIN_BACKEND", "anthropic")
+    if backend_name == "anthropic":
+        key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+        if not key:
+            raise click.ClickException(
+                "ANTHROPIC_API_KEY not set. Export it or add it to your shell profile."
+            )
+    elif backend_name == "openai":
+        key = os.environ.get("OPENAI_API_KEY", "").strip()
+        base = os.environ.get("OPENAI_BASE_URL", "").strip()
+        if not key and not base:
+            raise click.ClickException(
+                "OPENAI_API_KEY not set (or set OPENAI_BASE_URL for local models)."
+            )
 
 
 def _round_options(f):
@@ -110,9 +120,12 @@ def _run_engine(
     mgr: SessionManager,
     config: EngineConfig,
     prime_paths: list[Path] | None = None,
+    backend_name: str | None = None,
+    model: str | None = None,
 ) -> None:
     """Create engine and run session, then write artifacts on completion."""
-    engine = ConversationEngine(session=session, session_mgr=mgr, config=config)
+    backend = create_backend(backend=backend_name, model=model)
+    engine = ConversationEngine(session=session, session_mgr=mgr, backend=backend, config=config)
 
     # Document priming: ingest files, then interactive loop
     if prime_paths or session.round == 0:
@@ -156,9 +169,22 @@ def _confirm_overwrite(cwd: Path) -> bool:
     "--prime", "-p", multiple=True, type=click.Path(exists=True),
     help="Document(s) to ingest before the interview. Repeat for multiple files.",
 )
+@click.option(
+    "--backend", "-b", default=None,
+    help="LLM backend: anthropic (default), openai. Env: CONSTRAIN_BACKEND.",
+)
+@click.option(
+    "--model", "-m", default=None,
+    help="Model name override. Env: CONSTRAIN_MODEL.",
+)
 @click.pass_context
-def cli(ctx, min_understand, max_understand, min_challenge, max_challenge, prime):
+def cli(ctx, min_understand, max_understand, min_challenge, max_challenge, prime, backend, model):
     """Constrain: find the boundary between specification and intent."""
+    if backend:
+        os.environ["CONSTRAIN_BACKEND"] = backend
+    if model:
+        os.environ["CONSTRAIN_MODEL"] = model
+
     if ctx.invoked_subcommand is not None:
         return
 
@@ -183,12 +209,12 @@ def cli(ctx, min_understand, max_understand, min_challenge, max_challenge, prime
             _do_list(mgr)
             return
         if choice == "y":
-            _run_engine(incomplete, mgr, config)
+            _run_engine(incomplete, mgr, config, backend_name=backend, model=model)
             return
 
     session = mgr.create()
     mgr.save(session)
-    _run_engine(session, mgr, config, prime_paths=[Path(p) for p in prime])
+    _run_engine(session, mgr, config, prime_paths=[Path(p) for p in prime], backend_name=backend, model=model)
 
 
 @cli.command("new")
@@ -201,10 +227,12 @@ def cmd_new(min_understand, max_understand, min_challenge, max_challenge, prime)
     """Start a new session (ignores incomplete sessions)."""
     ensure_api_key()
     config = resolve_config(min_understand, max_understand, min_challenge, max_challenge)
+    backend_name = os.environ.get("CONSTRAIN_BACKEND")
+    model = os.environ.get("CONSTRAIN_MODEL")
     mgr = SessionManager(Path.cwd())
     session = mgr.create()
     mgr.save(session)
-    _run_engine(session, mgr, config, prime_paths=[Path(p) for p in prime])
+    _run_engine(session, mgr, config, prime_paths=[Path(p) for p in prime], backend_name=backend_name, model=model)
 
 
 @cli.command("resume")
@@ -234,7 +262,9 @@ def cmd_resume(session_id):
             )
 
     config = resolve_config(None, None, None, None)
-    _run_engine(session, mgr, config)
+    backend_name = os.environ.get("CONSTRAIN_BACKEND")
+    model = os.environ.get("CONSTRAIN_MODEL")
+    _run_engine(session, mgr, config, backend_name=backend_name, model=model)
 
 
 @cli.command("show")
@@ -282,6 +312,17 @@ def _do_list(mgr: SessionManager) -> None:
         posture = "***"
         updated = s["updated_at"][:19]
         click.echo(f"{sid:<10} {phase:<12} {rounds:<10} {posture:<10} {updated}")
+
+
+@cli.command("mcp-server")
+@click.option("--project-dir", type=click.Path(exists=True), default=None,
+              help="Project directory (default: cwd).")
+def cmd_mcp_server(project_dir):
+    """Run the Constrain MCP server (stdio transport)."""
+    if project_dir:
+        os.environ["CONSTRAIN_PROJECT_DIR"] = str(project_dir)
+    from .mcp_server import main as mcp_main
+    mcp_main()
 
 
 def main() -> None:
