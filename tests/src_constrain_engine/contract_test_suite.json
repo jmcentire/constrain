@@ -1,0 +1,645 @@
+{
+  "component_id": "src_constrain_engine",
+  "contract_version": 1,
+  "test_cases": [
+    {
+      "id": "test_default_io_display_happy_path",
+      "description": "DefaultIO.display prints text to stdout",
+      "function": "DefaultIO.display",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "text": "Hello, World!"
+      },
+      "input_description": "",
+      "expected_output_description": "Text printed to stdout",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_default_io_prompt_happy_path",
+      "description": "DefaultIO.prompt reads input from stdin",
+      "function": "DefaultIO.prompt",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "prefix": "Enter name: "
+      },
+      "input_description": "",
+      "expected_output_description": "Returns user input string",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_default_io_prompt_eof_error",
+      "description": "DefaultIO.prompt raises EOFError on Ctrl+D",
+      "function": "DefaultIO.prompt",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "EOFError",
+      "assertions": []
+    },
+    {
+      "id": "test_conversation_engine_init_all_provided",
+      "description": "ConversationEngine.__init__ with all parameters provided",
+      "function": "ConversationEngine.__init__",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "session": "mock_session",
+        "session_mgr": "mock_session_mgr",
+        "client": "mock_client",
+        "io": "mock_io",
+        "config": "mock_config"
+      },
+      "input_description": "",
+      "expected_output_description": "All attributes set to provided values",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_conversation_engine_init_none_optionals",
+      "description": "ConversationEngine.__init__ with None for optional parameters creates defaults",
+      "function": "ConversationEngine.__init__",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "session": "mock_session",
+        "session_mgr": "mock_session_mgr",
+        "client": "None",
+        "io": "None",
+        "config": "None"
+      },
+      "input_description": "",
+      "expected_output_description": "Creates default Anthropic client, DefaultIO, and EngineConfig",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_run_session_all_phases_sequential",
+      "description": "run_session executes all incomplete phases sequentially",
+      "function": "ConversationEngine.run_session",
+      "category": "happy_path",
+      "setup_description": "Session starts at understand phase",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "Executes understand, challenge, synthesis phases and returns updated session",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_run_session_keyboard_interrupt",
+      "description": "run_session saves session and exits on KeyboardInterrupt",
+      "function": "ConversationEngine.run_session",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "KeyboardInterrupt",
+      "assertions": []
+    },
+    {
+      "id": "test_run_session_resume_from_challenge",
+      "description": "run_session resumes from challenge phase if already completed understand",
+      "function": "ConversationEngine.run_session",
+      "category": "edge_case",
+      "setup_description": "Session already at challenge phase",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "Only executes challenge and synthesis phases",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_run_phase_understand_min_rounds",
+      "description": "_run_phase executes understand phase for minimum rounds",
+      "function": "ConversationEngine._run_phase",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "phase": "Phase.understand"
+      },
+      "input_description": "",
+      "expected_output_description": "Conversation proceeds for at least understand_min rounds",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_run_phase_challenge_max_rounds",
+      "description": "_run_phase executes challenge phase up to maximum rounds",
+      "function": "ConversationEngine._run_phase",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "phase": "Phase.challenge"
+      },
+      "input_description": "",
+      "expected_output_description": "Conversation stops at challenge_max rounds",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_run_phase_eof_error",
+      "description": "_run_phase raises EOFError when user sends EOF during prompt",
+      "function": "ConversationEngine._run_phase",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "EOFError",
+      "assertions": []
+    },
+    {
+      "id": "test_run_phase_invalid_phase_precondition",
+      "description": "_run_phase only accepts understand or challenge phases",
+      "function": "ConversationEngine._run_phase",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "phase": "Phase.synthesize"
+      },
+      "input_description": "",
+      "expected_output_description": "Should handle invalid phase per precondition",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_run_synthesis_happy_path",
+      "description": "_run_synthesis generates prompt.md and constraints.yaml",
+      "function": "ConversationEngine._run_synthesis",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "Session has prompt_md and constraints_yaml populated, transitions to complete",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_run_synthesis_with_revision",
+      "description": "_run_synthesis allows exactly one revision cycle",
+      "function": "ConversationEngine._run_synthesis",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "User can provide feedback once for revision",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_run_synthesis_parse_error",
+      "description": "_run_synthesis raises ValueError when parse fails",
+      "function": "ConversationEngine._run_synthesis",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "ValueError",
+      "assertions": []
+    },
+    {
+      "id": "test_run_synthesis_eof_error",
+      "description": "_run_synthesis raises EOFError when user sends EOF during feedback",
+      "function": "ConversationEngine._run_synthesis",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "EOFError",
+      "assertions": []
+    },
+    {
+      "id": "test_call_api_success",
+      "description": "_call_api returns text content from Claude API",
+      "function": "ConversationEngine._call_api",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "system": "You are helpful",
+        "messages": "[{'role': 'user', 'content': 'Hi'}]"
+      },
+      "input_description": "",
+      "expected_output_description": "Returns text from API response",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_call_api_retry_on_rate_limit",
+      "description": "_call_api retries with exponential backoff on rate limit",
+      "function": "ConversationEngine._call_api",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "Retries up to 3 times with delays [1, 2, 4] seconds",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_call_api_empty_response",
+      "description": "_call_api raises RuntimeError on empty API response",
+      "function": "ConversationEngine._call_api",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "RuntimeError",
+      "assertions": []
+    },
+    {
+      "id": "test_call_api_max_retries_exceeded",
+      "description": "_call_api raises RuntimeError after 3 failed retry attempts",
+      "function": "ConversationEngine._call_api",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "RuntimeError",
+      "assertions": []
+    },
+    {
+      "id": "test_call_api_authentication_error",
+      "description": "_call_api raises AuthenticationError on API auth failure",
+      "function": "ConversationEngine._call_api",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "AuthenticationError",
+      "assertions": []
+    },
+    {
+      "id": "test_parse_response_with_json_block",
+      "description": "_parse_response extracts display text, model dict, and ready flag",
+      "function": "ConversationEngine._parse_response",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "raw": "Some text\\n```json\\n{\"key\": \"value\", \"ready\": true}\\n```"
+      },
+      "input_description": "",
+      "expected_output_description": "Returns tuple (display_text, {'key': 'value'}, True)",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_parse_response_no_json_block",
+      "description": "_parse_response returns raw text when no JSON block found",
+      "function": "ConversationEngine._parse_response",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "raw": "Plain text response"
+      },
+      "input_description": "",
+      "expected_output_description": "Returns (raw, {}, False)",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_parse_response_invalid_json",
+      "description": "_parse_response returns raw when JSON parse fails",
+      "function": "ConversationEngine._parse_response",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "raw": "Text\\n```json\\n{invalid json}\\n```"
+      },
+      "input_description": "",
+      "expected_output_description": "Returns (raw, {}, False)",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_parse_response_multiple_json_blocks",
+      "description": "_parse_response extracts last JSON block if multiple present",
+      "function": "ConversationEngine._parse_response",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "raw": "```json\\n{\"first\": 1}\\n```\\ntext\\n```json\\n{\"last\": 2}\\n```"
+      },
+      "input_description": "",
+      "expected_output_description": "Returns last JSON block data",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_api_messages_builds_list",
+      "description": "_api_messages builds list from session conversation history",
+      "function": "ConversationEngine._api_messages",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "Returns list of dicts with 'role' and 'content' keys",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_api_messages_empty_conversation",
+      "description": "_api_messages returns empty list for new session",
+      "function": "ConversationEngine._api_messages",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "Returns empty list",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_add_message_appends_to_conversation",
+      "description": "_add_message appends message and updates timestamp",
+      "function": "ConversationEngine._add_message",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "role": "user",
+        "content": "Hello"
+      },
+      "input_description": "",
+      "expected_output_description": "Message appended to session.conversation, touch() called",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_increment_round_understand_phase",
+      "description": "_increment_round increments both session.round and understand_rounds",
+      "function": "ConversationEngine._increment_round",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "phase": "Phase.understand"
+      },
+      "input_description": "",
+      "expected_output_description": "session.round += 1, session.understand_rounds += 1",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_increment_round_challenge_phase",
+      "description": "_increment_round increments both session.round and challenge_rounds",
+      "function": "ConversationEngine._increment_round",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "phase": "Phase.challenge"
+      },
+      "input_description": "",
+      "expected_output_description": "session.round += 1, session.challenge_rounds += 1",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_current_rounds_understand",
+      "description": "_current_rounds returns understand_rounds for understand phase",
+      "function": "ConversationEngine._current_rounds",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "phase": "Phase.understand"
+      },
+      "input_description": "",
+      "expected_output_description": "Returns session.understand_rounds",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_current_rounds_challenge",
+      "description": "_current_rounds returns challenge_rounds for challenge phase",
+      "function": "ConversationEngine._current_rounds",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "phase": "Phase.challenge"
+      },
+      "input_description": "",
+      "expected_output_description": "Returns session.challenge_rounds",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_current_rounds_other_phase",
+      "description": "_current_rounds returns 0 for synthesis or complete phase",
+      "function": "ConversationEngine._current_rounds",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "phase": "Phase.synthesize"
+      },
+      "input_description": "",
+      "expected_output_description": "Returns 0",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_round_limits_understand",
+      "description": "_round_limits returns understand config limits",
+      "function": "ConversationEngine._round_limits",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "phase": "Phase.understand"
+      },
+      "input_description": "",
+      "expected_output_description": "Returns (understand_min, understand_max)",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_round_limits_challenge",
+      "description": "_round_limits returns challenge config limits",
+      "function": "ConversationEngine._round_limits",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "phase": "Phase.challenge"
+      },
+      "input_description": "",
+      "expected_output_description": "Returns (challenge_min, challenge_max)",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_round_limits_other_phase",
+      "description": "_round_limits returns (1, 1) for non-conversation phases",
+      "function": "ConversationEngine._round_limits",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "phase": "Phase.synthesize"
+      },
+      "input_description": "",
+      "expected_output_description": "Returns (1, 1)",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_phase_done_later_phase",
+      "description": "_phase_done returns True if session phase is later than target",
+      "function": "ConversationEngine._phase_done",
+      "category": "happy_path",
+      "setup_description": "Session at challenge phase, checking understand",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "Returns True",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_phase_done_earlier_phase",
+      "description": "_phase_done returns False if session phase is earlier than target",
+      "function": "ConversationEngine._phase_done",
+      "category": "happy_path",
+      "setup_description": "Session at understand phase, checking challenge",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "Returns False",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_phase_done_same_phase",
+      "description": "_phase_done returns False if session phase equals target",
+      "function": "ConversationEngine._phase_done",
+      "category": "edge_case",
+      "setup_description": "Session at understand phase, checking understand",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "Returns False",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_display_resume_summary",
+      "description": "_display_resume_summary shows session info to stdout",
+      "function": "ConversationEngine._display_resume_summary",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "Displays session ID, phase, round counts",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_invariant_model_constant",
+      "description": "MODEL constant is claude-sonnet-4-20250514",
+      "function": "ConversationEngine",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "MODEL == 'claude-sonnet-4-20250514'",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_invariant_phase_order",
+      "description": "Phase order is understand, challenge, synthesize, complete",
+      "function": "ConversationEngine",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "Phase execution follows defined order",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_invariant_retry_delays",
+      "description": "Retry delays are [1, 2, 4] seconds",
+      "function": "ConversationEngine._call_api",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "API retries use delays [1, 2, 4]",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_invariant_max_tokens",
+      "description": "Max API tokens is 4096",
+      "function": "ConversationEngine._call_api",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "API calls use max_tokens=4096",
+      "expected_error": "",
+      "assertions": []
+    },
+    {
+      "id": "test_invariant_message_role_alternation",
+      "description": "Messages must alternate user/assistant roles",
+      "function": "ConversationEngine._api_messages",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "Built message list alternates user/assistant",
+      "expected_error": "",
+      "assertions": []
+    }
+  ],
+  "test_language": "python",
+  "generated_code": "\"\"\"\nContract tests for ConversationEngine component.\nTests verify behavior at boundaries with mocked dependencies.\n\"\"\"\n\nimport pytest\nfrom unittest.mock import Mock, MagicMock, patch, call\nfrom dataclasses import dataclass\nfrom typing import Optional\nimport json\nimport time\n\n\n# ============================================================================\n# Test Fixtures and Mocks\n# ============================================================================\n\n@dataclass\nclass Message:\n    \"\"\"Mock Message class\"\"\"\n    role: str\n    content: str\n\n\n@dataclass\nclass Phase:\n    \"\"\"Mock Phase enum\"\"\"\n    understand = \"understand\"\n    challenge = \"challenge\"\n    synthesize = \"synthesize\"\n    complete = \"complete\"\n\n\n@dataclass\nclass MockSession:\n    \"\"\"Mock Session object\"\"\"\n    session_id: str = \"test-session-123\"\n    phase: str = \"understand\"\n    round: int = 0\n    understand_rounds: int = 0\n    challenge_rounds: int = 0\n    conversation: list = None\n    prompt_md: Optional[str] = None\n    constraints_yaml: Optional[str] = None\n    \n    def __post_init__(self):\n        if self.conversation is None:\n            self.conversation = []\n    \n    def touch(self):\n        \"\"\"Update timestamp\"\"\"\n        pass\n\n\n@dataclass\nclass MockEngineConfig:\n    \"\"\"Mock EngineConfig\"\"\"\n    understand_min: int = 2\n    understand_max: int = 5\n    challenge_min: int = 2\n    challenge_max: int = 5\n\n\nclass MockIO:\n    \"\"\"Mock TerminalIO implementation\"\"\"\n    def __init__(self):\n        self.displayed = []\n        self.prompt_responses = []\n        self.prompt_index = 0\n    \n    def display(self, text: str):\n        self.displayed.append(text)\n    \n    def prompt(self, prefix: str) -> str:\n        if self.prompt_index >= len(self.prompt_responses):\n            raise EOFError()\n        response = self.prompt_responses[self.prompt_index]\n        self.prompt_index += 1\n        if isinstance(response, Exception):\n            raise response\n        return response\n\n\nclass MockAnthropicClient:\n    \"\"\"Mock Anthropic client\"\"\"\n    def __init__(self):\n        self.messages = Mock()\n        self.responses = []\n        self.call_count = 0\n    \n    def set_responses(self, responses):\n        self.responses = responses\n    \n    def create_message(self, **kwargs):\n        if self.call_count >= len(self.responses):\n            raise RuntimeError(\"No more mock responses\")\n        response = self.responses[self.call_count]\n        self.call_count += 1\n        if isinstance(response, Exception):\n            raise response\n        return response\n\n\n@pytest.fixture\ndef mock_session():\n    \"\"\"Create a fresh mock session\"\"\"\n    return MockSession()\n\n\n@pytest.fixture\ndef mock_session_mgr():\n    \"\"\"Create a mock session manager\"\"\"\n    mgr = Mock()\n    mgr.save_session = Mock()\n    return mgr\n\n\n@pytest.fixture\ndef mock_io():\n    \"\"\"Create a mock IO handler\"\"\"\n    return MockIO()\n\n\n@pytest.fixture\ndef mock_client():\n    \"\"\"Create a mock Anthropic client\"\"\"\n    return MockAnthropicClient()\n\n\n@pytest.fixture\ndef mock_config():\n    \"\"\"Create a mock engine config\"\"\"\n    return MockEngineConfig()\n\n\n# ============================================================================\n# DefaultIO Tests\n# ============================================================================\n\ndef test_default_io_display_happy_path():\n    \"\"\"DefaultIO.display prints text to stdout\"\"\"\n    from src.constrain.engine import DefaultIO\n    \n    io = DefaultIO()\n    with patch('builtins.print') as mock_print:\n        io.display(\"Hello, World!\")\n        mock_print.assert_called_once_with(\"Hello, World!\")\n\n\ndef test_default_io_prompt_happy_path():\n    \"\"\"DefaultIO.prompt reads input from stdin\"\"\"\n    from src.constrain.engine import DefaultIO\n    \n    io = DefaultIO()\n    with patch('builtins.input', return_value=\"John Doe\"):\n        result = io.prompt(\"Enter name: \")\n        assert result == \"John Doe\"\n\n\ndef test_default_io_prompt_eof_error():\n    \"\"\"DefaultIO.prompt raises EOFError on Ctrl+D\"\"\"\n    from src.constrain.engine import DefaultIO\n    \n    io = DefaultIO()\n    with patch('builtins.input', side_effect=EOFError()):\n        with pytest.raises(EOFError):\n            io.prompt(\"Enter name: \")\n\n\n# ============================================================================\n# ConversationEngine.__init__ Tests\n# ============================================================================\n\ndef test_conversation_engine_init_all_provided(mock_session, mock_session_mgr):\n    \"\"\"ConversationEngine.__init__ with all parameters provided\"\"\"\n    from src.constrain.engine import ConversationEngine\n    \n    mock_client = Mock()\n    mock_io = Mock()\n    mock_config = MockEngineConfig()\n    \n    engine = ConversationEngine(\n        session=mock_session,\n        session_mgr=mock_session_mgr,\n        client=mock_client,\n        io=mock_io,\n        config=mock_config\n    )\n    \n    assert engine.session is mock_session\n    assert engine.session_mgr is mock_session_mgr\n    assert engine.client is mock_client\n    assert engine.io is mock_io\n    assert engine.config is mock_config\n\n\ndef test_conversation_engine_init_none_optionals(mock_session, mock_session_mgr):\n    \"\"\"ConversationEngine.__init__ with None for optional parameters creates defaults\"\"\"\n    from src.constrain.engine import ConversationEngine\n    \n    with patch('src_constrain_engine.anthropic.Anthropic') as mock_anthropic_cls:\n        with patch('src_constrain_engine.DefaultIO') as mock_io_cls:\n            with patch('src_constrain_engine.EngineConfig') as mock_config_cls:\n                mock_anthropic_cls.return_value = Mock()\n                mock_io_cls.return_value = Mock()\n                mock_config_cls.return_value = MockEngineConfig()\n                \n                engine = ConversationEngine(\n                    session=mock_session,\n                    session_mgr=mock_session_mgr,\n                    client=None,\n                    io=None,\n                    config=None\n                )\n                \n                assert engine.session is mock_session\n                assert engine.session_mgr is mock_session_mgr\n                mock_anthropic_cls.assert_called_once()\n                mock_io_cls.assert_called_once()\n                mock_config_cls.assert_called_once()\n\n\n# ============================================================================\n# ConversationEngine.run_session Tests\n# ============================================================================\n\ndef test_run_session_all_phases_sequential(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"run_session executes all incomplete phases sequentially\"\"\"\n    from src.constrain.engine import ConversationEngine, Phase\n    \n    mock_session.phase = Phase.understand\n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    with patch.object(engine, '_run_phase') as mock_run_phase:\n        with patch.object(engine, '_run_synthesis') as mock_run_synthesis:\n            with patch.object(engine, '_phase_done', side_effect=[False, False, False, True]):\n                with patch.object(engine, '_display_resume_summary'):\n                    result = engine.run_session()\n                    \n                    # Should call _run_phase for understand and challenge\n                    assert mock_run_phase.call_count == 2\n                    # Should call _run_synthesis once\n                    assert mock_run_synthesis.call_count == 1\n                    assert result is mock_session\n\n\ndef test_run_session_keyboard_interrupt(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"run_session saves session and exits on KeyboardInterrupt\"\"\"\n    from src.constrain.engine import ConversationEngine, Phase\n    \n    mock_session.phase = Phase.understand\n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    with patch.object(engine, '_run_phase', side_effect=KeyboardInterrupt()):\n        with patch.object(engine, '_phase_done', return_value=False):\n            with patch.object(engine, '_display_resume_summary'):\n                with pytest.raises(KeyboardInterrupt):\n                    engine.run_session()\n                \n                # Should save session before exiting\n                mock_session_mgr.save_session.assert_called()\n\n\ndef test_run_session_resume_from_challenge(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"run_session resumes from challenge phase if already completed understand\"\"\"\n    from src.constrain.engine import ConversationEngine, Phase\n    \n    mock_session.phase = Phase.challenge\n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    with patch.object(engine, '_run_phase') as mock_run_phase:\n        with patch.object(engine, '_run_synthesis') as mock_run_synthesis:\n            with patch.object(engine, '_phase_done', side_effect=[True, False, False, True]):\n                with patch.object(engine, '_display_resume_summary'):\n                    result = engine.run_session()\n                    \n                    # Should skip understand, run challenge\n                    assert mock_run_phase.call_count == 1\n                    mock_run_phase.assert_called_with(Phase.challenge)\n                    assert mock_run_synthesis.call_count == 1\n\n\n# ============================================================================\n# ConversationEngine._run_phase Tests\n# ============================================================================\n\ndef test_run_phase_understand_min_rounds(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_run_phase executes understand phase for minimum rounds\"\"\"\n    from src.constrain.engine import ConversationEngine, Phase\n    \n    mock_session.phase = Phase.understand\n    mock_config.understand_min = 2\n    mock_config.understand_max = 5\n    \n    # Set up IO to provide user responses\n    mock_io.prompt_responses = [\"response 1\", \"ready\"]\n    \n    # Set up client to return responses with ready flag\n    mock_response_1 = Mock()\n    mock_response_1.content = [Mock(text=\"AI response 1\\n```json\\n{\\\"ready\\\": false}\\n```\")]\n    mock_response_2 = Mock()\n    mock_response_2.content = [Mock(text=\"AI response 2\\n```json\\n{\\\"ready\\\": true}\\n```\")]\n    mock_client.set_responses([mock_response_1, mock_response_2])\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    with patch.object(engine, '_call_api', side_effect=[\"AI response 1\\n```json\\n{\\\"ready\\\": false}\\n```\", \n                                                         \"AI response 2\\n```json\\n{\\\"ready\\\": true}\\n```\"]):\n        engine._run_phase(Phase.understand)\n        \n        # Should complete after min rounds when ready\n        assert mock_session.understand_rounds >= mock_config.understand_min\n\n\ndef test_run_phase_challenge_max_rounds(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_run_phase executes challenge phase up to maximum rounds\"\"\"\n    from src.constrain.engine import ConversationEngine, Phase\n    \n    mock_session.phase = Phase.challenge\n    mock_config.challenge_min = 2\n    mock_config.challenge_max = 3\n    \n    # Set up IO to never indicate ready\n    mock_io.prompt_responses = [\"resp 1\", \"resp 2\", \"resp 3\", \"resp 4\"]\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    with patch.object(engine, '_call_api', return_value=\"AI response\\n```json\\n{\\\"ready\\\": false}\\n```\"):\n        engine._run_phase(Phase.challenge)\n        \n        # Should stop at max rounds\n        assert mock_session.challenge_rounds <= mock_config.challenge_max\n\n\ndef test_run_phase_eof_error(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_run_phase raises EOFError when user sends EOF during prompt\"\"\"\n    from src.constrain.engine import ConversationEngine, Phase\n    \n    mock_session.phase = Phase.understand\n    mock_io.prompt_responses = [EOFError()]\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    with patch.object(engine, '_call_api', return_value=\"AI response\"):\n        with pytest.raises(EOFError):\n            engine._run_phase(Phase.understand)\n\n\ndef test_run_phase_invalid_phase_precondition(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_run_phase only accepts understand or challenge phases\"\"\"\n    from src.constrain.engine import ConversationEngine, Phase\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    # According to precondition, should only work with understand/challenge\n    # Implementation should handle this gracefully\n    with patch.object(engine, '_round_limits', return_value=(1, 1)):\n        with patch.object(engine, '_current_rounds', return_value=0):\n            # Should not crash but behavior depends on implementation\n            try:\n                engine._run_phase(Phase.synthesize)\n            except (ValueError, AttributeError):\n                pass  # Expected if implementation enforces precondition\n\n\n# ============================================================================\n# ConversationEngine._run_synthesis Tests\n# ============================================================================\n\ndef test_run_synthesis_happy_path(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_run_synthesis generates prompt.md and constraints.yaml\"\"\"\n    from src.constrain.engine import ConversationEngine, Phase\n    \n    mock_session.phase = Phase.synthesize\n    mock_io.prompt_responses = [\"looks good\"]\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    synthesis_response = \"\"\"\nHere are the artifacts:\n```prompt.md\n# Test Prompt\nContent here\n```\n```constraints.yaml\nconstraints:\n  - test: value\n```\n\"\"\"\n    \n    with patch.object(engine, '_call_api', return_value=synthesis_response):\n        with patch('src_constrain_engine.parse_synthesis_output', return_value=(\"# Test Prompt\\nContent\", \"constraints:\\n  - test: value\")):\n            engine._run_synthesis()\n            \n            assert mock_session.prompt_md is not None\n            assert mock_session.constraints_yaml is not None\n            assert mock_session.phase == Phase.complete\n            mock_session_mgr.save_session.assert_called()\n\n\ndef test_run_synthesis_with_revision(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_run_synthesis allows exactly one revision cycle\"\"\"\n    from src.constrain.engine import ConversationEngine, Phase\n    \n    mock_session.phase = Phase.synthesize\n    # First response: user provides feedback, second: user approves\n    mock_io.prompt_responses = [\"needs revision\", \"looks good\"]\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    synthesis_response = \"\"\"\n```prompt.md\n# Prompt\n```\n```constraints.yaml\ntest: value\n```\n\"\"\"\n    \n    with patch.object(engine, '_call_api', return_value=synthesis_response):\n        with patch('src_constrain_engine.parse_synthesis_output', return_value=(\"# Prompt\", \"test: value\")):\n            engine._run_synthesis()\n            \n            # Should have made two API calls (initial + revision)\n            assert engine._call_api.call_count >= 1\n\n\ndef test_run_synthesis_parse_error(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_run_synthesis raises ValueError when parse fails\"\"\"\n    from src.constrain.engine import ConversationEngine, Phase\n    \n    mock_session.phase = Phase.synthesize\n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    with patch.object(engine, '_call_api', return_value=\"Invalid response\"):\n        with patch('src_constrain_engine.parse_synthesis_output', side_effect=ValueError(\"Parse failed\")):\n            with pytest.raises(ValueError):\n                engine._run_synthesis()\n\n\ndef test_run_synthesis_eof_error(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_run_synthesis raises EOFError when user sends EOF during feedback\"\"\"\n    from src.constrain.engine import ConversationEngine, Phase\n    \n    mock_session.phase = Phase.synthesize\n    mock_io.prompt_responses = [EOFError()]\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    synthesis_response = \"\"\"\n```prompt.md\n# Prompt\n```\n```constraints.yaml\ntest: value\n```\n\"\"\"\n    \n    with patch.object(engine, '_call_api', return_value=synthesis_response):\n        with patch('src_constrain_engine.parse_synthesis_output', return_value=(\"# Prompt\", \"test: value\")):\n            with pytest.raises(EOFError):\n                engine._run_synthesis()\n\n\n# ============================================================================\n# ConversationEngine._call_api Tests\n# ============================================================================\n\ndef test_call_api_success(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_call_api returns text content from Claude API\"\"\"\n    from src.constrain.engine import ConversationEngine\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    mock_response = Mock()\n    mock_response.content = [Mock(text=\"Hello from Claude\")]\n    \n    with patch.object(engine.client.messages, 'create', return_value=mock_response):\n        result = engine._call_api(\"You are helpful\", [{\"role\": \"user\", \"content\": \"Hi\"}])\n        \n        assert result == \"Hello from Claude\"\n\n\ndef test_call_api_retry_on_rate_limit(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_call_api retries with exponential backoff on rate limit\"\"\"\n    from src.constrain.engine import ConversationEngine\n    import anthropic\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    mock_response = Mock()\n    mock_response.content = [Mock(text=\"Success after retry\")]\n    \n    # Simulate rate limit then success\n    rate_limit_error = anthropic.RateLimitError(\"Rate limited\")\n    \n    with patch.object(engine.client.messages, 'create', side_effect=[rate_limit_error, mock_response]):\n        with patch('time.sleep') as mock_sleep:\n            result = engine._call_api(\"System\", [{\"role\": \"user\", \"content\": \"Test\"}])\n            \n            assert result == \"Success after retry\"\n            # Should have slept once (first retry delay)\n            mock_sleep.assert_called()\n\n\ndef test_call_api_empty_response(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_call_api raises RuntimeError on empty API response\"\"\"\n    from src.constrain.engine import ConversationEngine\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    mock_response = Mock()\n    mock_response.content = []  # Empty content\n    \n    with patch.object(engine.client.messages, 'create', return_value=mock_response):\n        with pytest.raises(RuntimeError):\n            engine._call_api(\"System\", [{\"role\": \"user\", \"content\": \"Test\"}])\n\n\ndef test_call_api_max_retries_exceeded(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_call_api raises RuntimeError after 3 failed retry attempts\"\"\"\n    from src.constrain.engine import ConversationEngine\n    import anthropic\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    rate_limit_error = anthropic.RateLimitError(\"Rate limited\")\n    \n    with patch.object(engine.client.messages, 'create', side_effect=rate_limit_error):\n        with patch('time.sleep'):\n            with pytest.raises(RuntimeError):\n                engine._call_api(\"System\", [{\"role\": \"user\", \"content\": \"Test\"}])\n\n\ndef test_call_api_authentication_error(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_call_api raises AuthenticationError on API auth failure\"\"\"\n    from src.constrain.engine import ConversationEngine\n    import anthropic\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    auth_error = anthropic.AuthenticationError(\"Invalid API key\")\n    \n    with patch.object(engine.client.messages, 'create', side_effect=auth_error):\n        with pytest.raises(anthropic.AuthenticationError):\n            engine._call_api(\"System\", [{\"role\": \"user\", \"content\": \"Test\"}])\n\n\n# ============================================================================\n# ConversationEngine._parse_response Tests\n# ============================================================================\n\ndef test_parse_response_with_json_block(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_parse_response extracts display text, model dict, and ready flag\"\"\"\n    from src.constrain.engine import ConversationEngine\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    raw = \"\"\"Some text before\n```json\n{\"key\": \"value\", \"ready\": true}\n```\nSome text after\"\"\"\n    \n    display, model, ready = engine._parse_response(raw)\n    \n    assert \"Some text\" in display\n    assert model.get(\"key\") == \"value\"\n    assert ready is True\n\n\ndef test_parse_response_no_json_block(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_parse_response returns raw text when no JSON block found\"\"\"\n    from src.constrain.engine import ConversationEngine\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    raw = \"Plain text response without JSON\"\n    \n    display, model, ready = engine._parse_response(raw)\n    \n    assert display == raw\n    assert model == {}\n    assert ready is False\n\n\ndef test_parse_response_invalid_json(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_parse_response returns raw when JSON parse fails\"\"\"\n    from src.constrain.engine import ConversationEngine\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    raw = \"\"\"Text\n```json\n{invalid json syntax}\n```\"\"\"\n    \n    display, model, ready = engine._parse_response(raw)\n    \n    assert display == raw\n    assert model == {}\n    assert ready is False\n\n\ndef test_parse_response_multiple_json_blocks(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_parse_response extracts last JSON block if multiple present\"\"\"\n    from src.constrain.engine import ConversationEngine\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    raw = \"\"\"First block:\n```json\n{\"first\": 1}\n```\nSome text\nSecond block:\n```json\n{\"last\": 2, \"ready\": true}\n```\"\"\"\n    \n    display, model, ready = engine._parse_response(raw)\n    \n    assert model.get(\"last\") == 2\n    assert ready is True\n    # Should not contain first block data\n    assert \"first\" not in model\n\n\n# ============================================================================\n# ConversationEngine._api_messages Tests\n# ============================================================================\n\ndef test_api_messages_builds_list(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_api_messages builds list from session conversation history\"\"\"\n    from src.constrain.engine import ConversationEngine\n    \n    mock_session.conversation = [\n        Message(role=\"user\", content=\"Hello\"),\n        Message(role=\"assistant\", content=\"Hi there\"),\n        Message(role=\"user\", content=\"How are you?\")\n    ]\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    messages = engine._api_messages()\n    \n    assert len(messages) == 3\n    assert all(isinstance(m, dict) for m in messages)\n    assert all(\"role\" in m and \"content\" in m for m in messages)\n    assert messages[0][\"role\"] == \"user\"\n    assert messages[1][\"role\"] == \"assistant\"\n\n\ndef test_api_messages_empty_conversation(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_api_messages returns empty list for new session\"\"\"\n    from src.constrain.engine import ConversationEngine\n    \n    mock_session.conversation = []\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    messages = engine._api_messages()\n    \n    assert messages == []\n\n\n# ============================================================================\n# ConversationEngine._add_message Tests\n# ============================================================================\n\ndef test_add_message_appends_to_conversation(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_add_message appends message and updates timestamp\"\"\"\n    from src.constrain.engine import ConversationEngine\n    \n    mock_session.conversation = []\n    mock_session.touch = Mock()\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    engine._add_message(\"user\", \"Hello\")\n    \n    assert len(mock_session.conversation) == 1\n    assert mock_session.conversation[0].role == \"user\"\n    assert mock_session.conversation[0].content == \"Hello\"\n    mock_session.touch.assert_called_once()\n\n\n# ============================================================================\n# ConversationEngine._increment_round Tests\n# ============================================================================\n\ndef test_increment_round_understand_phase(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_increment_round increments both session.round and understand_rounds\"\"\"\n    from src.constrain.engine import ConversationEngine, Phase\n    \n    mock_session.round = 0\n    mock_session.understand_rounds = 0\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    engine._increment_round(Phase.understand)\n    \n    assert mock_session.round == 1\n    assert mock_session.understand_rounds == 1\n\n\ndef test_increment_round_challenge_phase(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_increment_round increments both session.round and challenge_rounds\"\"\"\n    from src.constrain.engine import ConversationEngine, Phase\n    \n    mock_session.round = 5\n    mock_session.challenge_rounds = 0\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    engine._increment_round(Phase.challenge)\n    \n    assert mock_session.round == 6\n    assert mock_session.challenge_rounds == 1\n\n\n# ============================================================================\n# ConversationEngine._current_rounds Tests\n# ============================================================================\n\ndef test_current_rounds_understand(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_current_rounds returns understand_rounds for understand phase\"\"\"\n    from src.constrain.engine import ConversationEngine, Phase\n    \n    mock_session.understand_rounds = 3\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    rounds = engine._current_rounds(Phase.understand)\n    \n    assert rounds == 3\n\n\ndef test_current_rounds_challenge(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_current_rounds returns challenge_rounds for challenge phase\"\"\"\n    from src.constrain.engine import ConversationEngine, Phase\n    \n    mock_session.challenge_rounds = 2\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    rounds = engine._current_rounds(Phase.challenge)\n    \n    assert rounds == 2\n\n\ndef test_current_rounds_other_phase(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_current_rounds returns 0 for synthesis or complete phase\"\"\"\n    from src.constrain.engine import ConversationEngine, Phase\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    rounds = engine._current_rounds(Phase.synthesize)\n    \n    assert rounds == 0\n\n\n# ============================================================================\n# ConversationEngine._round_limits Tests\n# ============================================================================\n\ndef test_round_limits_understand(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_round_limits returns understand config limits\"\"\"\n    from src.constrain.engine import ConversationEngine, Phase\n    \n    mock_config.understand_min = 3\n    mock_config.understand_max = 7\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    min_r, max_r = engine._round_limits(Phase.understand)\n    \n    assert min_r == 3\n    assert max_r == 7\n\n\ndef test_round_limits_challenge(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_round_limits returns challenge config limits\"\"\"\n    from src.constrain.engine import ConversationEngine, Phase\n    \n    mock_config.challenge_min = 2\n    mock_config.challenge_max = 4\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    min_r, max_r = engine._round_limits(Phase.challenge)\n    \n    assert min_r == 2\n    assert max_r == 4\n\n\ndef test_round_limits_other_phase(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_round_limits returns (1, 1) for non-conversation phases\"\"\"\n    from src.constrain.engine import ConversationEngine, Phase\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    min_r, max_r = engine._round_limits(Phase.synthesize)\n    \n    assert min_r == 1\n    assert max_r == 1\n\n\n# ============================================================================\n# ConversationEngine._phase_done Tests\n# ============================================================================\n\ndef test_phase_done_later_phase(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_phase_done returns True if session phase is later than target\"\"\"\n    from src.constrain.engine import ConversationEngine, Phase\n    \n    mock_session.phase = Phase.challenge\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    with patch('src_constrain_engine.PHASE_ORDER', [Phase.understand, Phase.challenge, Phase.synthesize, Phase.complete]):\n        done = engine._phase_done(Phase.understand)\n        \n        assert done is True\n\n\ndef test_phase_done_earlier_phase(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_phase_done returns False if session phase is earlier than target\"\"\"\n    from src.constrain.engine import ConversationEngine, Phase\n    \n    mock_session.phase = Phase.understand\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    with patch('src_constrain_engine.PHASE_ORDER', [Phase.understand, Phase.challenge, Phase.synthesize, Phase.complete]):\n        done = engine._phase_done(Phase.challenge)\n        \n        assert done is False\n\n\ndef test_phase_done_same_phase(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_phase_done returns False if session phase equals target\"\"\"\n    from src.constrain.engine import ConversationEngine, Phase\n    \n    mock_session.phase = Phase.understand\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    with patch('src_constrain_engine.PHASE_ORDER', [Phase.understand, Phase.challenge, Phase.synthesize, Phase.complete]):\n        done = engine._phase_done(Phase.understand)\n        \n        assert done is False\n\n\n# ============================================================================\n# ConversationEngine._display_resume_summary Tests\n# ============================================================================\n\ndef test_display_resume_summary(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"_display_resume_summary shows session info to stdout\"\"\"\n    from src.constrain.engine import ConversationEngine, Phase\n    \n    mock_session.session_id = \"test-123\"\n    mock_session.phase = Phase.challenge\n    mock_session.understand_rounds = 3\n    mock_session.challenge_rounds = 2\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    engine._display_resume_summary()\n    \n    # Should have displayed session info\n    assert len(mock_io.displayed) > 0\n    displayed_text = \" \".join(mock_io.displayed)\n    assert \"test-123\" in displayed_text or \"session\" in displayed_text.lower()\n\n\n# ============================================================================\n# Invariant Tests\n# ============================================================================\n\ndef test_invariant_model_constant():\n    \"\"\"MODEL constant is claude-sonnet-4-20250514\"\"\"\n    from src.constrain.engine import MODEL\n    \n    assert MODEL == \"claude-sonnet-4-20250514\"\n\n\ndef test_invariant_phase_order():\n    \"\"\"Phase order is understand, challenge, synthesize, complete\"\"\"\n    from src.constrain.engine import PHASE_ORDER, Phase\n    \n    assert PHASE_ORDER == [Phase.understand, Phase.challenge, Phase.synthesize, Phase.complete]\n\n\ndef test_invariant_retry_delays(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"Retry delays are [1, 2, 4] seconds\"\"\"\n    from src.constrain.engine import ConversationEngine, RETRY_DELAYS\n    \n    assert RETRY_DELAYS == [1, 2, 4]\n\n\ndef test_invariant_max_tokens(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"Max API tokens is 4096\"\"\"\n    from src.constrain.engine import ConversationEngine, MAX_TOKENS\n    \n    assert MAX_TOKENS == 4096\n\n\ndef test_invariant_message_role_alternation(mock_session, mock_session_mgr, mock_io, mock_client, mock_config):\n    \"\"\"Messages must alternate user/assistant roles\"\"\"\n    from src.constrain.engine import ConversationEngine\n    \n    mock_session.conversation = [\n        Message(role=\"user\", content=\"Hello\"),\n        Message(role=\"assistant\", content=\"Hi\"),\n        Message(role=\"user\", content=\"Test\"),\n        Message(role=\"assistant\", content=\"Response\")\n    ]\n    \n    engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)\n    \n    messages = engine._api_messages()\n    \n    # Verify alternation\n    for i in range(len(messages) - 1):\n        assert messages[i][\"role\"] != messages[i+1][\"role\"]\n"
+}

@@ -1,0 +1,567 @@
+{
+  "component_id": "src_constrain_session",
+  "contract_version": 1,
+  "test_cases": [
+    {
+      "id": "test_init_happy_path",
+      "description": "Initialize SessionManager with a base path, verify base_path and _sessions_dir are set correctly",
+      "function": "__init__",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "base_path": "/tmp/test_sessions"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "self.base_path is Path(base_path)",
+        "self._sessions_dir is base_path/.constrain/sessions"
+      ]
+    },
+    {
+      "id": "test_init_with_path_object",
+      "description": "Initialize SessionManager with a Path object instead of string",
+      "function": "__init__",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "base_path": "Path('/tmp/test_sessions')"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "self.base_path is Path type",
+        "self._sessions_dir is correctly set"
+      ]
+    },
+    {
+      "id": "test_create_happy_path",
+      "description": "Create a new session with default posture selection",
+      "function": "create",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "posture_override": "None"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns Session instance",
+        "Session has valid posture"
+      ]
+    },
+    {
+      "id": "test_create_with_posture_override",
+      "description": "Create a new session with explicit posture override",
+      "function": "create",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {
+        "select_posture": "return posture_override if provided"
+      },
+      "input_values": {
+        "posture_override": "Posture.some_value"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns Session with specified posture"
+      ]
+    },
+    {
+      "id": "test_save_happy_path",
+      "description": "Save a session to disk, verify file creation and session.touch() called",
+      "function": "save",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "session": "valid_session_object"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "session.touch() was called",
+        "_sessions_dir exists",
+        "JSON file exists at correct path"
+      ]
+    },
+    {
+      "id": "test_save_creates_directory",
+      "description": "Save creates sessions directory if it doesn't exist",
+      "function": "save",
+      "category": "edge_case",
+      "setup_description": "_sessions_dir does not exist initially",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "_sessions_dir is created",
+        "Session file is written"
+      ]
+    },
+    {
+      "id": "test_save_atomic_write",
+      "description": "Save uses atomic write with temporary file",
+      "function": "save",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Temporary .json.tmp file is used",
+        "Final .json file exists after save"
+      ]
+    },
+    {
+      "id": "test_save_first_save_checks_gitignore",
+      "description": "First save triggers _check_gitignore",
+      "function": "save",
+      "category": "edge_case",
+      "setup_description": "First save operation",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "_check_gitignore is called on first save"
+      ]
+    },
+    {
+      "id": "test_save_file_write_error",
+      "description": "Save raises OSError when file write fails",
+      "function": "save",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "Path.write_text": "raise OSError"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "OSError",
+      "assertions": [
+        "OSError is raised"
+      ]
+    },
+    {
+      "id": "test_load_happy_path",
+      "description": "Load an existing session by ID, verify Session object is returned",
+      "function": "load",
+      "category": "happy_path",
+      "setup_description": "Session file exists in _sessions_dir",
+      "mock_dependencies": {},
+      "input_values": {
+        "session_id": "test-session-123"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns valid Session object",
+        "Session data matches saved data"
+      ]
+    },
+    {
+      "id": "test_load_file_not_found",
+      "description": "Load raises error when session file does not exist",
+      "function": "load",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "session_id": "nonexistent-session"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "Session file not found",
+      "assertions": [
+        "Appropriate error is raised"
+      ]
+    },
+    {
+      "id": "test_load_os_error",
+      "description": "Load raises OSError when file read fails",
+      "function": "load",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {
+        "Path.read_text": "raise OSError"
+      },
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "OSError",
+      "assertions": [
+        "OSError is raised"
+      ]
+    },
+    {
+      "id": "test_load_json_validation_error",
+      "description": "Load raises validation error when JSON is invalid",
+      "function": "load",
+      "category": "error_case",
+      "setup_description": "Session file contains invalid JSON or schema",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "JSON validation error",
+      "assertions": [
+        "Validation error is raised"
+      ]
+    },
+    {
+      "id": "test_find_latest_incomplete_happy_path",
+      "description": "Find the most recently updated incomplete session",
+      "function": "find_latest_incomplete",
+      "category": "happy_path",
+      "setup_description": "Multiple incomplete sessions with different updated_at timestamps",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns Session with latest updated_at",
+        "Session is not complete"
+      ]
+    },
+    {
+      "id": "test_find_latest_incomplete_no_sessions",
+      "description": "Return None when no sessions exist",
+      "function": "find_latest_incomplete",
+      "category": "edge_case",
+      "setup_description": "Empty sessions directory",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns None"
+      ]
+    },
+    {
+      "id": "test_find_latest_incomplete_all_complete",
+      "description": "Return None when all sessions are complete",
+      "function": "find_latest_incomplete",
+      "category": "edge_case",
+      "setup_description": "All sessions have is_complete=True",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns None"
+      ]
+    },
+    {
+      "id": "test_find_latest_incomplete_skips_corrupted",
+      "description": "Silently skip corrupted session files",
+      "function": "find_latest_incomplete",
+      "category": "edge_case",
+      "setup_description": "Mix of valid and corrupted JSON files",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns valid incomplete session",
+        "No error raised for corrupted files"
+      ]
+    },
+    {
+      "id": "test_list_all_happy_path",
+      "description": "List all sessions with summary information, sorted by updated_at",
+      "function": "list_all",
+      "category": "happy_path",
+      "setup_description": "Multiple sessions with various states",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns list of dicts",
+        "Sorted by updated_at descending",
+        "Each dict has required fields"
+      ]
+    },
+    {
+      "id": "test_list_all_empty",
+      "description": "Return empty list when no sessions exist",
+      "function": "list_all",
+      "category": "edge_case",
+      "setup_description": "Empty sessions directory",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns empty list"
+      ]
+    },
+    {
+      "id": "test_list_all_skips_corrupted",
+      "description": "Silently skip corrupted session files",
+      "function": "list_all",
+      "category": "edge_case",
+      "setup_description": "Mix of valid and corrupted JSON files",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Returns only valid sessions",
+        "No error raised"
+      ]
+    },
+    {
+      "id": "test_list_all_dict_structure",
+      "description": "Verify each returned dict has correct structure",
+      "function": "list_all",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Contains id, phase, posture, created_at, updated_at, understand_rounds, challenge_rounds, is_complete"
+      ]
+    },
+    {
+      "id": "test_transition_phase_understand_to_challenge",
+      "description": "Valid transition from understand to challenge phase",
+      "function": "transition_phase",
+      "category": "happy_path",
+      "setup_description": "Session in understand phase",
+      "mock_dependencies": {},
+      "input_values": {
+        "to_phase": "Phase.challenge"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "session.phase is Phase.challenge",
+        "session.touch() was called"
+      ]
+    },
+    {
+      "id": "test_transition_phase_challenge_to_synthesize",
+      "description": "Valid transition from challenge to synthesize phase",
+      "function": "transition_phase",
+      "category": "happy_path",
+      "setup_description": "Session in challenge phase",
+      "mock_dependencies": {},
+      "input_values": {
+        "to_phase": "Phase.synthesize"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "session.phase is Phase.synthesize",
+        "session.touch() was called"
+      ]
+    },
+    {
+      "id": "test_transition_phase_synthesize_to_complete",
+      "description": "Valid transition from synthesize to complete phase",
+      "function": "transition_phase",
+      "category": "happy_path",
+      "setup_description": "Session in synthesize phase",
+      "mock_dependencies": {},
+      "input_values": {
+        "to_phase": "Phase.complete"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "session.phase is Phase.complete",
+        "session.touch() was called"
+      ]
+    },
+    {
+      "id": "test_transition_phase_invalid_transition",
+      "description": "Invalid transition raises error",
+      "function": "transition_phase",
+      "category": "error_case",
+      "setup_description": "Session in understand phase",
+      "mock_dependencies": {},
+      "input_values": {
+        "to_phase": "Phase.synthesize"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "Invalid phase transition",
+      "assertions": [
+        "Error is raised",
+        "session.phase unchanged"
+      ]
+    },
+    {
+      "id": "test_check_gitignore_missing",
+      "description": "Print tip when .gitignore is missing",
+      "function": "_check_gitignore",
+      "category": "happy_path",
+      "setup_description": ".gitignore does not exist",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Tip printed to stderr"
+      ]
+    },
+    {
+      "id": "test_check_gitignore_missing_entry",
+      "description": "Print tip when .gitignore exists but doesn't contain .constrain",
+      "function": "_check_gitignore",
+      "category": "edge_case",
+      "setup_description": ".gitignore exists without .constrain pattern",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Tip printed to stderr"
+      ]
+    },
+    {
+      "id": "test_check_gitignore_exists_with_entry",
+      "description": "No tip when .gitignore contains .constrain",
+      "function": "_check_gitignore",
+      "category": "happy_path",
+      "setup_description": ".gitignore exists with .constrain pattern",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "No tip printed"
+      ]
+    },
+    {
+      "id": "test_invariant_sessions_dir_path",
+      "description": "Verify _sessions_dir is always base_path/.constrain/sessions",
+      "function": "__init__",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "_sessions_dir == base_path/.constrain/sessions for all base_path values"
+      ]
+    },
+    {
+      "id": "test_invariant_session_file_naming",
+      "description": "Verify session files are named {session_id}.json",
+      "function": "save",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Session file path matches _sessions_dir/{session.id}.json"
+      ]
+    },
+    {
+      "id": "test_invariant_phase_transitions",
+      "description": "Verify ALLOWED_TRANSITIONS defines correct transition matrix",
+      "function": "transition_phase",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "All allowed transitions succeed",
+        "All disallowed transitions fail"
+      ]
+    },
+    {
+      "id": "test_save_load_round_trip",
+      "description": "Verify session data integrity through save/load cycle",
+      "function": "save",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Loaded session matches saved session"
+      ]
+    },
+    {
+      "id": "test_path_with_special_chars",
+      "description": "Handle paths with spaces and special characters",
+      "function": "__init__",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "base_path": "/tmp/test path with spaces & special!"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "SessionManager initializes correctly",
+        "Paths are handled properly"
+      ]
+    },
+    {
+      "id": "test_json_with_unicode",
+      "description": "Handle session data with Unicode characters",
+      "function": "save",
+      "category": "edge_case",
+      "setup_description": "Session contains Unicode data",
+      "mock_dependencies": {},
+      "input_values": {},
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "",
+      "assertions": [
+        "Session saves and loads correctly with Unicode"
+      ]
+    }
+  ],
+  "test_language": "python",
+  "generated_code": "\"\"\"\nContract tests for SessionManager component.\n\nTests cover:\n- Initialization and configuration\n- Session creation\n- Persistence (save/load)\n- Query operations (find_latest_incomplete, list_all)\n- Phase transitions\n- Error handling\n- Invariants\n\"\"\"\n\nimport pytest\nimport json\nimport sys\nfrom pathlib import Path\nfrom unittest.mock import Mock, patch, MagicMock, call\nfrom datetime import datetime\nfrom io import StringIO\n\n# Import the component under test\nfrom src.constrain.session import SessionManager, Session, Phase, Posture, select_posture\n\n\n# ============================================================================\n# Fixtures\n# ============================================================================\n\n@pytest.fixture\ndef tmp_session_manager(tmp_path):\n    \"\"\"Create a SessionManager with a temporary base path.\"\"\"\n    return SessionManager(tmp_path)\n\n\n@pytest.fixture\ndef sample_session():\n    \"\"\"Create a sample session for testing.\"\"\"\n    session = Mock(spec=Session)\n    session.id = \"test-session-123\"\n    session.phase = Phase.understand\n    session.posture = Posture.advocate\n    session.created_at = datetime(2024, 1, 1, 12, 0, 0)\n    session.updated_at = datetime(2024, 1, 1, 12, 30, 0)\n    session.understand_rounds = []\n    session.challenge_rounds = []\n    session.is_complete = False\n    session.model_dump_json = Mock(return_value=json.dumps({\n        \"id\": session.id,\n        \"phase\": \"understand\",\n        \"posture\": \"advocate\",\n        \"created_at\": \"2024-01-01T12:00:00\",\n        \"updated_at\": \"2024-01-01T12:30:00\",\n        \"understand_rounds\": [],\n        \"challenge_rounds\": [],\n        \"is_complete\": False\n    }))\n    session.touch = Mock()\n    return session\n\n\n@pytest.fixture\ndef sample_complete_session():\n    \"\"\"Create a complete session for testing.\"\"\"\n    session = Mock(spec=Session)\n    session.id = \"complete-session-456\"\n    session.phase = Phase.complete\n    session.posture = Posture.skeptic\n    session.created_at = datetime(2024, 1, 1, 10, 0, 0)\n    session.updated_at = datetime(2024, 1, 1, 11, 0, 0)\n    session.understand_rounds = [{\"round\": 1}]\n    session.challenge_rounds = [{\"round\": 1}]\n    session.is_complete = True\n    session.model_dump_json = Mock(return_value=json.dumps({\n        \"id\": session.id,\n        \"phase\": \"complete\",\n        \"posture\": \"skeptic\",\n        \"created_at\": \"2024-01-01T10:00:00\",\n        \"updated_at\": \"2024-01-01T11:00:00\",\n        \"understand_rounds\": [{\"round\": 1}],\n        \"challenge_rounds\": [{\"round\": 1}],\n        \"is_complete\": True\n    }))\n    session.touch = Mock()\n    return session\n\n\n# ============================================================================\n# Test: __init__\n# ============================================================================\n\ndef test_init_happy_path(tmp_path):\n    \"\"\"Initialize SessionManager with a base path, verify base_path and _sessions_dir are set correctly.\"\"\"\n    manager = SessionManager(tmp_path)\n    \n    assert manager.base_path == Path(tmp_path)\n    assert manager._sessions_dir == Path(tmp_path) / \".constrain\" / \"sessions\"\n\n\ndef test_init_with_path_object(tmp_path):\n    \"\"\"Initialize SessionManager with a Path object instead of string.\"\"\"\n    path_obj = Path(tmp_path)\n    manager = SessionManager(path_obj)\n    \n    assert isinstance(manager.base_path, Path)\n    assert manager.base_path == path_obj\n    assert manager._sessions_dir == path_obj / \".constrain\" / \"sessions\"\n\n\ndef test_init_with_string_path(tmp_path):\n    \"\"\"Initialize SessionManager with a string path.\"\"\"\n    path_str = str(tmp_path)\n    manager = SessionManager(path_str)\n    \n    assert isinstance(manager.base_path, Path)\n    assert manager.base_path == Path(path_str)\n    assert manager._sessions_dir == Path(path_str) / \".constrain\" / \"sessions\"\n\n\ndef test_path_with_special_chars(tmp_path):\n    \"\"\"Handle paths with spaces and special characters.\"\"\"\n    special_path = tmp_path / \"test path with spaces & special!\"\n    special_path.mkdir(parents=True, exist_ok=True)\n    \n    manager = SessionManager(special_path)\n    \n    assert manager.base_path == special_path\n    assert manager._sessions_dir == special_path / \".constrain\" / \"sessions\"\n\n\ndef test_invariant_sessions_dir_path(tmp_path):\n    \"\"\"Verify _sessions_dir is always base_path/.constrain/sessions.\"\"\"\n    # Test with various base paths\n    test_paths = [\n        tmp_path,\n        tmp_path / \"subdir\",\n        tmp_path / \"a\" / \"b\" / \"c\"\n    ]\n    \n    for base_path in test_paths:\n        manager = SessionManager(base_path)\n        expected = Path(base_path) / \".constrain\" / \"sessions\"\n        assert manager._sessions_dir == expected, f\"Failed for base_path={base_path}\"\n\n\n# ============================================================================\n# Test: create\n# ============================================================================\n\n@patch('src.constrain.session.select_posture')\n@patch('src.constrain.session.Session')\ndef test_create_happy_path(mock_session_class, mock_select_posture, tmp_session_manager):\n    \"\"\"Create a new session with default posture selection.\"\"\"\n    mock_posture = Posture.advocate\n    mock_select_posture.return_value = mock_posture\n    mock_session_instance = Mock(spec=Session)\n    mock_session_class.return_value = mock_session_instance\n    \n    result = tmp_session_manager.create(posture_override=None)\n    \n    mock_select_posture.assert_called_once_with(None)\n    assert result == mock_session_instance\n\n\n@patch('src.constrain.session.select_posture')\n@patch('src.constrain.session.Session')\ndef test_create_with_posture_override(mock_session_class, mock_select_posture, tmp_session_manager):\n    \"\"\"Create a new session with explicit posture override.\"\"\"\n    posture_override = Posture.skeptic\n    mock_select_posture.return_value = posture_override\n    mock_session_instance = Mock(spec=Session)\n    mock_session_class.return_value = mock_session_instance\n    \n    result = tmp_session_manager.create(posture_override=posture_override)\n    \n    mock_select_posture.assert_called_once_with(posture_override)\n    assert result == mock_session_instance\n\n\n# ============================================================================\n# Test: save\n# ============================================================================\n\ndef test_save_happy_path(tmp_session_manager, sample_session):\n    \"\"\"Save a session to disk, verify file creation and session.touch() called.\"\"\"\n    tmp_session_manager.save(sample_session)\n    \n    # Verify touch was called\n    sample_session.touch.assert_called_once()\n    \n    # Verify directory exists\n    assert tmp_session_manager._sessions_dir.exists()\n    \n    # Verify session file exists\n    session_file = tmp_session_manager._sessions_dir / f\"{sample_session.id}.json\"\n    assert session_file.exists()\n    \n    # Verify content\n    content = json.loads(session_file.read_text())\n    assert content[\"id\"] == sample_session.id\n\n\ndef test_save_creates_directory(tmp_session_manager, sample_session):\n    \"\"\"Save creates sessions directory if it doesn't exist.\"\"\"\n    # Ensure directory doesn't exist\n    assert not tmp_session_manager._sessions_dir.exists()\n    \n    tmp_session_manager.save(sample_session)\n    \n    # Verify directory was created\n    assert tmp_session_manager._sessions_dir.exists()\n    assert tmp_session_manager._sessions_dir.is_dir()\n    \n    # Verify session file exists\n    session_file = tmp_session_manager._sessions_dir / f\"{sample_session.id}.json\"\n    assert session_file.exists()\n\n\ndef test_save_atomic_write(tmp_session_manager, sample_session):\n    \"\"\"Save uses atomic write with temporary file.\"\"\"\n    tmp_session_manager.save(sample_session)\n    \n    # Verify final file exists\n    final_file = tmp_session_manager._sessions_dir / f\"{sample_session.id}.json\"\n    assert final_file.exists()\n    \n    # Verify temporary file does not exist after save\n    tmp_file = tmp_session_manager._sessions_dir / f\"{sample_session.id}.json.tmp\"\n    assert not tmp_file.exists()\n\n\ndef test_save_first_save_checks_gitignore(tmp_session_manager, sample_session):\n    \"\"\"First save triggers _check_gitignore.\"\"\"\n    with patch.object(tmp_session_manager, '_check_gitignore') as mock_check:\n        tmp_session_manager.save(sample_session)\n        mock_check.assert_called_once()\n\n\ndef test_save_file_write_error(tmp_session_manager, sample_session):\n    \"\"\"Save raises OSError when file write fails.\"\"\"\n    # Create the directory first\n    tmp_session_manager._sessions_dir.mkdir(parents=True, exist_ok=True)\n    \n    with patch('pathlib.Path.write_text', side_effect=OSError(\"Write failed\")):\n        with pytest.raises(OSError):\n            tmp_session_manager.save(sample_session)\n\n\ndef test_invariant_session_file_naming(tmp_session_manager, sample_session):\n    \"\"\"Verify session files are named {session_id}.json.\"\"\"\n    tmp_session_manager.save(sample_session)\n    \n    expected_path = tmp_session_manager._sessions_dir / f\"{sample_session.id}.json\"\n    assert expected_path.exists()\n\n\ndef test_save_load_round_trip(tmp_session_manager):\n    \"\"\"Verify session data integrity through save/load cycle.\"\"\"\n    # Create a real session (not mocked) for round-trip test\n    with patch('src.constrain.session.select_posture', return_value=Posture.advocate):\n        original_session = tmp_session_manager.create(None)\n    \n    # Save the session\n    tmp_session_manager.save(original_session)\n    \n    # Load the session\n    loaded_session = tmp_session_manager.load(original_session.id)\n    \n    # Verify data matches\n    assert loaded_session.id == original_session.id\n    assert loaded_session.phase == original_session.phase\n    assert loaded_session.posture == original_session.posture\n\n\ndef test_json_with_unicode(tmp_session_manager):\n    \"\"\"Handle session data with Unicode characters.\"\"\"\n    session = Mock(spec=Session)\n    session.id = \"unicode-session-测试\"\n    session.model_dump_json = Mock(return_value=json.dumps({\n        \"id\": session.id,\n        \"phase\": \"understand\",\n        \"posture\": \"advocate\",\n        \"data\": \"Unicode: 你好世界 🌍\"\n    }))\n    session.touch = Mock()\n    \n    tmp_session_manager.save(session)\n    \n    session_file = tmp_session_manager._sessions_dir / f\"{session.id}.json\"\n    assert session_file.exists()\n    \n    content = json.loads(session_file.read_text(encoding='utf-8'))\n    assert content[\"data\"] == \"Unicode: 你好世界 🌍\"\n\n\n# ============================================================================\n# Test: load\n# ============================================================================\n\ndef test_load_happy_path(tmp_session_manager, sample_session):\n    \"\"\"Load an existing session by ID, verify Session object is returned.\"\"\"\n    # Save a session first\n    tmp_session_manager.save(sample_session)\n    \n    # Load it back\n    loaded_session = tmp_session_manager.load(sample_session.id)\n    \n    assert isinstance(loaded_session, Session)\n    assert loaded_session.id == sample_session.id\n\n\ndef test_load_file_not_found(tmp_session_manager):\n    \"\"\"Load raises error when session file does not exist.\"\"\"\n    with pytest.raises(Exception) as exc_info:\n        tmp_session_manager.load(\"nonexistent-session\")\n    \n    assert \"not found\" in str(exc_info.value).lower() or isinstance(exc_info.value, FileNotFoundError)\n\n\ndef test_load_os_error(tmp_session_manager, sample_session):\n    \"\"\"Load raises OSError when file read fails.\"\"\"\n    # Save a session first\n    tmp_session_manager.save(sample_session)\n    \n    with patch('pathlib.Path.read_text', side_effect=OSError(\"Read failed\")):\n        with pytest.raises(OSError):\n            tmp_session_manager.load(sample_session.id)\n\n\ndef test_load_json_validation_error(tmp_session_manager):\n    \"\"\"Load raises validation error when JSON is invalid.\"\"\"\n    # Create a malformed JSON file\n    tmp_session_manager._sessions_dir.mkdir(parents=True, exist_ok=True)\n    bad_file = tmp_session_manager._sessions_dir / \"bad-session.json\"\n    bad_file.write_text(\"invalid json content {{{\")\n    \n    with pytest.raises(Exception):  # Could be JSONDecodeError or ValidationError\n        tmp_session_manager.load(\"bad-session\")\n\n\n# ============================================================================\n# Test: find_latest_incomplete\n# ============================================================================\n\ndef test_find_latest_incomplete_happy_path(tmp_session_manager):\n    \"\"\"Find the most recently updated incomplete session.\"\"\"\n    # Create multiple incomplete sessions with different timestamps\n    with patch('src.constrain.session.select_posture', return_value=Posture.advocate):\n        session1 = tmp_session_manager.create(None)\n        session1.updated_at = datetime(2024, 1, 1, 10, 0, 0)\n        tmp_session_manager.save(session1)\n        \n        session2 = tmp_session_manager.create(None)\n        session2.updated_at = datetime(2024, 1, 1, 12, 0, 0)  # Latest\n        tmp_session_manager.save(session2)\n        \n        session3 = tmp_session_manager.create(None)\n        session3.updated_at = datetime(2024, 1, 1, 11, 0, 0)\n        tmp_session_manager.save(session3)\n    \n    latest = tmp_session_manager.find_latest_incomplete()\n    \n    assert latest is not None\n    assert latest.id == session2.id\n    assert latest.is_complete is False\n\n\ndef test_find_latest_incomplete_no_sessions(tmp_session_manager):\n    \"\"\"Return None when no sessions exist.\"\"\"\n    result = tmp_session_manager.find_latest_incomplete()\n    assert result is None\n\n\ndef test_find_latest_incomplete_all_complete(tmp_session_manager):\n    \"\"\"Return None when all sessions are complete.\"\"\"\n    with patch('src.constrain.session.select_posture', return_value=Posture.advocate):\n        session = tmp_session_manager.create(None)\n        session.phase = Phase.complete\n        session.is_complete = True\n        tmp_session_manager.save(session)\n    \n    result = tmp_session_manager.find_latest_incomplete()\n    assert result is None\n\n\ndef test_find_latest_incomplete_skips_corrupted(tmp_session_manager):\n    \"\"\"Silently skip corrupted session files.\"\"\"\n    # Create a valid session\n    with patch('src.constrain.session.select_posture', return_value=Posture.advocate):\n        valid_session = tmp_session_manager.create(None)\n        tmp_session_manager.save(valid_session)\n    \n    # Create a corrupted file\n    tmp_session_manager._sessions_dir.mkdir(parents=True, exist_ok=True)\n    corrupted_file = tmp_session_manager._sessions_dir / \"corrupted.json\"\n    corrupted_file.write_text(\"invalid json {{{\")\n    \n    # Should return the valid session without raising error\n    result = tmp_session_manager.find_latest_incomplete()\n    assert result is not None\n    assert result.id == valid_session.id\n\n\n# ============================================================================\n# Test: list_all\n# ============================================================================\n\ndef test_list_all_happy_path(tmp_session_manager):\n    \"\"\"List all sessions with summary information, sorted by updated_at.\"\"\"\n    # Create multiple sessions\n    with patch('src.constrain.session.select_posture', return_value=Posture.advocate):\n        session1 = tmp_session_manager.create(None)\n        session1.updated_at = datetime(2024, 1, 1, 10, 0, 0)\n        tmp_session_manager.save(session1)\n        \n        session2 = tmp_session_manager.create(None)\n        session2.updated_at = datetime(2024, 1, 1, 12, 0, 0)\n        tmp_session_manager.save(session2)\n        \n        session3 = tmp_session_manager.create(None)\n        session3.updated_at = datetime(2024, 1, 1, 11, 0, 0)\n        tmp_session_manager.save(session3)\n    \n    sessions = tmp_session_manager.list_all()\n    \n    assert isinstance(sessions, list)\n    assert len(sessions) == 3\n    \n    # Verify sorted by updated_at descending\n    assert sessions[0][\"id\"] == session2.id  # Latest\n    assert sessions[1][\"id\"] == session3.id\n    assert sessions[2][\"id\"] == session1.id  # Oldest\n\n\ndef test_list_all_empty(tmp_session_manager):\n    \"\"\"Return empty list when no sessions exist.\"\"\"\n    result = tmp_session_manager.list_all()\n    assert result == []\n\n\ndef test_list_all_skips_corrupted(tmp_session_manager):\n    \"\"\"Silently skip corrupted session files.\"\"\"\n    # Create a valid session\n    with patch('src.constrain.session.select_posture', return_value=Posture.advocate):\n        valid_session = tmp_session_manager.create(None)\n        tmp_session_manager.save(valid_session)\n    \n    # Create a corrupted file\n    corrupted_file = tmp_session_manager._sessions_dir / \"corrupted.json\"\n    corrupted_file.write_text(\"invalid json {{{\")\n    \n    # Should return only valid sessions\n    sessions = tmp_session_manager.list_all()\n    assert len(sessions) == 1\n    assert sessions[0][\"id\"] == valid_session.id\n\n\ndef test_list_all_dict_structure(tmp_session_manager):\n    \"\"\"Verify each returned dict has correct structure.\"\"\"\n    with patch('src.constrain.session.select_posture', return_value=Posture.advocate):\n        session = tmp_session_manager.create(None)\n        tmp_session_manager.save(session)\n    \n    sessions = tmp_session_manager.list_all()\n    \n    assert len(sessions) == 1\n    session_dict = sessions[0]\n    \n    required_fields = [\n        \"id\", \"phase\", \"posture\", \"created_at\", \"updated_at\",\n        \"understand_rounds\", \"challenge_rounds\", \"is_complete\"\n    ]\n    \n    for field in required_fields:\n        assert field in session_dict, f\"Missing field: {field}\"\n\n\n# ============================================================================\n# Test: transition_phase\n# ============================================================================\n\ndef test_transition_phase_understand_to_challenge(tmp_session_manager):\n    \"\"\"Valid transition from understand to challenge phase.\"\"\"\n    with patch('src.constrain.session.select_posture', return_value=Posture.advocate):\n        session = tmp_session_manager.create(None)\n        session.phase = Phase.understand\n        \n        tmp_session_manager.transition_phase(session, Phase.challenge)\n        \n        assert session.phase == Phase.challenge\n        assert session.touch.called\n\n\ndef test_transition_phase_challenge_to_synthesize(tmp_session_manager):\n    \"\"\"Valid transition from challenge to synthesize phase.\"\"\"\n    with patch('src.constrain.session.select_posture', return_value=Posture.advocate):\n        session = tmp_session_manager.create(None)\n        session.phase = Phase.challenge\n        \n        tmp_session_manager.transition_phase(session, Phase.synthesize)\n        \n        assert session.phase == Phase.synthesize\n        assert session.touch.called\n\n\ndef test_transition_phase_synthesize_to_complete(tmp_session_manager):\n    \"\"\"Valid transition from synthesize to complete phase.\"\"\"\n    with patch('src.constrain.session.select_posture', return_value=Posture.advocate):\n        session = tmp_session_manager.create(None)\n        session.phase = Phase.synthesize\n        \n        tmp_session_manager.transition_phase(session, Phase.complete)\n        \n        assert session.phase == Phase.complete\n        assert session.touch.called\n\n\ndef test_transition_phase_invalid_transition(tmp_session_manager):\n    \"\"\"Invalid transition raises error.\"\"\"\n    with patch('src.constrain.session.select_posture', return_value=Posture.advocate):\n        session = tmp_session_manager.create(None)\n        original_phase = session.phase = Phase.understand\n        \n        with pytest.raises(Exception) as exc_info:\n            tmp_session_manager.transition_phase(session, Phase.synthesize)\n        \n        assert \"transition\" in str(exc_info.value).lower()\n        # Phase should be unchanged\n        assert session.phase == original_phase\n\n\ndef test_invariant_phase_transitions(tmp_session_manager):\n    \"\"\"Verify ALLOWED_TRANSITIONS defines correct transition matrix.\"\"\"\n    # Test all valid transitions\n    valid_transitions = [\n        (Phase.understand, Phase.challenge),\n        (Phase.challenge, Phase.synthesize),\n        (Phase.synthesize, Phase.complete),\n    ]\n    \n    for from_phase, to_phase in valid_transitions:\n        with patch('src.constrain.session.select_posture', return_value=Posture.advocate):\n            session = tmp_session_manager.create(None)\n            session.phase = from_phase\n            \n            # Should not raise\n            tmp_session_manager.transition_phase(session, to_phase)\n            assert session.phase == to_phase\n    \n    # Test some invalid transitions\n    invalid_transitions = [\n        (Phase.understand, Phase.synthesize),\n        (Phase.understand, Phase.complete),\n        (Phase.challenge, Phase.complete),\n    ]\n    \n    for from_phase, to_phase in invalid_transitions:\n        with patch('src.constrain.session.select_posture', return_value=Posture.advocate):\n            session = tmp_session_manager.create(None)\n            session.phase = from_phase\n            \n            with pytest.raises(Exception):\n                tmp_session_manager.transition_phase(session, to_phase)\n\n\n# ============================================================================\n# Test: _check_gitignore\n# ============================================================================\n\ndef test_check_gitignore_missing(tmp_session_manager):\n    \"\"\"Print tip when .gitignore is missing.\"\"\"\n    # Ensure .gitignore doesn't exist\n    gitignore_path = tmp_session_manager.base_path / \".gitignore\"\n    assert not gitignore_path.exists()\n    \n    # Capture stderr\n    with patch('sys.stderr', new_callable=StringIO) as mock_stderr:\n        tmp_session_manager._check_gitignore()\n        output = mock_stderr.getvalue()\n        \n        # Should contain tip about .constrain\n        assert \".constrain\" in output or \"gitignore\" in output.lower()\n\n\ndef test_check_gitignore_missing_entry(tmp_session_manager):\n    \"\"\"Print tip when .gitignore exists but doesn't contain .constrain.\"\"\"\n    # Create .gitignore without .constrain\n    gitignore_path = tmp_session_manager.base_path / \".gitignore\"\n    gitignore_path.write_text(\"*.pyc\\n__pycache__/\\n\")\n    \n    with patch('sys.stderr', new_callable=StringIO) as mock_stderr:\n        tmp_session_manager._check_gitignore()\n        output = mock_stderr.getvalue()\n        \n        # Should contain tip about .constrain\n        assert \".constrain\" in output or \"gitignore\" in output.lower()\n\n\ndef test_check_gitignore_exists_with_entry(tmp_session_manager):\n    \"\"\"No tip when .gitignore contains .constrain.\"\"\"\n    # Create .gitignore with .constrain\n    gitignore_path = tmp_session_manager.base_path / \".gitignore\"\n    gitignore_path.write_text(\"*.pyc\\n.constrain/\\n__pycache__/\\n\")\n    \n    with patch('sys.stderr', new_callable=StringIO) as mock_stderr:\n        tmp_session_manager._check_gitignore()\n        output = mock_stderr.getvalue()\n        \n        # Should not print tip\n        assert output == \"\" or len(output.strip()) == 0\n\n\n# ============================================================================\n# Additional Edge Cases and Integration Tests\n# ============================================================================\n\ndef test_multiple_saves_idempotent(tmp_session_manager, sample_session):\n    \"\"\"Multiple saves of the same session should be idempotent.\"\"\"\n    tmp_session_manager.save(sample_session)\n    first_save_content = (tmp_session_manager._sessions_dir / f\"{sample_session.id}.json\").read_text()\n    \n    tmp_session_manager.save(sample_session)\n    second_save_content = (tmp_session_manager._sessions_dir / f\"{sample_session.id}.json\").read_text()\n    \n    assert first_save_content == second_save_content\n\n\ndef test_session_persistence_across_managers(tmp_path):\n    \"\"\"Sessions saved by one manager can be loaded by another.\"\"\"\n    manager1 = SessionManager(tmp_path)\n    \n    with patch('src.constrain.session.select_posture', return_value=Posture.advocate):\n        session = manager1.create(None)\n        manager1.save(session)\n    \n    # Create a new manager with the same path\n    manager2 = SessionManager(tmp_path)\n    loaded_session = manager2.load(session.id)\n    \n    assert loaded_session.id == session.id\n    assert loaded_session.phase == session.phase\n\n\ndef test_concurrent_session_saves(tmp_session_manager):\n    \"\"\"Multiple sessions can be saved concurrently.\"\"\"\n    with patch('src.constrain.session.select_posture', return_value=Posture.advocate):\n        session1 = tmp_session_manager.create(None)\n        session2 = tmp_session_manager.create(None)\n        session3 = tmp_session_manager.create(None)\n    \n    tmp_session_manager.save(session1)\n    tmp_session_manager.save(session2)\n    tmp_session_manager.save(session3)\n    \n    # All should exist\n    assert (tmp_session_manager._sessions_dir / f\"{session1.id}.json\").exists()\n    assert (tmp_session_manager._sessions_dir / f\"{session2.id}.json\").exists()\n    assert (tmp_session_manager._sessions_dir / f\"{session3.id}.json\").exists()\n\n\ndef test_list_all_with_mixed_completion_states(tmp_session_manager):\n    \"\"\"List all returns both complete and incomplete sessions.\"\"\"\n    with patch('src.constrain.session.select_posture', return_value=Posture.advocate):\n        incomplete = tmp_session_manager.create(None)\n        incomplete.updated_at = datetime(2024, 1, 1, 12, 0, 0)\n        tmp_session_manager.save(incomplete)\n        \n        complete = tmp_session_manager.create(None)\n        complete.phase = Phase.complete\n        complete.is_complete = True\n        complete.updated_at = datetime(2024, 1, 1, 10, 0, 0)\n        tmp_session_manager.save(complete)\n    \n    sessions = tmp_session_manager.list_all()\n    \n    assert len(sessions) == 2\n    assert any(s[\"is_complete\"] for s in sessions)\n    assert any(not s[\"is_complete\"] for s in sessions)\n\n\ndef test_find_latest_incomplete_with_mixed_states(tmp_session_manager):\n    \"\"\"Find latest incomplete ignores complete sessions.\"\"\"\n    with patch('src.constrain.session.select_posture', return_value=Posture.advocate):\n        incomplete = tmp_session_manager.create(None)\n        incomplete.updated_at = datetime(2024, 1, 1, 10, 0, 0)\n        tmp_session_manager.save(incomplete)\n        \n        complete = tmp_session_manager.create(None)\n        complete.phase = Phase.complete\n        complete.is_complete = True\n        complete.updated_at = datetime(2024, 1, 1, 12, 0, 0)  # Later but complete\n        tmp_session_manager.save(complete)\n    \n    latest = tmp_session_manager.find_latest_incomplete()\n    \n    assert latest is not None\n    assert latest.id == incomplete.id\n    assert latest.is_complete is False\n"
+}

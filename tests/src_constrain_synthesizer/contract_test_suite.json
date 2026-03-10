@@ -1,0 +1,422 @@
+{
+  "component_id": "src_constrain_synthesizer",
+  "contract_version": 1,
+  "test_cases": [
+    {
+      "id": "test_parse_synthesis_output_happy_path_basic",
+      "description": "Parse valid LLM output with both delimiters present",
+      "function": "parse_synthesis_output",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "raw": "--- PROMPT ---\nThis is the prompt content\n--- CONSTRAINTS ---\nthese are constraints"
+      },
+      "input_description": "",
+      "expected_output_description": "Returns tuple ('This is the prompt content', 'these are constraints')",
+      "expected_error": "",
+      "assertions": [
+        "result is a tuple with 2 elements",
+        "result[0] == 'This is the prompt content'",
+        "result[1] == 'these are constraints'"
+      ]
+    },
+    {
+      "id": "test_parse_synthesis_output_happy_path_multiline",
+      "description": "Parse output with multiline content in both sections",
+      "function": "parse_synthesis_output",
+      "category": "happy_path",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "raw": "--- PROMPT ---\nLine 1\nLine 2\nLine 3\n--- CONSTRAINTS ---\nConstraint 1\nConstraint 2"
+      },
+      "input_description": "",
+      "expected_output_description": "Returns tuple with multiline strings properly stripped",
+      "expected_error": "",
+      "assertions": [
+        "result[0] == 'Line 1\\nLine 2\\nLine 3'",
+        "result[1] == 'Constraint 1\\nConstraint 2'"
+      ]
+    },
+    {
+      "id": "test_parse_synthesis_output_edge_case_extra_whitespace",
+      "description": "Parse output with extra whitespace around content",
+      "function": "parse_synthesis_output",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "raw": "--- PROMPT ---\n\n  Prompt with spaces  \n\n--- CONSTRAINTS ---\n\n  Constraints with spaces  \n\n"
+      },
+      "input_description": "",
+      "expected_output_description": "Content is stripped of leading/trailing whitespace",
+      "expected_error": "",
+      "assertions": [
+        "result[0] == 'Prompt with spaces'",
+        "result[1] == 'Constraints with spaces'"
+      ]
+    },
+    {
+      "id": "test_parse_synthesis_output_edge_case_empty_content",
+      "description": "Parse output where sections have no content between delimiters",
+      "function": "parse_synthesis_output",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "raw": "--- PROMPT ---\n--- CONSTRAINTS ---"
+      },
+      "input_description": "",
+      "expected_output_description": "Returns empty strings for both sections",
+      "expected_error": "",
+      "assertions": [
+        "result[0] == ''",
+        "result[1] == ''"
+      ]
+    },
+    {
+      "id": "test_parse_synthesis_output_edge_case_special_characters",
+      "description": "Parse output with special characters and unicode in content",
+      "function": "parse_synthesis_output",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "raw": "--- PROMPT ---\nSpecial: @#$%^&* 日本語 émojis 🎉\n--- CONSTRAINTS ---\nYAML: key: \"value\""
+      },
+      "input_description": "",
+      "expected_output_description": "Special characters and unicode are preserved",
+      "expected_error": "",
+      "assertions": [
+        "'@#$%^&*' in result[0]",
+        "'日本語' in result[0]",
+        "'🎉' in result[0]",
+        "'key: \"value\"' in result[1]"
+      ]
+    },
+    {
+      "id": "test_parse_synthesis_output_edge_case_delimiters_in_content",
+      "description": "Parse output where delimiter text appears within content sections",
+      "function": "parse_synthesis_output",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "raw": "--- PROMPT ---\nContent mentioning --- CONSTRAINTS --- marker\n--- CONSTRAINTS ---\nSome constraints"
+      },
+      "input_description": "",
+      "expected_output_description": "First occurrence of each delimiter is used for parsing",
+      "expected_error": "",
+      "assertions": [
+        "'Content mentioning --- CONSTRAINTS --- marker' in result[0]",
+        "result[1] == 'Some constraints'"
+      ]
+    },
+    {
+      "id": "test_parse_synthesis_output_error_missing_prompt_delimiter",
+      "description": "Raise error when PROMPT delimiter is missing",
+      "function": "parse_synthesis_output",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "raw": "No prompt delimiter\n--- CONSTRAINTS ---\nConstraints here"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "missing_delimiters",
+      "assertions": [
+        "Exception is raised with 'missing_delimiters' or similar message"
+      ]
+    },
+    {
+      "id": "test_parse_synthesis_output_error_missing_constraints_delimiter",
+      "description": "Raise error when CONSTRAINTS delimiter is missing",
+      "function": "parse_synthesis_output",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "raw": "--- PROMPT ---\nPrompt here\nNo constraints delimiter"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "missing_delimiters",
+      "assertions": [
+        "Exception is raised with 'missing_delimiters' or similar message"
+      ]
+    },
+    {
+      "id": "test_parse_synthesis_output_error_missing_both_delimiters",
+      "description": "Raise error when both delimiters are missing",
+      "function": "parse_synthesis_output",
+      "category": "error_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "raw": "Just some random text with no delimiters at all"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "missing_delimiters",
+      "assertions": [
+        "Exception is raised with 'missing_delimiters' or similar message"
+      ]
+    },
+    {
+      "id": "test_write_artifacts_happy_path_basic",
+      "description": "Write prompt.md and constraints.yaml to a directory",
+      "function": "write_artifacts",
+      "category": "happy_path",
+      "setup_description": "Use tmp_path fixture for isolated directory",
+      "mock_dependencies": {},
+      "input_values": {
+        "prompt_md": "# Prompt Title\nPrompt content",
+        "constraints_yaml": "version: 1.0\nconstraints: []",
+        "output_dir": "test_output",
+        "overwrite": "False"
+      },
+      "input_description": "",
+      "expected_output_description": "Returns tuple of (prompt_path, constraints_path) as Path objects",
+      "expected_error": "",
+      "assertions": [
+        "output_dir exists",
+        "prompt.md exists with correct content",
+        "constraints.yaml exists with correct content",
+        "returned paths are Path objects",
+        "returned paths point to created files"
+      ]
+    },
+    {
+      "id": "test_write_artifacts_happy_path_with_path_object",
+      "description": "Write artifacts using Path object for output_dir",
+      "function": "write_artifacts",
+      "category": "happy_path",
+      "setup_description": "Pass Path object instead of string",
+      "mock_dependencies": {},
+      "input_values": {
+        "prompt_md": "Path test prompt",
+        "constraints_yaml": "path: test",
+        "output_dir": "Path object",
+        "overwrite": "False"
+      },
+      "input_description": "",
+      "expected_output_description": "Works with Path object input",
+      "expected_error": "",
+      "assertions": [
+        "files are created successfully",
+        "content matches input"
+      ]
+    },
+    {
+      "id": "test_write_artifacts_happy_path_with_overwrite",
+      "description": "Overwrite existing files when overwrite=True",
+      "function": "write_artifacts",
+      "category": "happy_path",
+      "setup_description": "Create existing files first, then overwrite",
+      "mock_dependencies": {},
+      "input_values": {
+        "prompt_md": "New prompt content",
+        "constraints_yaml": "new: constraints",
+        "output_dir": "test_output",
+        "overwrite": "True"
+      },
+      "input_description": "",
+      "expected_output_description": "Files are overwritten with new content",
+      "expected_error": "",
+      "assertions": [
+        "old content is replaced",
+        "new content is present in files"
+      ]
+    },
+    {
+      "id": "test_write_artifacts_edge_case_creates_directory",
+      "description": "Create output directory if it doesn't exist",
+      "function": "write_artifacts",
+      "category": "edge_case",
+      "setup_description": "Ensure directory doesn't exist before call",
+      "mock_dependencies": {},
+      "input_values": {
+        "prompt_md": "Test",
+        "constraints_yaml": "test",
+        "output_dir": "nonexistent_dir",
+        "overwrite": "False"
+      },
+      "input_description": "",
+      "expected_output_description": "Directory is created along with files",
+      "expected_error": "",
+      "assertions": [
+        "directory is created",
+        "files exist in new directory"
+      ]
+    },
+    {
+      "id": "test_write_artifacts_edge_case_empty_content",
+      "description": "Write files with empty content strings",
+      "function": "write_artifacts",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "prompt_md": "",
+        "constraints_yaml": "",
+        "output_dir": "test_output",
+        "overwrite": "False"
+      },
+      "input_description": "",
+      "expected_output_description": "Empty files are created",
+      "expected_error": "",
+      "assertions": [
+        "files exist",
+        "files have zero or minimal size",
+        "reading files returns empty strings"
+      ]
+    },
+    {
+      "id": "test_write_artifacts_edge_case_unicode_content",
+      "description": "Write files with unicode content in UTF-8 encoding",
+      "function": "write_artifacts",
+      "category": "edge_case",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "prompt_md": "Unicode: 日本語 émojis 🎉 中文",
+        "constraints_yaml": "unicode_key: '中文值'",
+        "output_dir": "test_output",
+        "overwrite": "False"
+      },
+      "input_description": "",
+      "expected_output_description": "Unicode content is preserved in UTF-8 encoding",
+      "expected_error": "",
+      "assertions": [
+        "files contain unicode characters",
+        "content can be read back correctly"
+      ]
+    },
+    {
+      "id": "test_write_artifacts_edge_case_large_content",
+      "description": "Write files with large content strings",
+      "function": "write_artifacts",
+      "category": "edge_case",
+      "setup_description": "Generate large strings (e.g., 10KB+)",
+      "mock_dependencies": {},
+      "input_values": {
+        "prompt_md": "large content placeholder",
+        "constraints_yaml": "large yaml placeholder",
+        "output_dir": "test_output",
+        "overwrite": "False"
+      },
+      "input_description": "",
+      "expected_output_description": "Large files are written successfully",
+      "expected_error": "",
+      "assertions": [
+        "files are created",
+        "file size matches content length",
+        "content can be read back"
+      ]
+    },
+    {
+      "id": "test_write_artifacts_error_file_exists_no_overwrite",
+      "description": "Raise error when files exist and overwrite=False",
+      "function": "write_artifacts",
+      "category": "error_case",
+      "setup_description": "Create existing files first",
+      "mock_dependencies": {},
+      "input_values": {
+        "prompt_md": "New content",
+        "constraints_yaml": "new constraints",
+        "output_dir": "test_output",
+        "overwrite": "False"
+      },
+      "input_description": "",
+      "expected_output_description": "",
+      "expected_error": "file_exists",
+      "assertions": [
+        "Exception is raised with 'file_exists' or similar message",
+        "original files are not modified"
+      ]
+    },
+    {
+      "id": "test_write_artifacts_invariant_fixed_filenames",
+      "description": "Verify output filenames are always 'prompt.md' and 'constraints.yaml'",
+      "function": "write_artifacts",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "prompt_md": "Test",
+        "constraints_yaml": "test",
+        "output_dir": "test_output",
+        "overwrite": "False"
+      },
+      "input_description": "",
+      "expected_output_description": "Filenames match invariant specification",
+      "expected_error": "",
+      "assertions": [
+        "returned paths end with 'prompt.md' and 'constraints.yaml'",
+        "no other files are created"
+      ]
+    },
+    {
+      "id": "test_write_artifacts_invariant_utf8_encoding",
+      "description": "Verify files are always written in UTF-8 encoding",
+      "function": "write_artifacts",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "prompt_md": "UTF-8 test: café",
+        "constraints_yaml": "encoding: test",
+        "output_dir": "test_output",
+        "overwrite": "False"
+      },
+      "input_description": "",
+      "expected_output_description": "Files use UTF-8 encoding",
+      "expected_error": "",
+      "assertions": [
+        "files can be read with UTF-8 encoding",
+        "special characters are preserved"
+      ]
+    },
+    {
+      "id": "test_parse_synthesis_output_invariant_marker_constants",
+      "description": "Verify parser uses exact marker strings as constants",
+      "function": "parse_synthesis_output",
+      "category": "invariant",
+      "setup_description": "",
+      "mock_dependencies": {},
+      "input_values": {
+        "raw": "--- PROMPT ---\nContent\n--- CONSTRAINTS ---\nMore"
+      },
+      "input_description": "",
+      "expected_output_description": "Markers '--- PROMPT ---' and '--- CONSTRAINTS ---' are recognized",
+      "expected_error": "",
+      "assertions": [
+        "parsing succeeds with exact marker strings",
+        "result contains expected content"
+      ]
+    },
+    {
+      "id": "test_integration_parse_and_write_cycle",
+      "description": "Integration test: parse LLM output then write artifacts",
+      "function": "parse_synthesis_output",
+      "category": "happy_path",
+      "setup_description": "Parse output, then pass results to write_artifacts",
+      "mock_dependencies": {},
+      "input_values": {
+        "raw": "--- PROMPT ---\n# Task\nGenerate code\n--- CONSTRAINTS ---\nversion: 1.0\nmax_lines: 100"
+      },
+      "input_description": "",
+      "expected_output_description": "End-to-end workflow produces correct files",
+      "expected_error": "",
+      "assertions": [
+        "parsing extracts correct content",
+        "writing creates files with parsed content",
+        "files can be read back and match parsed values"
+      ]
+    }
+  ],
+  "test_language": "python",
+  "generated_code": "\"\"\"\nContract test suite for src_constrain_synthesizer component.\nTests parse_synthesis_output and write_artifacts functions.\n\"\"\"\n\nimport pytest\nfrom pathlib import Path\nfrom unittest.mock import Mock, patch, MagicMock\nfrom src.constrain.synthesizer import parse_synthesis_output, write_artifacts\n\n\nclass TestParseSynthesisOutput:\n    \"\"\"Test suite for parse_synthesis_output function.\"\"\"\n    \n    def test_parse_synthesis_output_happy_path_basic(self):\n        \"\"\"Parse valid LLM output with both delimiters present.\"\"\"\n        raw = \"--- PROMPT ---\\nThis is the prompt content\\n--- CONSTRAINTS ---\\nthese are constraints\"\n        \n        result = parse_synthesis_output(raw)\n        \n        # Verify result is a tuple with 2 elements\n        assert isinstance(result, tuple)\n        assert len(result) == 2\n        \n        # Verify extracted content\n        assert result[0] == \"This is the prompt content\"\n        assert result[1] == \"these are constraints\"\n    \n    def test_parse_synthesis_output_happy_path_multiline(self):\n        \"\"\"Parse output with multiline content in both sections.\"\"\"\n        raw = \"--- PROMPT ---\\nLine 1\\nLine 2\\nLine 3\\n--- CONSTRAINTS ---\\nConstraint 1\\nConstraint 2\"\n        \n        result = parse_synthesis_output(raw)\n        \n        # Verify multiline strings are properly extracted\n        assert result[0] == \"Line 1\\nLine 2\\nLine 3\"\n        assert result[1] == \"Constraint 1\\nConstraint 2\"\n    \n    def test_parse_synthesis_output_edge_case_extra_whitespace(self):\n        \"\"\"Parse output with extra whitespace around content.\"\"\"\n        raw = \"--- PROMPT ---\\n\\n  Prompt with spaces  \\n\\n--- CONSTRAINTS ---\\n\\n  Constraints with spaces  \\n\\n\"\n        \n        result = parse_synthesis_output(raw)\n        \n        # Verify content is stripped of leading/trailing whitespace\n        assert result[0] == \"Prompt with spaces\"\n        assert result[1] == \"Constraints with spaces\"\n    \n    def test_parse_synthesis_output_edge_case_empty_content(self):\n        \"\"\"Parse output where sections have no content between delimiters.\"\"\"\n        raw = \"--- PROMPT ---\\n--- CONSTRAINTS ---\"\n        \n        result = parse_synthesis_output(raw)\n        \n        # Verify empty strings are returned\n        assert result[0] == \"\"\n        assert result[1] == \"\"\n    \n    def test_parse_synthesis_output_edge_case_special_characters(self):\n        \"\"\"Parse output with special characters and unicode in content.\"\"\"\n        raw = \"--- PROMPT ---\\nSpecial: @#$%^&* 日本語 émojis 🎉\\n--- CONSTRAINTS ---\\nYAML: key: \\\"value\\\"\"\n        \n        result = parse_synthesis_output(raw)\n        \n        # Verify special characters and unicode are preserved\n        assert \"@#$%^&*\" in result[0]\n        assert \"日本語\" in result[0]\n        assert \"🎉\" in result[0]\n        assert 'key: \"value\"' in result[1]\n    \n    def test_parse_synthesis_output_edge_case_delimiters_in_content(self):\n        \"\"\"Parse output where delimiter text appears within content sections.\"\"\"\n        raw = \"--- PROMPT ---\\nContent mentioning --- CONSTRAINTS --- marker\\n--- CONSTRAINTS ---\\nSome constraints\"\n        \n        result = parse_synthesis_output(raw)\n        \n        # Verify first occurrence of each delimiter is used for parsing\n        assert \"Content mentioning --- CONSTRAINTS --- marker\" in result[0]\n        assert result[1] == \"Some constraints\"\n    \n    def test_parse_synthesis_output_error_missing_prompt_delimiter(self):\n        \"\"\"Raise error when PROMPT delimiter is missing.\"\"\"\n        raw = \"No prompt delimiter\\n--- CONSTRAINTS ---\\nConstraints here\"\n        \n        # Verify exception is raised\n        with pytest.raises(Exception) as exc_info:\n            parse_synthesis_output(raw)\n        \n        # Verify error message mentions missing delimiters\n        assert \"missing\" in str(exc_info.value).lower() or \"delimiter\" in str(exc_info.value).lower()\n    \n    def test_parse_synthesis_output_error_missing_constraints_delimiter(self):\n        \"\"\"Raise error when CONSTRAINTS delimiter is missing.\"\"\"\n        raw = \"--- PROMPT ---\\nPrompt here\\nNo constraints delimiter\"\n        \n        # Verify exception is raised\n        with pytest.raises(Exception) as exc_info:\n            parse_synthesis_output(raw)\n        \n        # Verify error message mentions missing delimiters\n        assert \"missing\" in str(exc_info.value).lower() or \"delimiter\" in str(exc_info.value).lower()\n    \n    def test_parse_synthesis_output_error_missing_both_delimiters(self):\n        \"\"\"Raise error when both delimiters are missing.\"\"\"\n        raw = \"Just some random text with no delimiters at all\"\n        \n        # Verify exception is raised\n        with pytest.raises(Exception) as exc_info:\n            parse_synthesis_output(raw)\n        \n        # Verify error message mentions missing delimiters\n        assert \"missing\" in str(exc_info.value).lower() or \"delimiter\" in str(exc_info.value).lower()\n    \n    def test_parse_synthesis_output_invariant_marker_constants(self):\n        \"\"\"Verify parser uses exact marker strings as constants.\"\"\"\n        raw = \"--- PROMPT ---\\nContent\\n--- CONSTRAINTS ---\\nMore\"\n        \n        result = parse_synthesis_output(raw)\n        \n        # Verify parsing succeeds with exact marker strings\n        assert result is not None\n        assert len(result) == 2\n        assert result[0] == \"Content\"\n        assert result[1] == \"More\"\n\n\nclass TestWriteArtifacts:\n    \"\"\"Test suite for write_artifacts function.\"\"\"\n    \n    def test_write_artifacts_happy_path_basic(self, tmp_path):\n        \"\"\"Write prompt.md and constraints.yaml to a directory.\"\"\"\n        prompt_md = \"# Prompt Title\\nPrompt content\"\n        constraints_yaml = \"version: 1.0\\nconstraints: []\"\n        output_dir = tmp_path / \"test_output\"\n        \n        result = write_artifacts(prompt_md, constraints_yaml, output_dir, overwrite=False)\n        \n        # Verify output_dir exists\n        assert output_dir.exists()\n        assert output_dir.is_dir()\n        \n        # Verify files exist\n        prompt_path = output_dir / \"prompt.md\"\n        constraints_path = output_dir / \"constraints.yaml\"\n        assert prompt_path.exists()\n        assert constraints_path.exists()\n        \n        # Verify content\n        assert prompt_path.read_text(encoding=\"utf-8\") == prompt_md\n        assert constraints_path.read_text(encoding=\"utf-8\") == constraints_yaml\n        \n        # Verify returned paths are Path objects\n        assert isinstance(result, tuple)\n        assert len(result) == 2\n        assert isinstance(result[0], Path)\n        assert isinstance(result[1], Path)\n        \n        # Verify returned paths point to created files\n        assert result[0] == prompt_path\n        assert result[1] == constraints_path\n    \n    def test_write_artifacts_happy_path_with_path_object(self, tmp_path):\n        \"\"\"Write artifacts using Path object for output_dir.\"\"\"\n        prompt_md = \"Path test prompt\"\n        constraints_yaml = \"path: test\"\n        output_dir = tmp_path / \"path_test\"\n        \n        # Pass Path object instead of string\n        result = write_artifacts(prompt_md, constraints_yaml, output_dir, overwrite=False)\n        \n        # Verify files are created successfully\n        assert (output_dir / \"prompt.md\").exists()\n        assert (output_dir / \"constraints.yaml\").exists()\n        \n        # Verify content matches input\n        assert (output_dir / \"prompt.md\").read_text(encoding=\"utf-8\") == prompt_md\n        assert (output_dir / \"constraints.yaml\").read_text(encoding=\"utf-8\") == constraints_yaml\n    \n    def test_write_artifacts_happy_path_with_overwrite(self, tmp_path):\n        \"\"\"Overwrite existing files when overwrite=True.\"\"\"\n        output_dir = tmp_path / \"overwrite_test\"\n        output_dir.mkdir()\n        \n        # Create existing files with old content\n        old_prompt = \"Old prompt content\"\n        old_constraints = \"old: constraints\"\n        (output_dir / \"prompt.md\").write_text(old_prompt, encoding=\"utf-8\")\n        (output_dir / \"constraints.yaml\").write_text(old_constraints, encoding=\"utf-8\")\n        \n        # Write new content with overwrite=True\n        new_prompt = \"New prompt content\"\n        new_constraints = \"new: constraints\"\n        result = write_artifacts(new_prompt, new_constraints, output_dir, overwrite=True)\n        \n        # Verify old content is replaced\n        prompt_content = (output_dir / \"prompt.md\").read_text(encoding=\"utf-8\")\n        constraints_content = (output_dir / \"constraints.yaml\").read_text(encoding=\"utf-8\")\n        \n        assert prompt_content != old_prompt\n        assert constraints_content != old_constraints\n        \n        # Verify new content is present\n        assert prompt_content == new_prompt\n        assert constraints_content == new_constraints\n    \n    def test_write_artifacts_edge_case_creates_directory(self, tmp_path):\n        \"\"\"Create output directory if it doesn't exist.\"\"\"\n        output_dir = tmp_path / \"nonexistent_dir\"\n        \n        # Ensure directory doesn't exist before call\n        assert not output_dir.exists()\n        \n        result = write_artifacts(\"Test\", \"test\", output_dir, overwrite=False)\n        \n        # Verify directory is created\n        assert output_dir.exists()\n        assert output_dir.is_dir()\n        \n        # Verify files exist in new directory\n        assert (output_dir / \"prompt.md\").exists()\n        assert (output_dir / \"constraints.yaml\").exists()\n    \n    def test_write_artifacts_edge_case_empty_content(self, tmp_path):\n        \"\"\"Write files with empty content strings.\"\"\"\n        output_dir = tmp_path / \"empty_test\"\n        \n        result = write_artifacts(\"\", \"\", output_dir, overwrite=False)\n        \n        # Verify files exist\n        prompt_path = output_dir / \"prompt.md\"\n        constraints_path = output_dir / \"constraints.yaml\"\n        assert prompt_path.exists()\n        assert constraints_path.exists()\n        \n        # Verify reading files returns empty strings\n        assert prompt_path.read_text(encoding=\"utf-8\") == \"\"\n        assert constraints_path.read_text(encoding=\"utf-8\") == \"\"\n    \n    def test_write_artifacts_edge_case_unicode_content(self, tmp_path):\n        \"\"\"Write files with unicode content in UTF-8 encoding.\"\"\"\n        output_dir = tmp_path / \"unicode_test\"\n        prompt_md = \"Unicode: 日本語 émojis 🎉 中文\"\n        constraints_yaml = \"unicode_key: '中文值'\"\n        \n        result = write_artifacts(prompt_md, constraints_yaml, output_dir, overwrite=False)\n        \n        # Verify files contain unicode characters\n        prompt_content = (output_dir / \"prompt.md\").read_text(encoding=\"utf-8\")\n        constraints_content = (output_dir / \"constraints.yaml\").read_text(encoding=\"utf-8\")\n        \n        assert \"日本語\" in prompt_content\n        assert \"🎉\" in prompt_content\n        assert \"中文\" in prompt_content\n        assert \"中文值\" in constraints_content\n        \n        # Verify content can be read back correctly\n        assert prompt_content == prompt_md\n        assert constraints_content == constraints_yaml\n    \n    def test_write_artifacts_edge_case_large_content(self, tmp_path):\n        \"\"\"Write files with large content strings.\"\"\"\n        output_dir = tmp_path / \"large_test\"\n        \n        # Generate large strings (10KB+)\n        large_prompt = \"A\" * 15000\n        large_yaml = \"B\" * 12000\n        \n        result = write_artifacts(large_prompt, large_yaml, output_dir, overwrite=False)\n        \n        # Verify files are created\n        prompt_path = output_dir / \"prompt.md\"\n        constraints_path = output_dir / \"constraints.yaml\"\n        assert prompt_path.exists()\n        assert constraints_path.exists()\n        \n        # Verify file size matches content length\n        assert prompt_path.stat().st_size >= 15000\n        assert constraints_path.stat().st_size >= 12000\n        \n        # Verify content can be read back\n        assert prompt_path.read_text(encoding=\"utf-8\") == large_prompt\n        assert constraints_path.read_text(encoding=\"utf-8\") == large_yaml\n    \n    def test_write_artifacts_error_file_exists_no_overwrite(self, tmp_path):\n        \"\"\"Raise error when files exist and overwrite=False.\"\"\"\n        output_dir = tmp_path / \"exists_test\"\n        output_dir.mkdir()\n        \n        # Create existing files with original content\n        original_prompt = \"Original prompt\"\n        original_constraints = \"original: constraints\"\n        (output_dir / \"prompt.md\").write_text(original_prompt, encoding=\"utf-8\")\n        (output_dir / \"constraints.yaml\").write_text(original_constraints, encoding=\"utf-8\")\n        \n        # Try to write with overwrite=False\n        with pytest.raises(Exception) as exc_info:\n            write_artifacts(\"New content\", \"new constraints\", output_dir, overwrite=False)\n        \n        # Verify exception mentions file_exists\n        error_msg = str(exc_info.value).lower()\n        assert \"file\" in error_msg or \"exist\" in error_msg\n        \n        # Verify original files are not modified\n        assert (output_dir / \"prompt.md\").read_text(encoding=\"utf-8\") == original_prompt\n        assert (output_dir / \"constraints.yaml\").read_text(encoding=\"utf-8\") == original_constraints\n    \n    def test_write_artifacts_invariant_fixed_filenames(self, tmp_path):\n        \"\"\"Verify output filenames are always 'prompt.md' and 'constraints.yaml'.\"\"\"\n        output_dir = tmp_path / \"filename_test\"\n        \n        result = write_artifacts(\"Test\", \"test\", output_dir, overwrite=False)\n        \n        # Verify returned paths end with correct filenames\n        assert result[0].name == \"prompt.md\"\n        assert result[1].name == \"constraints.yaml\"\n        \n        # Verify no other files are created\n        files = list(output_dir.iterdir())\n        assert len(files) == 2\n        filenames = {f.name for f in files}\n        assert filenames == {\"prompt.md\", \"constraints.yaml\"}\n    \n    def test_write_artifacts_invariant_utf8_encoding(self, tmp_path):\n        \"\"\"Verify files are always written in UTF-8 encoding.\"\"\"\n        output_dir = tmp_path / \"encoding_test\"\n        prompt_md = \"UTF-8 test: café\"\n        constraints_yaml = \"encoding: test\"\n        \n        result = write_artifacts(prompt_md, constraints_yaml, output_dir, overwrite=False)\n        \n        # Verify files can be read with UTF-8 encoding\n        prompt_content = (output_dir / \"prompt.md\").read_text(encoding=\"utf-8\")\n        constraints_content = (output_dir / \"constraints.yaml\").read_text(encoding=\"utf-8\")\n        \n        # Verify special characters are preserved\n        assert \"café\" in prompt_content\n        assert prompt_content == prompt_md\n        assert constraints_content == constraints_yaml\n\n\nclass TestIntegration:\n    \"\"\"Integration tests combining multiple functions.\"\"\"\n    \n    def test_integration_parse_and_write_cycle(self, tmp_path):\n        \"\"\"Integration test: parse LLM output then write artifacts.\"\"\"\n        raw = \"--- PROMPT ---\\n# Task\\nGenerate code\\n--- CONSTRAINTS ---\\nversion: 1.0\\nmax_lines: 100\"\n        \n        # Parse the output\n        prompt_content, constraints_content = parse_synthesis_output(raw)\n        \n        # Verify parsing extracts correct content\n        assert \"# Task\" in prompt_content\n        assert \"Generate code\" in prompt_content\n        assert \"version: 1.0\" in constraints_content\n        assert \"max_lines: 100\" in constraints_content\n        \n        # Write artifacts\n        output_dir = tmp_path / \"integration_test\"\n        prompt_path, constraints_path = write_artifacts(\n            prompt_content, constraints_content, output_dir, overwrite=False\n        )\n        \n        # Verify writing creates files with parsed content\n        assert prompt_path.exists()\n        assert constraints_path.exists()\n        \n        # Verify files can be read back and match parsed values\n        read_prompt = prompt_path.read_text(encoding=\"utf-8\")\n        read_constraints = constraints_path.read_text(encoding=\"utf-8\")\n        \n        assert read_prompt == prompt_content\n        assert read_constraints == constraints_content\n        assert \"# Task\" in read_prompt\n        assert \"version: 1.0\" in read_constraints\n"
+}
