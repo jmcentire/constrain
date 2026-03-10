@@ -105,9 +105,25 @@ def resolve_config(
     return cfg
 
 
-def _run_engine(session: Session, mgr: SessionManager, config: EngineConfig) -> None:
+def _run_engine(
+    session: Session,
+    mgr: SessionManager,
+    config: EngineConfig,
+    prime_paths: list[Path] | None = None,
+) -> None:
     """Create engine and run session, then write artifacts on completion."""
     engine = ConversationEngine(session=session, session_mgr=mgr, config=config)
+
+    # Document priming: ingest files, then interactive loop
+    if prime_paths or session.round == 0:
+        has_paths = bool(prime_paths)
+        if has_paths:
+            engine.prime_interactive(initial_paths=prime_paths)
+        elif session.round == 0:
+            # No --prime flag, but fresh session — offer interactive priming
+            if click.confirm("Prime with documents before starting?", default=False):
+                engine.prime_interactive()
+
     engine.run_session()
 
     if session.phase == Phase.complete and session.prompt_md:
@@ -136,8 +152,12 @@ def _confirm_overwrite(cwd: Path) -> bool:
 
 @click.group(cls=SafeGroup, invoke_without_command=True)
 @_round_options
+@click.option(
+    "--prime", "-p", multiple=True, type=click.Path(exists=True),
+    help="Document(s) to ingest before the interview. Repeat for multiple files.",
+)
 @click.pass_context
-def cli(ctx, min_understand, max_understand, min_challenge, max_challenge):
+def cli(ctx, min_understand, max_understand, min_challenge, max_challenge, prime):
     """Constrain: find the boundary between specification and intent."""
     if ctx.invoked_subcommand is not None:
         return
@@ -147,7 +167,7 @@ def cli(ctx, min_understand, max_understand, min_challenge, max_challenge):
     mgr = SessionManager(Path.cwd())
 
     incomplete = mgr.find_latest_incomplete()
-    if incomplete:
+    if incomplete and not prime:
         click.echo(f"Incomplete session found: {incomplete.id[:8]}...")
         click.echo(f"  Phase: {incomplete.phase.value}")
         click.echo(
@@ -168,19 +188,23 @@ def cli(ctx, min_understand, max_understand, min_challenge, max_challenge):
 
     session = mgr.create()
     mgr.save(session)
-    _run_engine(session, mgr, config)
+    _run_engine(session, mgr, config, prime_paths=[Path(p) for p in prime])
 
 
 @cli.command("new")
 @_round_options
-def cmd_new(min_understand, max_understand, min_challenge, max_challenge):
+@click.option(
+    "--prime", "-p", multiple=True, type=click.Path(exists=True),
+    help="Document(s) to ingest before the interview.",
+)
+def cmd_new(min_understand, max_understand, min_challenge, max_challenge, prime):
     """Start a new session (ignores incomplete sessions)."""
     ensure_api_key()
     config = resolve_config(min_understand, max_understand, min_challenge, max_challenge)
     mgr = SessionManager(Path.cwd())
     session = mgr.create()
     mgr.save(session)
-    _run_engine(session, mgr, config)
+    _run_engine(session, mgr, config, prime_paths=[Path(p) for p in prime])
 
 
 @cli.command("resume")

@@ -13,7 +13,7 @@ from typing import Protocol
 import anthropic
 
 from .models import Message, Phase, Session
-from .posture import get_revision_prompt, get_system_prompt
+from .posture import get_prime_prompt, get_revision_prompt, get_system_prompt
 from .session import SessionManager
 from .synthesizer import parse_synthesis_output
 
@@ -93,6 +93,102 @@ class ConversationEngine:
             sys.exit(0)
 
         return self.session
+
+    # ── document priming ───────────────────────────────────
+
+    def prime_with_document(self, path: Path) -> dict:
+        """Ingest a document and extract problem model information.
+
+        Returns a dict with keys: 'extracted_count', 'summary'.
+        """
+        text = path.read_text(encoding="utf-8", errors="replace")
+        word_count = len(text.split())
+
+        # Truncate very large documents to avoid blowing context
+        max_chars = 100_000
+        if len(text) > max_chars:
+            text = text[:max_chars]
+            self.io.display(f"  (Truncated to ~{max_chars // 1000}k chars)")
+
+        system = get_prime_prompt(text, self.session.problem_model)
+        messages = [{"role": "user", "content": "Analyze this document."}]
+
+        raw = self._call_api(system, messages)
+        display_text, model_update, _ = self._parse_response(raw)
+
+        if model_update:
+            self.session.problem_model.apply_update(model_update)
+            self.session.touch()
+            self.session_mgr.save(self.session)
+
+        # Try to get extracted_count from the JSON
+        count = 0
+        if model_update:
+            count = sum(
+                len(v) if isinstance(v, list) else 1
+                for v in model_update.values()
+            )
+
+        return {
+            "word_count": word_count,
+            "extracted_count": count,
+            "summary": display_text[:200],
+            "fields": list(model_update.keys()) if model_update else [],
+        }
+
+    def prime_interactive(self, initial_paths: list[Path] | None = None) -> int:
+        """Interactive priming loop. Returns number of documents ingested."""
+        docs_ingested = 0
+
+        # Process initial paths from CLI
+        if initial_paths:
+            for p in initial_paths:
+                if not p.exists():
+                    self.io.display(f"  Skipping {p} (not found)")
+                    continue
+                self.io.display(f"Ingesting {p.name}...")
+                result = self.prime_with_document(p)
+                docs_ingested += 1
+                fields = ", ".join(result["fields"]) if result["fields"] else "none"
+                self.io.display(
+                    f"  {result['word_count']} words -> "
+                    f"{result['extracted_count']} items extracted ({fields})"
+                )
+
+        # Interactive loop
+        while True:
+            try:
+                response = self.io.prompt(
+                    "\nAdd document (path or Enter to start interview): "
+                )
+            except EOFError:
+                break
+
+            response = response.strip()
+            if not response:
+                break
+
+            p = Path(response).expanduser()
+            if not p.exists():
+                self.io.display(f"  Not found: {p}")
+                continue
+
+            self.io.display(f"Ingesting {p.name}...")
+            result = self.prime_with_document(p)
+            docs_ingested += 1
+            fields = ", ".join(result["fields"]) if result["fields"] else "none"
+            self.io.display(
+                f"  {result['word_count']} words -> "
+                f"{result['extracted_count']} items extracted ({fields})"
+            )
+
+        if docs_ingested > 0:
+            from .posture import _format_problem_model
+            self.io.display(f"\nPrimed with {docs_ingested} document(s). Current understanding:")
+            self.io.display(_format_problem_model(self.session.problem_model))
+            self.io.display("")
+
+        return docs_ingested
 
     # ── phase runners ─────────────────────────────────────
 

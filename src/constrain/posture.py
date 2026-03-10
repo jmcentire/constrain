@@ -135,6 +135,41 @@ Problem model:
 {context}"""
 
 
+def _prime_prompt(document_text: str, problem_model: ProblemModel) -> str:
+    context = _format_problem_model(problem_model)
+    return f"""You are analyzing a document to extract information relevant to understanding a software engineering problem. Read the document carefully and extract any information that fits into the problem model categories below.
+
+Extract ONLY what the document actually says. Do not infer, speculate, or add information not present in the text. If a category has no relevant information in the document, omit it from the update.
+
+Categories:
+- system_description (str): What the system is and does
+- stakeholders (list): Who uses it, who's affected
+- failure_modes (list of {{"description": str, "severity": str}}): What can go wrong
+- dependencies (list): What it depends on, what depends on it
+- assumptions (list): What's being taken for granted
+- boundaries (list): Scope limits, non-goals
+- history (list): What's been tried, what's gone wrong before
+- success_shape (list): Qualities of a good solution
+- acceptance_criteria (list): Concrete, testable conditions for "done"
+
+Current understanding (avoid duplicating what's already known):
+{context}
+
+Respond with a brief summary of what you found (2-3 sentences), then include a JSON block:
+
+```json
+{{
+  "problem_model_update": {{
+    "field_name": "value or list items to add"
+  }},
+  "extracted_count": 5
+}}
+```
+
+Document to analyze:
+{document_text}"""
+
+
 def _revision_prompt(feedback: str, problem_model: ProblemModel) -> str:
     context = _format_problem_model(problem_model)
     return f"""The engineer has reviewed the artifacts and provided feedback. Regenerate both artifacts incorporating the feedback.
@@ -162,6 +197,10 @@ def get_system_prompt(phase: Phase, problem_model: ProblemModel, posture: Postur
     elif phase == Phase.synthesize:
         return _synthesize_prompt(problem_model)
     raise ValueError(f"Unknown phase: {phase}")
+
+
+def get_prime_prompt(document_text: str, problem_model: ProblemModel) -> str:
+    return _prime_prompt(document_text, problem_model)
 
 
 def get_revision_prompt(feedback: str, problem_model: ProblemModel) -> str:
