@@ -1,0 +1,34 @@
+version: "1"
+project: constrain
+classification_tiers:
+  - name: PUBLIC
+    soak_duration_hours: 0
+    human_gate: false
+
+authority_map:
+  cli:
+    domain: user_interaction
+    trust_score: 1.0
+  engine:
+    domain: conversation_orchestration
+    trust_score: 0.9
+  posture:
+    domain: prompt_generation
+    trust_score: 0.9
+  synthesizer:
+    domain: artifact_generation
+    trust_score: 0.85
+  models:
+    domain: data_validation
+    trust_score: 0.95
+  session:
+    domain: state_persistence
+    trust_score: 0.9
+  mcp_server:
+    domain: external_query
+    trust_score: 0.8
+  backends:
+    domain: llm_communication
+    trust_score: 0.7
+
+canary_eligible: [backends]

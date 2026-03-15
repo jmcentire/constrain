@@ -1,0 +1,90 @@
+version: "1"
+project: constrain
+components:
+  - id: cli
+    role: ingress
+    protocol: cli
+    authority: user_interaction
+    data_access:
+      PUBLIC: read_write
+    dependencies: [engine, session]
+
+  - id: engine
+    role: library
+    authority: conversation_orchestration
+    data_access:
+      PUBLIC: read_write
+    dependencies: [posture, models, backends]
+
+  - id: posture
+    role: library
+    authority: prompt_generation
+    data_access:
+      PUBLIC: read
+    dependencies: []
+
+  - id: synthesizer
+    role: library
+    authority: artifact_generation
+    data_access:
+      PUBLIC: read_write
+    dependencies: [models, backends]
+
+  - id: models
+    role: library
+    authority: data_validation
+    data_access:
+      PUBLIC: read
+    dependencies: []
+
+  - id: session
+    role: library
+    authority: state_persistence
+    data_access:
+      PUBLIC: read_write
+    dependencies: [models]
+
+  - id: mcp_server
+    role: service
+    protocol: mcp
+    port: null
+    authority: external_query
+    data_access:
+      PUBLIC: read
+    dependencies: [session]
+
+  - id: backends
+    role: library
+    authority: llm_communication
+    data_access:
+      PUBLIC: read_write
+    dependencies: []
+
+edges:
+  - from: cli
+    to: engine
+    tier: internal
+  - from: cli
+    to: session
+    tier: internal
+  - from: engine
+    to: posture
+    tier: internal
+  - from: engine
+    to: models
+    tier: internal
+  - from: engine
+    to: backends
+    tier: internal
+  - from: synthesizer
+    to: models
+    tier: internal
+  - from: synthesizer
+    to: backends
+    tier: internal
+  - from: mcp_server
+    to: session
+    tier: internal
+  - from: session
+    to: models
+    tier: internal

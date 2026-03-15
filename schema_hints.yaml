@@ -1,0 +1,17 @@
+version: "1"
+project: constrain
+storage_backends:
+  - type: filesystem
+    purpose: session_persistence
+    path: .constrain/sessions/
+    format: json
+    fields:
+      - name: session_id
+        classification: PUBLIC
+      - name: phase
+        classification: PUBLIC
+      - name: problem_model
+        classification: PUBLIC
+      - name: history
+        classification: PUBLIC
+        annotation: append_only

@@ -1,0 +1,72 @@
+version: "1"
+project: constrain
+constraints:
+  - id: C001
+    name: session_persistence
+    description: Session state must survive unexpected termination (Ctrl+C, crash)
+    severity: must
+    classification: COMPLIANCE
+    rationale: Users invest significant time in elicitation sessions; data loss is unacceptable
+
+  - id: C002
+    name: artifact_cross_validation
+    description: All 5 output artifacts must be cross-validated before writing (component names, authority domains, edges match dependencies)
+    severity: must
+    classification: null
+    rationale: Inconsistent artifacts break downstream consumers
+
+  - id: C003
+    name: sync_only
+    description: No async patterns anywhere in the codebase
+    severity: must
+    classification: null
+    rationale: Simple CLI tool; async adds complexity without benefit
+
+  - id: C004
+    name: backend_abstraction
+    description: LLM backend must be swappable without changing engine or synthesizer code
+    severity: must
+    classification: null
+    rationale: Users need OpenAI compatibility for local models
+
+  - id: C005
+    name: structured_json_response
+    description: Every LLM response must include structured JSON with ready_to_proceed and problem_model_update
+    severity: must
+    classification: null
+    rationale: Engine depends on structured output for phase progression
+
+  - id: C006
+    name: separate_synthesis
+    description: Synthesis must use a separate conversation with full history as context, not continue the elicitation conversation
+    severity: should
+    classification: null
+    rationale: Synthesis requires different system prompts and evaluation criteria
+
+  - id: C007
+    name: posture_adversarial
+    description: Challenge phase posture must be adversarial — probe assumptions, find edge cases
+    severity: should
+    classification: null
+    rationale: Friendly elicitation misses boundary conditions
+
+  - id: C008
+    name: round_limits
+    description: Min and max round limits must be configurable per phase via CLI flags and environment variables
+    severity: should
+    classification: null
+    rationale: Different projects need different elicitation depth
+
+  - id: C009
+    name: yaml_validation
+    description: All YAML artifacts must validate before writing
+    severity: must
+    classification: null
+    rationale: Invalid YAML breaks downstream consumers
+
+  - id: C010
+    name: mcp_read_only
+    description: MCP server must be read-only (list, show, search) — never modify sessions or artifacts
+    severity: must
+    classification: null
+    rationale: MCP integration should not have side effects on session state

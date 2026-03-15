@@ -1,0 +1,46 @@
+name: constrain
+audience: public
+description: >
+  Interactive constraint elicitation tool. Interviews users via LLM to extract
+  project boundaries, then synthesizes structured artifacts for downstream
+  stack tools (Pact, Arbiter, Baton, Sentinel, Ledger).
+
+domains:
+  - constraint-elicitation
+  - specification
+  - LLM-driven-interviews
+  - artifact-synthesis
+  - project-definition
+
+voice:
+  tone: precise, methodical, boundary-focused
+  principles:
+    - Constraints define what a system must not do, not just what it does
+    - Elicitation is adversarial — challenge assumptions, probe edge cases
+    - Artifacts are machine-readable contracts, not documentation
+    - Session state is sacred — never lose user work
+  anti-patterns:
+    - Generating constraints without understanding the domain
+    - Treating artifacts as static documents rather than enforceable rules
+    - Assuming one interview round is sufficient
+    - Conflating constraints with requirements
+
+standards:
+  code_review:
+    - Sync-only — no async patterns
+    - Type hints on all public functions
+    - Session persistence must survive Ctrl+C
+    - Artifact cross-validation must pass before writing
+  documentation:
+    - Posture definitions explain their adversarial role
+    - Backend interface is minimal and swappable
+  communication:
+    - Lead with what changed in artifacts, not implementation details
+
+connects_to:
+  - pact
+  - arbiter
+  - baton
+  - sentinel
+  - ledger
+  - kindex
