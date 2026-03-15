@@ -52,6 +52,9 @@ class MockSession:
     problem_model: MockProblemModel = None
     prompt_md: Optional[str] = None
     constraints_yaml: Optional[str] = None
+    trust_policy_yaml: Optional[str] = None
+    component_map_yaml: Optional[str] = None
+    schema_hints_yaml: Optional[str] = None
 
     def __post_init__(self):
         if self.conversation is None:
@@ -395,6 +398,7 @@ def test_run_synthesis_happy_path(mock_session, mock_session_mgr, mock_io, mock_
     """_run_synthesis generates prompt.md and constraints.yaml"""
     from constrain.engine import ConversationEngine
     from constrain.models import Phase
+    from constrain.synthesizer import SynthesisArtifacts
 
     mock_session.phase = Phase.synthesize
     # User provides feedback but it's empty (just presses Enter to accept)
@@ -402,8 +406,14 @@ def test_run_synthesis_happy_path(mock_session, mock_session_mgr, mock_io, mock_
 
     engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)
 
+    artifacts = SynthesisArtifacts(
+        prompt_md="# Test Prompt\nContent",
+        constraints_yaml="constraints:\n  - test: value",
+        trust_policy_yaml="version: '1.0'\ntrust:\n  floor: 0.10",
+        component_map_yaml="version: '1.0'\ncomponents: []",
+    )
     with patch.object(engine, '_call_api', return_value="raw synthesis output"):
-        with patch('constrain.engine.parse_synthesis_output', return_value=("# Test Prompt\nContent", "constraints:\n  - test: value")):
+        with patch('constrain.engine.parse_synthesis_output', return_value=artifacts):
             engine._run_synthesis()
 
             assert mock_session.prompt_md is not None
@@ -415,6 +425,7 @@ def test_run_synthesis_with_revision(mock_session, mock_session_mgr, mock_io, mo
     """_run_synthesis allows exactly one revision cycle"""
     from constrain.engine import ConversationEngine
     from constrain.models import Phase
+    from constrain.synthesizer import SynthesisArtifacts
 
     mock_session.phase = Phase.synthesize
     # First response: user provides feedback for revision
@@ -422,8 +433,14 @@ def test_run_synthesis_with_revision(mock_session, mock_session_mgr, mock_io, mo
 
     engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)
 
+    artifacts = SynthesisArtifacts(
+        prompt_md="# Prompt",
+        constraints_yaml="test: value",
+        trust_policy_yaml="version: '1.0'",
+        component_map_yaml="version: '1.0'",
+    )
     with patch.object(engine, '_call_api', return_value="raw synthesis output"):
-        with patch('constrain.engine.parse_synthesis_output', return_value=("# Prompt", "test: value")):
+        with patch('constrain.engine.parse_synthesis_output', return_value=artifacts):
             engine._run_synthesis()
 
             # Should have made two API calls (initial + revision)
@@ -453,14 +470,21 @@ def test_run_synthesis_eof_error(mock_session, mock_session_mgr, mock_io, mock_c
     """_run_synthesis handles EOFError during feedback (accepts artifacts)"""
     from constrain.engine import ConversationEngine
     from constrain.models import Phase
+    from constrain.synthesizer import SynthesisArtifacts
 
     mock_session.phase = Phase.synthesize
     mock_io.prompt_responses = []  # Will raise EOFError immediately
 
     engine = ConversationEngine(mock_session, mock_session_mgr, mock_client, mock_io, mock_config)
 
+    artifacts = SynthesisArtifacts(
+        prompt_md="# Prompt",
+        constraints_yaml="test: value",
+        trust_policy_yaml="version: '1.0'",
+        component_map_yaml="version: '1.0'",
+    )
     with patch.object(engine, '_call_api', return_value="raw synthesis output"):
-        with patch('constrain.engine.parse_synthesis_output', return_value=("# Prompt", "test: value")):
+        with patch('constrain.engine.parse_synthesis_output', return_value=artifacts):
             # The engine catches EOFError and accepts artifacts as-is
             engine._run_synthesis()
 

@@ -2,7 +2,7 @@
 
 Find the boundary between specification and intent.
 
-Constrain is a CLI tool that interviews engineers about their problem and produces two artifacts: an **induced-understanding prompt** and a **structured constraint set**. The prompt gives an AI agent the context to develop the right solution. The constraints give an evaluator the boundary conditions that define acceptable behavior without specifying implementation.
+Constrain is a CLI tool that interviews engineers about their problem and produces five artifacts that feed directly into downstream tools: **Pact** (contract-first development), **Arbiter** (trust arbitration), **Baton** (circuit orchestration), **Sentinel** (production monitoring), and **Ledger** (schema scaffolding).
 
 ## Install
 
@@ -23,7 +23,18 @@ constrain new          # Always start fresh
 constrain resume       # Resume the most recent incomplete session
 constrain show         # Display artifacts from the last completed session
 constrain list         # List all sessions
+constrain validate     # Validate all artifacts for internal consistency
+constrain export -f <format>   # Export skeletons for downstream tools
 constrain mcp-server   # Run MCP server (stdio transport)
+```
+
+### Export Formats
+
+```bash
+constrain export --format pact     # task.md skeleton from prompt.md
+constrain export --format baton    # baton.yaml skeleton from component_map.yaml
+constrain export --format arbiter  # arbiter.yaml skeleton from trust_policy.yaml
+constrain export --format ledger   # schema_hints.yaml skeleton for Ledger
 ```
 
 ### Backend Selection
@@ -46,7 +57,7 @@ CONSTRAIN_MODEL=<model-name>
 
 ## How It Works
 
-Run `constrain` from your project directory and have a conversation. The tool builds a model of your problem, challenges your description through a randomized adversarial lens, then synthesizes two output files.
+Run `constrain` from your project directory and have a conversation. The tool builds a model of your problem, challenges your description through a randomized adversarial lens, then synthesizes five output files.
 
 ### Phase 1: Understand
 
@@ -59,28 +70,26 @@ One of five analytical postures is randomly selected at session start (hidden fr
 | Posture | Lens |
 |---------|------|
 | **Adversarial** | Worst valid interpretation of every ambiguity |
-| **Contrarian** | Challenges the problem itself — XY problems, wrong abstractions |
+| **Contrarian** | Challenges the problem itself -- XY problems, wrong abstractions |
 | **Critic** | Where two senior engineers would disagree about correctness |
 | **Skeptic** | Tests that pass for wrong reasons, gameable metrics |
 | **Collaborator** | Same gaps, constructive framing |
 
-Randomized so you can't learn the pattern. Over multiple sessions, you learn to write descriptions robust to all five lenses.
+The challenge phase also probes for conflict-resolution gaps (data ownership, authority disputes) and storage obligations (databases, sensitive fields, erasure requirements, audit retention, encryption).
 
 ### Phase 3: Synthesize
 
-Generates two artifacts from the accumulated conversation, with one revision cycle.
+Generates five artifacts from the accumulated conversation, with one revision cycle. All YAML artifacts are validated before writing to disk. Cross-validation checks consistency across artifacts (component names, authority domains, edge/dependency alignment, trust floor ordering, annotation requirements).
 
 ## Output Artifacts
 
-**`prompt.md`** — Induced-understanding prompt. Reads like a briefing to a senior engineer:
-- System context
-- Consequence map (ranked by severity)
-- Failure archaeology
-- Dependency landscape
-- Boundary conditions
-- Success shape
+**`prompt.md`** -- Induced-understanding prompt. Reads like a briefing to a senior engineer:
+- System context, consequence map, failure archaeology
+- Dependency landscape, boundary conditions, success shape
+- Trust and authority model (natural language summary)
+- Component topology (natural language summary)
 
-**`constraints.yaml`** — Structured constraint set. Each constraint is a black-box boundary condition:
+**`constraints.yaml`** -- Structured constraint set. Each constraint is a black-box boundary condition:
 
 ```yaml
 constraints:
@@ -88,11 +97,36 @@ constraints:
     boundary: "what this constrains"
     condition: "the invariant that must hold"
     violation: "what failure looks like"
-    severity: must | should
+    severity: must | should | may
     rationale: "why this matters"
+    classification_tier: PII | FINANCIAL | AUTH | COMPLIANCE | PUBLIC | null
+    affected_components: ["component-name"]
 ```
 
-Constraints are implementation-agnostic. They describe what must hold, not how to make it hold.
+**`trust_policy.yaml`** -- Trust and authority model. Consumed by Arbiter:
+- Trust configuration (floor, authority override, decay, taint lock tiers)
+- Data classification registry with canary eligibility
+- Soak durations by tier
+- Authority map (which components own which data domains)
+- Human gate triggers
+
+**`component_map.yaml`** -- Component topology. Consumed by Pact and Baton:
+- Component definitions (name, type, port, protocol, data access, authority, dependencies)
+- Edge definitions (from, to, protocol, description)
+
+**`schema_hints.yaml`** -- Storage schema hints. Consumed by Ledger:
+- Storage backends (owner component, type, description)
+- Field hints (classification, annotations like `gdpr_erasable`, `audit_field`, `encrypted_at_rest`, `immutable`)
+
+## Downstream Integration
+
+| Artifact | Consumed by | Purpose |
+|----------|------------|---------|
+| `prompt.md` | Pact | System briefing for decomposition agent |
+| `constraints.yaml` | Pact, Sentinel | Boundary conditions for contracts and violation detection |
+| `trust_policy.yaml` | Arbiter | Classification, soak config, authority, gates |
+| `component_map.yaml` | Pact, Baton | Topology for decomposition and circuit orchestration |
+| `schema_hints.yaml` | Ledger | Schema scaffolding from interview-derived storage hints |
 
 ## Session Persistence
 
@@ -120,7 +154,7 @@ claude mcp add --scope user --transport stdio constrain -- constrain-mcp
 
 - [Click](https://click.palletsprojects.com/) (CLI)
 - [Pydantic](https://docs.pydantic.dev/) (data models)
-- [PyYAML](https://pyyaml.org/) (constraint output)
+- [PyYAML](https://pyyaml.org/) (artifact output and validation)
 - [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-python) (optional, default backend)
 - [OpenAI SDK](https://github.com/openai/openai-python) (optional, OpenAI-compatible backend)
 - [MCP](https://github.com/modelcontextprotocol/python-sdk) (optional, MCP server)

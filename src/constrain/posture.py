@@ -93,6 +93,22 @@ def _challenge_prompt(problem_model: ProblemModel, posture: Posture) -> str:
 
 Your job is to find gaps, ambiguities, and hidden assumptions in the problem description. Present one or two challenges per response. Be specific — point to the exact gap you've found and explain why it matters.
 
+In addition to your analytical lens, you MUST include at least one conflict-resolution probe during this phase. These probes test data ownership and authority:
+- "What happens if two components disagree about the value of X?"
+- "Which component would win if there's a conflict about user data?"
+- "What data should never leave the system boundary under any circumstances?"
+- "If component A and component B both write to the same data, who is authoritative?"
+- "What happens when an upstream dependency returns stale data?"
+
+You MUST also include at least one storage obligation probe. These test data storage awareness:
+- "What databases or storage systems does this component own?"
+- "Which fields in that storage contain personal or sensitive data?"
+- "Is any of that data subject to erasure on user request?"
+- "Which records must be retained for audit or compliance purposes and can never be deleted?"
+- "Are any values stored as tokens or encrypted forms rather than raw values?"
+
+Weave these naturally into your challenges. Do not list them all at once.
+
 Do not reveal your posture or analytical lens to the engineer.
 
 Current problem model:
@@ -103,7 +119,7 @@ Current problem model:
 
 def _synthesize_prompt(problem_model: ProblemModel) -> str:
     context = _format_problem_model(problem_model)
-    return f"""Generate two artifacts from the conversation and problem model below.
+    return f"""Generate five artifacts from the conversation and problem model below.
 
 **Artifact 1: prompt.md**
 An induced-understanding prompt that reads like a briefing to a senior engineer. NOT a requirements document. Include:
@@ -114,6 +130,8 @@ An induced-understanding prompt that reads like a briefing to a senior engineer.
 - Boundary Conditions: scope, non-goals, constraints
 - Success Shape: qualities of a good solution (not exact behavior)
 - Done When: specific, testable acceptance criteria — the concrete conditions that must be true for this work to be considered complete
+- Trust and Authority Model: summarize the trust_policy.yaml in natural language. Cover: what data tiers exist, which components own which domains, what the human gate triggers are, and what the canary soak expectations are
+- Component Topology: summarize the component_map.yaml in natural language. Cover: what components exist, what they do, how they connect, and what data flows on each edge
 
 **Artifact 2: constraints.yaml**
 A structured constraint set. Each constraint is a black-box boundary condition:
@@ -121,15 +139,135 @@ A structured constraint set. Each constraint is a black-box boundary condition:
 - boundary: what this constrains
 - condition: the invariant that must hold
 - violation: what failure looks like
-- severity: must or should
+- severity: must, should, or may
 - rationale: why this matters
+- classification_tier: PII, FINANCIAL, AUTH, COMPLIANCE, PUBLIC, or null (for non-data constraints)
+- affected_components: list of component names this constraint applies to (from component_map)
 
-Output format: use these exact delimiters:
+**Artifact 3: trust_policy.yaml**
+Defines the trust and authority model for the system. Structure:
+```yaml
+version: "1.0"
+generated_by: constrain
+session_id: <session_id>
+system: <system name from interview>
+
+trust:
+  floor: 0.10
+  authority_override_floor: 0.40
+  decay_lambda: 0.05
+  taint_lock_tiers: [PII, FINANCIAL, AUTH, COMPLIANCE]
+  conflict_trust_delta_threshold: 0.20
+
+classifications:
+  - field_pattern: "<pattern>"
+    tier: <PII|FINANCIAL|AUTH|COMPLIANCE|PUBLIC>
+    authoritative_component: "<component name or null>"
+    canary_eligible: <true|false>
+    canary_pattern: "<pattern or null>"
+    rationale: "<why>"
+
+soak:
+  base_durations:
+    PUBLIC: 1h
+    PII: 6h
+    FINANCIAL: 24h
+    AUTH: 48h
+    COMPLIANCE: 72h
+  target_requests: 1000
+
+authority_map:
+  - component: "<component name>"
+    domains: ["<domain pattern>"]
+    rationale: "<why>"
+
+human_gates:
+  always:
+    - tier: FINANCIAL
+    - tier: AUTH
+    - tier: COMPLIANCE
+  on_low_trust_authoritative: true
+  on_unresolvable_conflict: true
+```
+
+Derive classifications from the interview: what data does this system handle? For each data type, what is its sensitivity tier? Which component owns it?
+Derive authority_map from the interview: which components own which data domains?
+Derive trust values from the failure modes and consequences: what soak durations, gate triggers, and trust floors are appropriate?
+The authority_override_floor MUST be >= the trust floor.
+If interview did not surface enough information for a field, use null and add a `_note` field explaining what was missing. Do not fabricate.
+
+**Artifact 4: component_map.yaml**
+Defines expected components and relationships. Structure:
+```yaml
+version: "1.0"
+generated_by: constrain
+session_id: <session_id>
+
+components:
+  - name: "<component name>"
+    description: "<what it does>"
+    type: <service|library|worker|egress|ingress>
+    port: <suggested port or null>
+    protocol: <http|grpc|tcp|protobuf|soap>
+    data_access:
+      reads: [<tier list>]
+      writes: [<tier list>]
+      rationale: "<why>"
+    authority:
+      domains: []
+      rationale: null
+    dependencies: ["<component name>"]
+    constraints: ["<constraint id>"]
+
+edges:
+  - from: "<component>"
+    to: "<component>"
+    protocol: <http|grpc|tcp|...>
+    description: "<what flows>"
+```
+
+Every component MUST have a data_access entry.
+No two components may claim authority for overlapping domains.
+If A depends on B, there must be an edge from A to B.
+Component names must be consistent across all artifacts (constraints.yaml affected_components, trust_policy.yaml authority_map, component_map.yaml).
+
+**Artifact 5: schema_hints.yaml**
+A hint file for Ledger — not a complete schema, but enough to scaffold one. Structure:
+```yaml
+version: "1.0"
+generated_by: constrain
+session_id: <session_id>
+
+storage_backends:
+  - owner_component: "<component name>"
+    type: <postgres|mysql|sqlite|mongodb|redis|s3|dynamodb|unknown>
+    description: "<what this storage holds>"
+
+field_hints:
+  - backend_owner: "<component name>"
+    field_description: "<what was described in interview>"
+    likely_classification: <PII|FINANCIAL|AUTH|COMPLIANCE|PUBLIC>
+    likely_annotations: [gdpr_erasable, audit_field, encrypted_at_rest, immutable]
+    rationale: "<why these annotations were inferred>"
+```
+
+Derive storage_backends from the interview: what databases or storage systems were mentioned? Which component owns each?
+Derive field_hints from the interview: what sensitive fields were described? For each, infer the classification tier and likely annotations.
+When classification is PII, FINANCIAL, AUTH, or COMPLIANCE, there MUST be at least one likely_annotation.
+If the interview did not surface storage details, produce schema_hints.yaml with empty lists and a `_note` field explaining what was not covered. Do not fabricate.
+
+Output format: use these EXACT delimiters in this EXACT order:
 
 --- PROMPT ---
 (markdown content for prompt.md)
 --- CONSTRAINTS ---
 (YAML content for constraints.yaml)
+--- TRUST_POLICY ---
+(YAML content for trust_policy.yaml)
+--- COMPONENT_MAP ---
+(YAML content for component_map.yaml)
+--- SCHEMA_HINTS ---
+(YAML content for schema_hints.yaml)
 
 Problem model:
 {context}"""
@@ -172,19 +310,25 @@ Document to analyze:
 
 def _revision_prompt(feedback: str, problem_model: ProblemModel) -> str:
     context = _format_problem_model(problem_model)
-    return f"""The engineer has reviewed the artifacts and provided feedback. Regenerate both artifacts incorporating the feedback.
+    return f"""The engineer has reviewed the artifacts and provided feedback. Regenerate all five artifacts incorporating the feedback.
 
 Feedback: {feedback}
 
 Problem model:
 {context}
 
-Output format: use these exact delimiters:
+Output format: use these EXACT delimiters in this EXACT order:
 
 --- PROMPT ---
 (markdown content for prompt.md)
 --- CONSTRAINTS ---
-(YAML content for constraints.yaml)"""
+(YAML content for constraints.yaml)
+--- TRUST_POLICY ---
+(YAML content for trust_policy.yaml)
+--- COMPONENT_MAP ---
+(YAML content for component_map.yaml)
+--- SCHEMA_HINTS ---
+(YAML content for schema_hints.yaml)"""
 
 
 def get_system_prompt(phase: Phase, problem_model: ProblemModel, posture: Posture | None = None) -> str:

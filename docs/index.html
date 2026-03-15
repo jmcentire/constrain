@@ -29,7 +29,7 @@
       color: var(--fg);
       background: var(--bg);
       line-height: 1.6;
-      max-width: 680px;
+      max-width: 720px;
       margin: 0 auto;
       padding: 4rem 1.5rem;
     }
@@ -96,6 +96,22 @@
       font-size: 0.8rem;
     }
     .posture-label { font-weight: 600; }
+    .integration-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      font-size: 0.9rem;
+    }
+    .integration-table th,
+    .integration-table td {
+      border: 1px solid var(--border);
+      padding: 0.5rem 0.75rem;
+      text-align: left;
+    }
+    .integration-table th {
+      font-weight: 600;
+      background: var(--code-bg);
+    }
     footer {
       margin-top: 3rem;
       padding-top: 1.5rem;
@@ -113,10 +129,10 @@
   <h1>Constrain</h1>
   <p class="tagline">Find the boundary between specification and intent.</p>
 
-  <p>Constrain interviews engineers about their problem and produces two artifacts: an <strong>induced-understanding prompt</strong> and a <strong>structured constraint set</strong>. The prompt gives an AI agent the context to build the right thing. The constraints give an evaluator the boundary conditions that define acceptable behavior&mdash;without specifying implementation.</p>
+  <p>Constrain interviews engineers about their problem and produces five artifacts that feed directly into downstream tools. The prompt gives an AI agent the context to build the right thing. The constraints, trust policy, component map, and schema hints give downstream systems the structured data they need to scaffold contracts, orchestrate circuits, arbitrate trust, and build schemas.</p>
 
   <div class="install">
-    <pre><code>pip install -e .
+    <pre><code>pip install -e ".[all]"
 export ANTHROPIC_API_KEY=sk-...
 constrain</code></pre>
   </div>
@@ -129,11 +145,11 @@ constrain</code></pre>
     </div>
     <div class="phase">
       <div class="phase-name">2. Challenge</div>
-      <div class="phase-desc">A randomly selected analytical posture probes for gaps, ambiguities, and hidden assumptions. The posture is hidden&mdash;you can't game it.</div>
+      <div class="phase-desc">A randomly selected analytical posture probes for gaps, ambiguities, hidden assumptions, conflict resolution, and storage obligations. The posture is hidden&mdash;you can't game it.</div>
     </div>
     <div class="phase">
       <div class="phase-name">3. Synthesize</div>
-      <div class="phase-desc">Generates both artifacts from the accumulated conversation, with one revision cycle before writing to disk.</div>
+      <div class="phase-desc">Generates five artifacts from the accumulated conversation, validates YAML and cross-references, then writes to disk with one revision cycle.</div>
     </div>
   </div>
 
@@ -147,15 +163,29 @@ constrain</code></pre>
     <div class="posture"><div class="posture-label">Collaborator</div>Constructive gaps</div>
   </div>
 
-  <h2>Output</h2>
+  <h2>Five artifacts</h2>
   <div class="artifacts">
     <div class="artifact">
       <div class="artifact-file">prompt.md</div>
-      <div class="artifact-desc">Briefing for an AI agent. System context, consequence map, failure archaeology, dependency landscape, boundary conditions, success shape.</div>
+      <div class="artifact-desc">Briefing for an AI agent. System context, consequence map, failure archaeology, dependency landscape, boundary conditions, trust model, component topology.</div>
     </div>
     <div class="artifact">
       <div class="artifact-file">constraints.yaml</div>
-      <div class="artifact-desc">Black-box boundary conditions. Each constraint has an ID, boundary, condition, violation, severity, and rationale. Implementation-agnostic.</div>
+      <div class="artifact-desc">Black-box boundary conditions with classification tiers and affected components. Implementation-agnostic.</div>
+    </div>
+    <div class="artifact">
+      <div class="artifact-file">trust_policy.yaml</div>
+      <div class="artifact-desc">Trust floors, data classifications, soak durations, authority map, and human gate triggers.</div>
+    </div>
+    <div class="artifact">
+      <div class="artifact-file">component_map.yaml</div>
+      <div class="artifact-desc">Component definitions with data access, authority domains, dependencies, and edge topology.</div>
+    </div>
+  </div>
+  <div class="artifacts">
+    <div class="artifact" style="grid-column: 1 / -1;">
+      <div class="artifact-file">schema_hints.yaml</div>
+      <div class="artifact-desc">Storage backend inventory and field-level hints with classification and annotations (gdpr_erasable, audit_field, encrypted_at_rest, immutable). Consumed by Ledger for schema scaffolding.</div>
     </div>
   </div>
 
@@ -165,14 +195,32 @@ constrain</code></pre>
     condition: "files > 10MB rejected before processing"
     violation: "large file consumed memory, crashed worker"
     severity: must
-    rationale: "production incident 2024-03"</code></pre>
+    rationale: "production incident 2024-03"
+    classification_tier: null
+    affected_components: ["api-gateway"]</code></pre>
+
+  <h2>Downstream integration</h2>
+  <table class="integration-table">
+    <thead>
+      <tr><th>Artifact</th><th>Consumer</th><th>Purpose</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>prompt.md</code></td><td>Pact</td><td>System briefing for decomposition</td></tr>
+      <tr><td><code>constraints.yaml</code></td><td>Pact, Sentinel</td><td>Contracts and violation detection</td></tr>
+      <tr><td><code>trust_policy.yaml</code></td><td>Arbiter</td><td>Trust arbitration configuration</td></tr>
+      <tr><td><code>component_map.yaml</code></td><td>Pact, Baton</td><td>Topology for decomposition and circuits</td></tr>
+      <tr><td><code>schema_hints.yaml</code></td><td>Ledger</td><td>Schema scaffolding from interview hints</td></tr>
+    </tbody>
+  </table>
 
   <h2>CLI</h2>
   <pre><code>constrain              # Start or resume a session
 constrain new          # Always start fresh
 constrain resume       # Resume most recent incomplete session
 constrain show         # Display last completed artifacts
-constrain list         # List all sessions</code></pre>
+constrain list         # List all sessions
+constrain validate     # Check artifact consistency
+constrain export -f pact|baton|arbiter|ledger</code></pre>
 
   <p>Sessions persist to <code>.constrain/sessions/</code>. Ctrl+C saves and exits. Ctrl+D skips to the next phase.</p>
 

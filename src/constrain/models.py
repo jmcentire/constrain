@@ -27,6 +27,7 @@ class Phase(str, enum.Enum):
 class Severity(str, enum.Enum):
     must = "must"
     should = "should"
+    may = "may"
 
 
 class Message(BaseModel):
@@ -69,6 +70,8 @@ class Constraint(BaseModel):
     violation: str
     severity: Severity
     rationale: str
+    classification_tier: str | None = None
+    affected_components: list[str] = Field(default_factory=list)
 
 
 class Session(BaseModel):
@@ -83,6 +86,9 @@ class Session(BaseModel):
     problem_model: ProblemModel = Field(default_factory=ProblemModel)
     prompt_md: str = ""
     constraints_yaml: str = ""
+    trust_policy_yaml: str = ""
+    component_map_yaml: str = ""
+    schema_hints_yaml: str = ""
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 

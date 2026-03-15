@@ -59,12 +59,19 @@ class ConstrainMCPServer:
                 "error": "Session is not complete or has no artifacts.",
                 "phase": s.phase.value,
             }
-        return {
+        result = {
             "session_id": session_id,
             "prompt_md": s.prompt_md,
             "constraints_yaml": s.constraints_yaml,
             "is_complete": True,
         }
+        if s.trust_policy_yaml:
+            result["trust_policy_yaml"] = s.trust_policy_yaml
+        if s.component_map_yaml:
+            result["component_map_yaml"] = s.component_map_yaml
+        if s.schema_hints_yaml:
+            result["schema_hints_yaml"] = s.schema_hints_yaml
+        return result
 
     # ── Tools ──────────────────────────────────────────────
 
@@ -131,6 +138,9 @@ def _session_detail(s: Session) -> dict:
         },
         "has_prompt_md": bool(s.prompt_md),
         "has_constraints_yaml": bool(s.constraints_yaml),
+        "has_trust_policy_yaml": bool(s.trust_policy_yaml),
+        "has_component_map_yaml": bool(s.component_map_yaml),
+        "has_schema_hints_yaml": bool(s.schema_hints_yaml),
         "created_at": s.created_at,
         "updated_at": s.updated_at,
     }
@@ -159,8 +169,11 @@ def _create_mcp_app():
         instructions=(
             "Constrain helps engineers articulate problems through a three-phase "
             "interview (understand, challenge, synthesize). It produces prompt.md "
-            "(an induced-understanding briefing) and constraints.yaml (boundary "
-            "conditions). Use the tools below to inspect sessions and artifacts."
+            "(an induced-understanding briefing), constraints.yaml (boundary "
+            "conditions), trust_policy.yaml (trust and authority model), "
+            "component_map.yaml (component topology), and schema_hints.yaml "
+            "(storage schema hints for Ledger). Use the tools below to "
+            "inspect sessions and artifacts."
         ),
     )
 

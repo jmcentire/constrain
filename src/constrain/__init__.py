@@ -1,3 +1,3 @@
 """Constrain: Find the boundary between specification and intent."""
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

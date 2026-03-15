@@ -15,13 +15,12 @@ class TestParseSynthesisOutput:
     def test_parse_synthesis_output_happy_path_basic(self):
         """Parse valid LLM output with both delimiters present."""
         raw = "--- PROMPT ---\nThis is the prompt content\n--- CONSTRAINTS ---\nthese are constraints"
-        
+
         result = parse_synthesis_output(raw)
-        
-        # Verify result is a tuple with 2 elements
-        assert isinstance(result, tuple)
-        assert len(result) == 2
-        
+
+        # Verify result supports indexing (backward compat)
+        assert len(result) >= 2
+
         # Verify extracted content
         assert result[0] == "This is the prompt content"
         assert result[1] == "these are constraints"
@@ -125,12 +124,12 @@ class TestParseSynthesisOutput:
     def test_parse_synthesis_output_invariant_marker_constants(self):
         """Verify parser uses exact marker strings as constants."""
         raw = "--- PROMPT ---\nContent\n--- CONSTRAINTS ---\nMore"
-        
+
         result = parse_synthesis_output(raw)
-        
+
         # Verify parsing succeeds with exact marker strings
         assert result is not None
-        assert len(result) == 2
+        assert len(result) >= 2
         assert result[0] == "Content"
         assert result[1] == "More"
 
@@ -143,29 +142,29 @@ class TestWriteArtifacts:
         prompt_md = "# Prompt Title\nPrompt content"
         constraints_yaml = "version: 1.0\nconstraints: []"
         output_dir = tmp_path / "test_output"
-        
+
         result = write_artifacts(prompt_md, constraints_yaml, output_dir, overwrite=False)
-        
+
         # Verify output_dir exists
         assert output_dir.exists()
         assert output_dir.is_dir()
-        
+
         # Verify files exist
         prompt_path = output_dir / "prompt.md"
         constraints_path = output_dir / "constraints.yaml"
         assert prompt_path.exists()
         assert constraints_path.exists()
-        
+
         # Verify content
         assert prompt_path.read_text(encoding="utf-8") == prompt_md
         assert constraints_path.read_text(encoding="utf-8") == constraints_yaml
-        
+
         # Verify returned paths are Path objects
-        assert isinstance(result, tuple)
-        assert len(result) == 2
+        assert isinstance(result, list)
+        assert len(result) >= 2
         assert isinstance(result[0], Path)
         assert isinstance(result[1], Path)
-        
+
         # Verify returned paths point to created files
         assert result[0] == prompt_path
         assert result[1] == constraints_path
@@ -316,20 +315,21 @@ class TestWriteArtifacts:
         assert (output_dir / "constraints.yaml").read_text(encoding="utf-8") == original_constraints
     
     def test_write_artifacts_invariant_fixed_filenames(self, tmp_path):
-        """Verify output filenames are always 'prompt.md' and 'constraints.yaml'."""
+        """Verify output filenames include prompt.md and constraints.yaml."""
         output_dir = tmp_path / "filename_test"
-        
+
         result = write_artifacts("Test", "test", output_dir, overwrite=False)
-        
-        # Verify returned paths end with correct filenames
-        assert result[0].name == "prompt.md"
-        assert result[1].name == "constraints.yaml"
-        
-        # Verify no other files are created
+
+        # Verify returned paths include correct filenames
+        result_names = {p.name for p in result}
+        assert "prompt.md" in result_names
+        assert "constraints.yaml" in result_names
+
+        # Verify files are created
         files = list(output_dir.iterdir())
-        assert len(files) == 2
         filenames = {f.name for f in files}
-        assert filenames == {"prompt.md", "constraints.yaml"}
+        assert "prompt.md" in filenames
+        assert "constraints.yaml" in filenames
     
     def test_write_artifacts_invariant_utf8_encoding(self, tmp_path):
         """Verify files are always written in UTF-8 encoding."""
@@ -355,31 +355,33 @@ class TestIntegration:
     def test_integration_parse_and_write_cycle(self, tmp_path):
         """Integration test: parse LLM output then write artifacts."""
         raw = "--- PROMPT ---\n# Task\nGenerate code\n--- CONSTRAINTS ---\nversion: 1.0\nmax_lines: 100"
-        
+
         # Parse the output
-        prompt_content, constraints_content = parse_synthesis_output(raw)
-        
+        artifacts = parse_synthesis_output(raw)
+
         # Verify parsing extracts correct content
-        assert "# Task" in prompt_content
-        assert "Generate code" in prompt_content
-        assert "version: 1.0" in constraints_content
-        assert "max_lines: 100" in constraints_content
-        
+        assert "# Task" in artifacts.prompt_md
+        assert "Generate code" in artifacts.prompt_md
+        assert "version: 1.0" in artifacts.constraints_yaml
+        assert "max_lines: 100" in artifacts.constraints_yaml
+
         # Write artifacts
         output_dir = tmp_path / "integration_test"
-        prompt_path, constraints_path = write_artifacts(
-            prompt_content, constraints_content, output_dir, overwrite=False
+        written = write_artifacts(
+            artifacts.prompt_md, artifacts.constraints_yaml, output_dir, overwrite=False
         )
-        
+
         # Verify writing creates files with parsed content
+        prompt_path = output_dir / "prompt.md"
+        constraints_path = output_dir / "constraints.yaml"
         assert prompt_path.exists()
         assert constraints_path.exists()
-        
+
         # Verify files can be read back and match parsed values
         read_prompt = prompt_path.read_text(encoding="utf-8")
         read_constraints = constraints_path.read_text(encoding="utf-8")
-        
-        assert read_prompt == prompt_content
-        assert read_constraints == constraints_content
+
+        assert read_prompt == artifacts.prompt_md
+        assert read_constraints == artifacts.constraints_yaml
         assert "# Task" in read_prompt
         assert "version: 1.0" in read_constraints

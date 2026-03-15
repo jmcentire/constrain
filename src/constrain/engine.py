@@ -21,7 +21,7 @@ from .backends import (
 from .models import Message, Phase, Session
 from .posture import get_prime_prompt, get_revision_prompt, get_system_prompt
 from .session import SessionManager
-from .synthesizer import parse_synthesis_output
+from .synthesizer import parse_synthesis_output, validate_artifacts, validate_yaml_content
 
 
 class TerminalIO(Protocol):
@@ -283,21 +283,44 @@ class ConversationEngine:
         raw = self._call_api(system, synth_messages)
 
         try:
-            prompt_md, constraints_yaml = parse_synthesis_output(raw)
+            artifacts = parse_synthesis_output(raw)
         except ValueError as e:
             self.io.display(f"Warning: {e}")
             self.io.display("Raw synthesis output:")
             self.io.display(raw)
             self.session.prompt_md = raw
             self.session.constraints_yaml = ""
+            self.session.trust_policy_yaml = ""
+            self.session.component_map_yaml = ""
+            self.session.schema_hints_yaml = ""
             self.session_mgr.transition_phase(self.session, Phase.complete)
             self.session_mgr.save(self.session)
             return
 
-        self.io.display("--- prompt.md ---")
-        self.io.display(prompt_md[:2000] + ("..." if len(prompt_md) > 2000 else ""))
-        self.io.display("\n--- constraints.yaml ---")
-        self.io.display(constraints_yaml[:2000] + ("..." if len(constraints_yaml) > 2000 else ""))
+        # Validate YAML artifacts
+        yaml_errors = []
+        for name, content in [
+            ("constraints.yaml", artifacts.constraints_yaml),
+            ("trust_policy.yaml", artifacts.trust_policy_yaml),
+            ("component_map.yaml", artifacts.component_map_yaml),
+            ("schema_hints.yaml", artifacts.schema_hints_yaml),
+        ]:
+            if content:
+                try:
+                    validate_yaml_content(content, name)
+                except ValueError as e:
+                    yaml_errors.append(str(e))
+
+        if yaml_errors:
+            for err in yaml_errors:
+                self.io.display(f"YAML validation error: {err}")
+
+        # Cross-validate artifacts
+        warnings = validate_artifacts(artifacts)
+        for w in warnings:
+            self.io.display(f"Warning: {w}")
+
+        self._display_synthesis_preview(artifacts)
 
         # One revision cycle
         try:
@@ -319,19 +342,35 @@ class ConversationEngine:
                 revision_messages,
             )
             try:
-                prompt_md, constraints_yaml = parse_synthesis_output(raw2)
+                artifacts = parse_synthesis_output(raw2)
             except ValueError:
                 self.io.display("Could not parse revised output. Keeping original artifacts.")
 
-            self.io.display("\n--- Revised prompt.md ---")
-            self.io.display(prompt_md[:2000])
-            self.io.display("\n--- Revised constraints.yaml ---")
-            self.io.display(constraints_yaml[:2000])
+            self._display_synthesis_preview(artifacts, prefix="Revised ")
 
-        self.session.prompt_md = prompt_md
-        self.session.constraints_yaml = constraints_yaml
+        self.session.prompt_md = artifacts.prompt_md
+        self.session.constraints_yaml = artifacts.constraints_yaml
+        self.session.trust_policy_yaml = artifacts.trust_policy_yaml
+        self.session.component_map_yaml = artifacts.component_map_yaml
+        self.session.schema_hints_yaml = artifacts.schema_hints_yaml
         self.session_mgr.transition_phase(self.session, Phase.complete)
         self.session_mgr.save(self.session)
+
+    def _display_synthesis_preview(self, artifacts, prefix: str = "") -> None:
+        """Display a truncated preview of all synthesis artifacts."""
+        limit = 2000
+        for label, content in [
+            ("prompt.md", artifacts.prompt_md),
+            ("constraints.yaml", artifacts.constraints_yaml),
+            ("trust_policy.yaml", artifacts.trust_policy_yaml),
+            ("component_map.yaml", artifacts.component_map_yaml),
+            ("schema_hints.yaml", artifacts.schema_hints_yaml),
+        ]:
+            if content:
+                self.io.display(f"\n--- {prefix}{label} ---")
+                self.io.display(
+                    content[:limit] + ("..." if len(content) > limit else "")
+                )
 
     # ── API layer ─────────────────────────────────────────
 

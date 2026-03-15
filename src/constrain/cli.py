@@ -12,7 +12,7 @@ from .backends import create_backend
 from .engine import ConversationEngine, EngineConfig
 from .models import Phase, Posture, Session
 from .session import SessionManager
-from .synthesizer import write_artifacts
+from .synthesizer import validate_artifacts, validate_yaml_content, write_artifacts, SynthesisArtifacts
 
 
 class SafeGroup(click.Group):
@@ -142,19 +142,24 @@ def _run_engine(
     if session.phase == Phase.complete and session.prompt_md:
         cwd = Path.cwd()
         overwrite = _confirm_overwrite(cwd)
-        prompt_path, constraints_path = write_artifacts(
-            session.prompt_md, session.constraints_yaml, cwd, overwrite=overwrite,
+        written = write_artifacts(
+            session.prompt_md,
+            session.constraints_yaml,
+            cwd,
+            overwrite=overwrite,
+            trust_policy_yaml=session.trust_policy_yaml,
+            component_map_yaml=session.component_map_yaml,
+            schema_hints_yaml=session.schema_hints_yaml,
         )
         click.echo(f"\nArtifacts written:")
-        click.echo(f"  {prompt_path}")
-        click.echo(f"  {constraints_path}")
+        for p in written:
+            click.echo(f"  {p}")
 
 
 def _confirm_overwrite(cwd: Path) -> bool:
     """Check for existing artifacts and confirm overwrite."""
-    prompt = cwd / "prompt.md"
-    constraints = cwd / "constraints.yaml"
-    existing = [p for p in (prompt, constraints) if p.exists()]
+    artifact_names = ["prompt.md", "constraints.yaml", "trust_policy.yaml", "component_map.yaml", "schema_hints.yaml"]
+    existing = [cwd / name for name in artifact_names if (cwd / name).exists()]
     if not existing:
         return False  # no conflict, overwrite flag irrelevant
     names = ", ".join(p.name for p in existing)
@@ -288,6 +293,15 @@ def cmd_show():
     click.echo(session.prompt_md)
     click.echo("\n=== constraints.yaml ===\n")
     click.echo(session.constraints_yaml)
+    if session.trust_policy_yaml:
+        click.echo("\n=== trust_policy.yaml ===\n")
+        click.echo(session.trust_policy_yaml)
+    if session.component_map_yaml:
+        click.echo("\n=== component_map.yaml ===\n")
+        click.echo(session.component_map_yaml)
+    if session.schema_hints_yaml:
+        click.echo("\n=== schema_hints.yaml ===\n")
+        click.echo(session.schema_hints_yaml)
 
 
 @cli.command("list")
@@ -312,6 +326,192 @@ def _do_list(mgr: SessionManager) -> None:
         posture = "***"
         updated = s["updated_at"][:19]
         click.echo(f"{sid:<10} {phase:<12} {rounds:<10} {posture:<10} {updated}")
+
+
+@cli.command("export")
+@click.option(
+    "--format", "-f", "fmt", required=True,
+    type=click.Choice(["baton", "pact", "arbiter", "ledger"], case_sensitive=False),
+    help="Target format: baton, pact, arbiter, or ledger.",
+)
+def cmd_export(fmt):
+    """Export artifacts as skeletons for downstream tools."""
+    import yaml as pyyaml
+
+    mgr = SessionManager(Path.cwd())
+    sessions = mgr.list_all()
+    completed = [s for s in sessions if s["is_complete"]]
+    if not completed:
+        raise click.ClickException("No completed sessions found.")
+
+    session = mgr.load(completed[0]["id"])
+
+    if fmt == "baton":
+        if not session.component_map_yaml:
+            raise click.ClickException("No component_map.yaml in session. Cannot export baton skeleton.")
+        try:
+            cm = pyyaml.safe_load(session.component_map_yaml)
+        except pyyaml.YAMLError as e:
+            raise click.ClickException(f"Invalid component_map.yaml: {e}")
+
+        baton = {
+            "version": "1.0",
+            "generated_from": "constrain",
+            "nodes": [],
+            "edges": [],
+        }
+        for comp in (cm or {}).get("components", []):
+            baton["nodes"].append({
+                "name": comp.get("name"),
+                "type": comp.get("type"),
+                "port": comp.get("port"),
+                "protocol": comp.get("protocol"),
+            })
+        for edge in (cm or {}).get("edges", []):
+            baton["edges"].append({
+                "from": edge.get("from"),
+                "to": edge.get("to"),
+                "protocol": edge.get("protocol"),
+            })
+
+        out = Path.cwd() / "baton.yaml"
+        out.write_text(pyyaml.dump(baton, default_flow_style=False, sort_keys=False), encoding="utf-8")
+        click.echo(f"Written: {out}")
+
+    elif fmt == "pact":
+        if not session.prompt_md:
+            raise click.ClickException("No prompt.md in session. Cannot export pact skeleton.")
+        # Extract system description for the task summary
+        pm = session.problem_model
+        task_lines = [
+            "# Task",
+            "",
+            f"## System: {pm.system_description or 'TBD'}",
+            "",
+            "## Goal",
+            "",
+            "(Fill in the specific implementation goal)",
+            "",
+            "## Context",
+            "",
+            "See prompt.md for full system briefing.",
+            "",
+        ]
+        if pm.acceptance_criteria:
+            task_lines.append("## Acceptance Criteria")
+            task_lines.append("")
+            for ac in pm.acceptance_criteria:
+                task_lines.append(f"- {ac}")
+            task_lines.append("")
+
+        out = Path.cwd() / "task.md"
+        out.write_text("\n".join(task_lines), encoding="utf-8")
+        click.echo(f"Written: {out}")
+
+    elif fmt == "arbiter":
+        if not session.trust_policy_yaml:
+            raise click.ClickException("No trust_policy.yaml in session. Cannot export arbiter skeleton.")
+        try:
+            tp = pyyaml.safe_load(session.trust_policy_yaml)
+        except pyyaml.YAMLError as e:
+            raise click.ClickException(f"Invalid trust_policy.yaml: {e}")
+
+        arbiter = {
+            "version": "1.0",
+            "generated_from": "constrain",
+            "trust": (tp or {}).get("trust", {}),
+            "classifications": (tp or {}).get("classifications", []),
+            "soak": (tp or {}).get("soak", {}),
+            "authority_map": (tp or {}).get("authority_map", []),
+            "human_gates": (tp or {}).get("human_gates", {}),
+        }
+        out = Path.cwd() / "arbiter.yaml"
+        out.write_text(pyyaml.dump(arbiter, default_flow_style=False, sort_keys=False), encoding="utf-8")
+        click.echo(f"Written: {out}")
+
+    elif fmt == "ledger":
+        if not session.schema_hints_yaml:
+            raise click.ClickException("No schema_hints.yaml in session. Cannot export ledger skeleton.")
+        try:
+            sh = pyyaml.safe_load(session.schema_hints_yaml)
+        except pyyaml.YAMLError as e:
+            raise click.ClickException(f"Invalid schema_hints.yaml: {e}")
+
+        # Re-emit the schema_hints as the ledger skeleton
+        ledger = {
+            "version": "1.0",
+            "generated_from": "constrain",
+            "storage_backends": (sh or {}).get("storage_backends", []),
+            "field_hints": (sh or {}).get("field_hints", []),
+        }
+        out = Path.cwd() / "schema_hints.yaml"
+        out.write_text(pyyaml.dump(ledger, default_flow_style=False, sort_keys=False), encoding="utf-8")
+        click.echo(f"Written: {out}")
+
+
+@cli.command("validate")
+def cmd_validate():
+    """Validate all artifacts for internal consistency."""
+    import yaml as pyyaml
+
+    mgr = SessionManager(Path.cwd())
+    sessions = mgr.list_all()
+    completed = [s for s in sessions if s["is_complete"]]
+    if not completed:
+        raise click.ClickException("No completed sessions found.")
+
+    session = mgr.load(completed[0]["id"])
+    artifacts = SynthesisArtifacts(
+        prompt_md=session.prompt_md,
+        constraints_yaml=session.constraints_yaml,
+        trust_policy_yaml=session.trust_policy_yaml,
+        component_map_yaml=session.component_map_yaml,
+        schema_hints_yaml=session.schema_hints_yaml,
+    )
+
+    errors = []
+
+    # Validate YAML
+    for name, content in [
+        ("constraints.yaml", artifacts.constraints_yaml),
+        ("trust_policy.yaml", artifacts.trust_policy_yaml),
+        ("component_map.yaml", artifacts.component_map_yaml),
+        ("schema_hints.yaml", artifacts.schema_hints_yaml),
+    ]:
+        if content:
+            try:
+                validate_yaml_content(content, name)
+                click.echo(f"  {name}: valid YAML")
+            except ValueError as e:
+                errors.append(str(e))
+                click.echo(f"  {name}: INVALID - {e}")
+        else:
+            click.echo(f"  {name}: (empty)")
+
+    # Cross-validate
+    warnings = validate_artifacts(artifacts)
+    if warnings:
+        click.echo(f"\n{len(warnings)} warning(s):")
+        for w in warnings:
+            click.echo(f"  - {w}")
+    else:
+        click.echo("\nNo cross-validation warnings.")
+
+    # Check prompt.md sections
+    if artifacts.prompt_md:
+        missing_sections = []
+        if "## Trust and Authority Model" not in artifacts.prompt_md:
+            missing_sections.append("Trust and Authority Model")
+        if "## Component Topology" not in artifacts.prompt_md:
+            missing_sections.append("Component Topology")
+        if missing_sections:
+            click.echo(f"\nprompt.md missing sections: {', '.join(missing_sections)}")
+        else:
+            click.echo("\nprompt.md: all required sections present")
+
+    if errors:
+        raise click.ClickException(f"{len(errors)} validation error(s) found.")
+    click.echo("\nValidation passed.")
 
 
 @cli.command("mcp-server")

@@ -349,7 +349,7 @@ def test_run_engine_success_complete_phase(mock_echo, mock_path, mock_confirm, m
     mock_cwd = Mock()
     mock_path.cwd.return_value = mock_cwd
 
-    mock_write_artifacts.return_value = (Path("/fake/prompt.md"), Path("/fake/constraints.yaml"))
+    mock_write_artifacts.return_value = [Path("/fake/prompt.md"), Path("/fake/constraints.yaml")]
 
     # Execute
     _run_engine(mock_session, mock_session_manager, mock_engine_config)

@@ -414,10 +414,11 @@ def test_enum_severity_all_variants():
     """Test all Severity enum variants are accessible."""
     assert Severity.must is not None
     assert Severity.should is not None
-    
+    assert Severity.may is not None
+
     # Count variants
     severity_values = [s for s in Severity]
-    assert len(severity_values) == 2
+    assert len(severity_values) == 3
 
 
 # ============================================================================
