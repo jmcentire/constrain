@@ -132,10 +132,25 @@
   <p>Constrain interviews engineers about their problem and produces five artifacts that feed directly into downstream tools. The prompt gives an AI agent the context to build the right thing. The constraints, trust policy, component map, and schema hints give downstream systems the structured data they need to scaffold contracts, orchestrate circuits, arbitrate trust, and build schemas.</p>
 
   <div class="install">
-    <pre><code>pip install -e ".[all]"
-export ANTHROPIC_API_KEY=sk-...
-constrain</code></pre>
+    <pre><code>pip install -e ".[anthropic]"    # Anthropic backend (default)
+pip install -e ".[openai]"       # OpenAI-compatible backend
+pip install -e ".[mcp]"          # MCP server
+pip install -e ".[all]"          # Everything</code></pre>
+    <p style="margin-top: 0.75rem;">Requires Python 3.12+ and an API key for your chosen backend.</p>
   </div>
+
+  <h2>Backend selection</h2>
+  <p>Constrain supports Anthropic (default) and any OpenAI-compatible API, including local models.</p>
+  <pre><code># Anthropic (default)
+export ANTHROPIC_API_KEY=sk-...
+constrain
+
+# OpenAI
+constrain --backend openai --model gpt-4o
+
+# Local model via OpenAI-compatible API
+CONSTRAIN_BACKEND=openai OPENAI_BASE_URL=http://localhost:11434/v1 constrain --model llama3</code></pre>
+  <p>Environment variables: <code>CONSTRAIN_BACKEND=anthropic|openai</code>, <code>CONSTRAIN_MODEL=&lt;model-name&gt;</code></p>
 
   <h2>Three phases</h2>
   <div class="phase-grid">
@@ -213,16 +228,54 @@ constrain</code></pre>
     </tbody>
   </table>
 
-  <h2>CLI</h2>
-  <pre><code>constrain              # Start or resume a session
+  <h2>CLI reference</h2>
+  <pre><code>constrain              # Start a new session (or resume incomplete)
 constrain new          # Always start fresh
-constrain resume       # Resume most recent incomplete session
-constrain show         # Display last completed artifacts
+constrain resume       # Resume the most recent incomplete session
+constrain show         # Display artifacts from the last completed session
 constrain list         # List all sessions
-constrain validate     # Check artifact consistency
-constrain export -f pact|baton|arbiter|ledger</code></pre>
+constrain validate     # Validate all artifacts for internal consistency
+constrain export -f &lt;format&gt;   # Export skeletons for downstream tools
+constrain mcp-server   # Run MCP server (stdio transport)</code></pre>
 
-  <p>Sessions persist to <code>.constrain/sessions/</code>. Ctrl+C saves and exits. Ctrl+D skips to the next phase.</p>
+  <h2>Validation</h2>
+  <p><code>constrain validate</code> checks internal consistency across all five artifacts: component names match between <code>component_map.yaml</code> and <code>constraints.yaml</code>, authority domains align between <code>trust_policy.yaml</code> and <code>component_map.yaml</code>, edge/dependency references resolve, trust floor ordering is valid, and annotation requirements are satisfied.</p>
+
+  <h2>Export formats</h2>
+  <p>Generate skeletons for downstream tools from your Constrain artifacts.</p>
+  <pre><code>constrain export --format pact     # task.md skeleton from prompt.md
+constrain export --format baton    # baton.yaml skeleton from component_map.yaml
+constrain export --format arbiter  # arbiter.yaml skeleton from trust_policy.yaml
+constrain export --format ledger   # schema_hints.yaml skeleton for Ledger</code></pre>
+
+  <table class="integration-table">
+    <thead>
+      <tr><th>Format</th><th>Source Artifact</th><th>Output</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>pact</code></td><td><code>prompt.md</code></td><td>task.md skeleton for Pact decomposition</td></tr>
+      <tr><td><code>baton</code></td><td><code>component_map.yaml</code></td><td>baton.yaml with nodes, edges, data access</td></tr>
+      <tr><td><code>arbiter</code></td><td><code>trust_policy.yaml</code></td><td>arbiter.yaml with trust config, classifications</td></tr>
+      <tr><td><code>ledger</code></td><td><code>schema_hints.yaml</code></td><td>Ledger schema scaffolding with field hints</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Session persistence</h2>
+  <p>Sessions save to <code>.constrain/sessions/</code> in the current directory. Ctrl+C saves and exits (resumable). Ctrl+D ends the current phase early.</p>
+
+  <h2>MCP server</h2>
+  <p>Constrain exposes sessions and artifacts to AI assistants via the Model Context Protocol.</p>
+  <pre><code># Standalone
+constrain-mcp
+
+# Via CLI
+constrain mcp-server --project-dir /path/to/project
+
+# Register with Claude Code
+claude mcp add --scope user --transport stdio constrain -- constrain-mcp</code></pre>
+
+  <p><strong>Tools:</strong> <code>constrain_list_sessions</code>, <code>constrain_show_session</code>, <code>constrain_show_artifacts</code>, <code>constrain_search_sessions</code></p>
+  <p><strong>Resources:</strong> <code>constrain://sessions</code>, <code>constrain://session/{id}</code>, <code>constrain://artifacts/{id}</code></p>
 
   <footer>
     <a href="https://github.com/jmcentire/constrain">GitHub</a> &middot; MIT License &middot; Python 3.12+
