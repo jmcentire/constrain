@@ -13,6 +13,7 @@ from .engine import ConversationEngine, EngineConfig
 from .models import Phase, Posture, Session
 from .session import SessionManager
 from .archive import archive_artifacts, list_archived_sessions, load_archived_artifacts
+from . import kindex_integration as kindex
 from .synthesizer import validate_artifacts, validate_yaml_content, write_artifacts, SynthesisArtifacts
 
 
@@ -124,39 +125,77 @@ def _archive_dir(cwd: Path) -> Path:
     return cwd / ".constrain" / "archive"
 
 
-def _auto_prime_previous(engine: ConversationEngine, cwd: Path) -> None:
-    """If previous archived artifacts exist, prime the engine with them.
-
-    This lets the LLM know what constraints were previously defined so it
-    can build on or reference prior work rather than starting from zero.
-    """
-    archive_base = _archive_dir(cwd)
-    previous = load_archived_artifacts(archive_base)
-    if not previous:
+def _kindex_prompt_and_index(cwd: Path) -> None:
+    """Check kindex availability and offer code indexing on first run."""
+    if not kindex.is_available():
         return
 
-    # Build a context document from the most recent archived session
+    auto = kindex.should_auto_index(cwd)
+    if auto is True:
+        click.echo("Kindex: auto-indexing codebase...")
+        kindex.index_codebase(cwd)
+    elif auto is None:
+        # Not configured — prompt
+        choice = click.prompt(
+            "Kindex detected. Index this codebase for cross-session context?",
+            type=click.Choice(["y", "n", "always", "never"], case_sensitive=False),
+            default="y",
+        )
+        if choice in ("y", "always"):
+            click.echo("Indexing codebase...")
+            kindex.index_codebase(cwd)
+        if choice == "always":
+            kindex.write_kin_config(cwd, {"auto_index": True})
+            click.echo("  Saved to .kin/config (auto_index: true)")
+        elif choice == "never":
+            kindex.write_kin_config(cwd, {"auto_index": False})
+            click.echo("  Saved to .kin/config (auto_index: false)")
+    # auto is False → skip silently
+
+
+def _auto_prime_previous(engine: ConversationEngine, cwd: Path) -> None:
+    """Prime the engine with previous artifacts and kindex context.
+
+    Sources (in order):
+    1. Kindex graph context for the project topic
+    2. Most recent archived constrain session artifacts
+    """
     parts = []
-    for name in ("constraints.yaml", "prompt.md", "trust_policy.yaml",
-                 "component_map.yaml", "schema_hints.yaml"):
-        content = previous.get(name, "")
-        if content.strip():
-            parts.append(f"=== Previous {name} ===\n{content}")
+
+    # 1. Kindex graph context
+    if kindex.is_available():
+        kin_config = kindex.read_kin_config(cwd)
+        topic = kin_config.get("name", cwd.name)
+        graph_context = kindex.fetch_context(f"{topic} constraints boundaries")
+        if graph_context.strip():
+            parts.append(f"=== Kindex Graph Context ===\n{graph_context}")
+            click.echo(f"Loaded kindex context for '{topic}'.")
+
+    # 2. Archived artifacts
+    archive_base = _archive_dir(cwd)
+    previous = load_archived_artifacts(archive_base)
+    if previous:
+        for name in ("constraints.yaml", "prompt.md", "trust_policy.yaml",
+                     "component_map.yaml", "schema_hints.yaml"):
+            content = previous.get(name, "")
+            if content.strip():
+                parts.append(f"=== Previous {name} ===\n{content}")
 
     if not parts:
         return
 
     sessions = list_archived_sessions(archive_base)
-    slug = sessions[0]["slug"] if sessions else "unknown"
-    click.echo(f"Found previous artifacts ({slug}). Priming with prior context...")
+    slug = sessions[0]["slug"] if sessions else "project"
+    if previous:
+        click.echo(f"Found previous artifacts ({slug}). Priming with prior context...")
 
-    # Write a temp file and prime the engine with it
     import tempfile
     context = (
-        f"# Previous Constrain Session: {slug}\n\n"
-        "The following artifacts were produced in a previous session for this project.\n"
-        "Reference them when relevant — build on existing constraints rather than\n"
-        "contradicting them, unless the user indicates otherwise.\n\n"
+        f"# Prior Context for {slug}\n\n"
+        "The following context comes from the kindex knowledge graph and/or a previous\n"
+        "constrain session for this project. Reference it when relevant — build on\n"
+        "existing constraints rather than contradicting them, unless the user indicates\n"
+        "otherwise.\n\n"
         + "\n\n".join(parts)
     )
     with tempfile.NamedTemporaryFile(
@@ -167,10 +206,37 @@ def _auto_prime_previous(engine: ConversationEngine, cwd: Path) -> None:
     try:
         result = engine.prime_with_document(tmp_path)
         click.echo(
-            f"  Primed with {result['extracted_count']} items from prior session."
+            f"  Primed with {result['extracted_count']} items from prior context."
         )
     finally:
         tmp_path.unlink(missing_ok=True)
+
+
+def _kindex_publish_artifacts(session: Session) -> None:
+    """Publish completed session artifacts to kindex (if available)."""
+    if not kindex.is_available():
+        return
+    try:
+        published = 0
+        # Publish individual constraints as constraint nodes
+        if session.constraints_yaml:
+            published += kindex.publish_constraints(session.constraints_yaml)
+        # Publish components from component_map
+        if session.component_map_yaml:
+            published += kindex.publish_components(session.component_map_yaml)
+        # Publish system description as a concept
+        if session.problem_model.system_description:
+            kindex.publish_node(
+                title=f"System: {session.problem_model.system_description}",
+                content=session.prompt_md[:2000] if session.prompt_md else "",
+                node_type="concept",
+                tags=["constrain", "system"],
+            )
+            published += 1
+        if published:
+            click.echo(f"\nPublished {published} item(s) to kindex.")
+    except Exception as e:
+        logger.debug("Kindex publish failed: %s", e)
 
 
 def _run_engine(
@@ -185,9 +251,12 @@ def _run_engine(
     backend = create_backend(backend=backend_name, model=model)
     engine = ConversationEngine(session=session, session_mgr=mgr, backend=backend, config=config)
 
-    # Document priming: previous artifacts + user files + interactive
+    # Kindex: first-run indexing prompt (only for new sessions)
+    if session.round == 0:
+        _kindex_prompt_and_index(Path.cwd())
+
+    # Document priming: kindex context + previous artifacts + user files + interactive
     if prime_paths or session.round == 0:
-        # Auto-prime with previous archived constraints (if any)
         if session.round == 0:
             _auto_prime_previous(engine, Path.cwd())
 
@@ -195,7 +264,6 @@ def _run_engine(
         if has_paths:
             engine.prime_interactive(initial_paths=prime_paths)
         elif session.round == 0:
-            # No --prime flag, but fresh session — offer interactive priming
             if click.confirm("Prime with documents before starting?", default=False):
                 engine.prime_interactive()
 
@@ -227,6 +295,9 @@ def _run_engine(
         click.echo(f"\nArtifacts written:")
         for p in written:
             click.echo(f"  {p}")
+
+        # Publish artifacts to kindex (if available)
+        _kindex_publish_artifacts(session)
 
 
 @click.group(cls=SafeGroup, invoke_without_command=True)
