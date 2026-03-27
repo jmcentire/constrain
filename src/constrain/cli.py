@@ -12,6 +12,7 @@ from .backends import create_backend
 from .engine import ConversationEngine, EngineConfig
 from .models import Phase, Posture, Session
 from .session import SessionManager
+from .archive import archive_artifacts, list_archived_sessions, load_archived_artifacts
 from .synthesizer import validate_artifacts, validate_yaml_content, write_artifacts, SynthesisArtifacts
 
 
@@ -115,6 +116,63 @@ def resolve_config(
     return cfg
 
 
+_ARTIFACT_NAMES = ["prompt.md", "constraints.yaml", "trust_policy.yaml", "component_map.yaml", "schema_hints.yaml"]
+
+
+def _archive_dir(cwd: Path) -> Path:
+    """Archive directory: .constrain/archive/ under the working directory."""
+    return cwd / ".constrain" / "archive"
+
+
+def _auto_prime_previous(engine: ConversationEngine, cwd: Path) -> None:
+    """If previous archived artifacts exist, prime the engine with them.
+
+    This lets the LLM know what constraints were previously defined so it
+    can build on or reference prior work rather than starting from zero.
+    """
+    archive_base = _archive_dir(cwd)
+    previous = load_archived_artifacts(archive_base)
+    if not previous:
+        return
+
+    # Build a context document from the most recent archived session
+    parts = []
+    for name in ("constraints.yaml", "prompt.md", "trust_policy.yaml",
+                 "component_map.yaml", "schema_hints.yaml"):
+        content = previous.get(name, "")
+        if content.strip():
+            parts.append(f"=== Previous {name} ===\n{content}")
+
+    if not parts:
+        return
+
+    sessions = list_archived_sessions(archive_base)
+    slug = sessions[0]["slug"] if sessions else "unknown"
+    click.echo(f"Found previous artifacts ({slug}). Priming with prior context...")
+
+    # Write a temp file and prime the engine with it
+    import tempfile
+    context = (
+        f"# Previous Constrain Session: {slug}\n\n"
+        "The following artifacts were produced in a previous session for this project.\n"
+        "Reference them when relevant — build on existing constraints rather than\n"
+        "contradicting them, unless the user indicates otherwise.\n\n"
+        + "\n\n".join(parts)
+    )
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".md", prefix="prior_", delete=False, encoding="utf-8"
+    ) as f:
+        f.write(context)
+        tmp_path = Path(f.name)
+    try:
+        result = engine.prime_with_document(tmp_path)
+        click.echo(
+            f"  Primed with {result['extracted_count']} items from prior session."
+        )
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
 def _run_engine(
     session: Session,
     mgr: SessionManager,
@@ -127,8 +185,12 @@ def _run_engine(
     backend = create_backend(backend=backend_name, model=model)
     engine = ConversationEngine(session=session, session_mgr=mgr, backend=backend, config=config)
 
-    # Document priming: ingest files, then interactive loop
+    # Document priming: previous artifacts + user files + interactive
     if prime_paths or session.round == 0:
+        # Auto-prime with previous archived constraints (if any)
+        if session.round == 0:
+            _auto_prime_previous(engine, Path.cwd())
+
         has_paths = bool(prime_paths)
         if has_paths:
             engine.prime_interactive(initial_paths=prime_paths)
@@ -141,12 +203,23 @@ def _run_engine(
 
     if session.phase == Phase.complete and session.prompt_md:
         cwd = Path.cwd()
-        overwrite = _confirm_overwrite(cwd)
+        # Archive existing artifacts into .constrain/archive/<slug>/
+        subdir, archived = archive_artifacts(
+            cwd,
+            _ARTIFACT_NAMES,
+            archive_base=_archive_dir(cwd),
+            slug_source_priority=["prompt.md", "constraints.yaml"],
+        )
+        if archived:
+            click.echo(f"\nArchived previous artifacts to {subdir.name}/:")
+            for orig, dest in archived:
+                click.echo(f"  {orig.name}")
+
         written = write_artifacts(
             session.prompt_md,
             session.constraints_yaml,
             cwd,
-            overwrite=overwrite,
+            overwrite=False,
             trust_policy_yaml=session.trust_policy_yaml,
             component_map_yaml=session.component_map_yaml,
             schema_hints_yaml=session.schema_hints_yaml,
@@ -154,18 +227,6 @@ def _run_engine(
         click.echo(f"\nArtifacts written:")
         for p in written:
             click.echo(f"  {p}")
-
-
-def _confirm_overwrite(cwd: Path) -> bool:
-    """Check for existing artifacts and confirm overwrite."""
-    artifact_names = ["prompt.md", "constraints.yaml", "trust_policy.yaml", "component_map.yaml", "schema_hints.yaml"]
-    existing = [cwd / name for name in artifact_names if (cwd / name).exists()]
-    if not existing:
-        return False  # no conflict, overwrite flag irrelevant
-    names = ", ".join(p.name for p in existing)
-    if not click.confirm(f"{names} already exist. Overwrite?"):
-        raise click.Abort()
-    return True
 
 
 @click.group(cls=SafeGroup, invoke_without_command=True)
@@ -346,6 +407,26 @@ def cmd_export(fmt):
 
     session = mgr.load(completed[0]["id"])
 
+    # Map format → (output filename, ...)
+    _EXPORT_FILES = {
+        "baton": ["baton.yaml"],
+        "pact": ["task.md"],
+        "arbiter": ["arbiter.yaml"],
+        "ledger": ["schema_hints.yaml"],
+    }
+
+    # Archive any existing export target before writing
+    export_file = _EXPORT_FILES[fmt][0]
+    cwd = Path.cwd()
+    subdir, archived = archive_artifacts(
+        cwd,
+        [export_file],
+        archive_base=_archive_dir(cwd),
+        slug_source_priority=[export_file],
+    )
+    if archived:
+        click.echo(f"Archived {export_file} to {subdir.name}/")
+
     if fmt == "baton":
         if not session.component_map_yaml:
             raise click.ClickException("No component_map.yaml in session. Cannot export baton skeleton.")
@@ -374,7 +455,7 @@ def cmd_export(fmt):
                 "protocol": edge.get("protocol"),
             })
 
-        out = Path.cwd() / "baton.yaml"
+        out = cwd / "baton.yaml"
         out.write_text(pyyaml.dump(baton, default_flow_style=False, sort_keys=False), encoding="utf-8")
         click.echo(f"Written: {out}")
 
@@ -404,7 +485,7 @@ def cmd_export(fmt):
                 task_lines.append(f"- {ac}")
             task_lines.append("")
 
-        out = Path.cwd() / "task.md"
+        out = cwd / "task.md"
         out.write_text("\n".join(task_lines), encoding="utf-8")
         click.echo(f"Written: {out}")
 
@@ -425,7 +506,7 @@ def cmd_export(fmt):
             "authority_map": (tp or {}).get("authority_map", []),
             "human_gates": (tp or {}).get("human_gates", {}),
         }
-        out = Path.cwd() / "arbiter.yaml"
+        out = cwd / "arbiter.yaml"
         out.write_text(pyyaml.dump(arbiter, default_flow_style=False, sort_keys=False), encoding="utf-8")
         click.echo(f"Written: {out}")
 
@@ -444,7 +525,7 @@ def cmd_export(fmt):
             "storage_backends": (sh or {}).get("storage_backends", []),
             "field_hints": (sh or {}).get("field_hints", []),
         }
-        out = Path.cwd() / "schema_hints.yaml"
+        out = cwd / "schema_hints.yaml"
         out.write_text(pyyaml.dump(ledger, default_flow_style=False, sort_keys=False), encoding="utf-8")
         click.echo(f"Written: {out}")
 
@@ -512,6 +593,42 @@ def cmd_validate():
     if errors:
         raise click.ClickException(f"{len(errors)} validation error(s) found.")
     click.echo("\nValidation passed.")
+
+
+@cli.command("archive")
+@click.argument("subcommand", required=False, default="list",
+                type=click.Choice(["list", "show"], case_sensitive=False))
+@click.argument("slug", required=False, default=None)
+def cmd_archive(subcommand, slug):
+    """List or inspect archived artifact sessions.
+
+    \b
+    constrain archive              List all archived sessions
+    constrain archive list         Same as above
+    constrain archive show <slug>  Show contents of an archived session
+    """
+    archive_base = _archive_dir(Path.cwd())
+    sessions = list_archived_sessions(archive_base)
+
+    if subcommand == "list":
+        if not sessions:
+            click.echo("No archived sessions.")
+            return
+        click.echo(f"{'SLUG':<30} {'FILES':<6} {'PATH'}")
+        click.echo("-" * 70)
+        for s in sessions:
+            click.echo(f"{s['slug']:<30} {len(s['files']):<6} {s['path']}")
+
+    elif subcommand == "show":
+        if not slug:
+            raise click.ClickException("Specify a slug: constrain archive show <slug>")
+        artifacts = load_archived_artifacts(archive_base, slug)
+        if not artifacts:
+            raise click.ClickException(f"No archived session with slug '{slug}'.")
+        for name, content in sorted(artifacts.items()):
+            click.echo(f"=== {name} ===\n")
+            click.echo(content)
+            click.echo()
 
 
 @cli.command("mcp-server")

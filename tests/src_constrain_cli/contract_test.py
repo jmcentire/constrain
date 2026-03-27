@@ -18,7 +18,8 @@ from constrain.cli import (
     _resolve_int,
     resolve_config,
     _run_engine,
-    _confirm_overwrite,
+    _ARTIFACT_NAMES,
+    _archive_dir,
     cli,
     cmd_new,
     cmd_resume,
@@ -296,35 +297,18 @@ def test_invariant_default_config_values(mock_env):
 
 
 # ============================================================================
-# Tests for _confirm_overwrite()
+# Tests for archive helpers
 # ============================================================================
 
-def test_confirm_overwrite_no_artifacts(tmp_path):
-    """Test _confirm_overwrite returns False when no artifacts exist."""
-    result = _confirm_overwrite(tmp_path)
+def test_artifact_names_list():
+    """_ARTIFACT_NAMES contains the expected artifact filenames."""
+    assert "prompt.md" in _ARTIFACT_NAMES
+    assert "constraints.yaml" in _ARTIFACT_NAMES
 
-    assert result is False
-
-
-def test_confirm_overwrite_user_confirms(tmp_path):
-    """Test _confirm_overwrite returns True when user confirms overwrite."""
-    # Create artifacts
-    (tmp_path / "prompt.md").write_text("test")
-
-    with patch('click.confirm', return_value=True):
-        result = _confirm_overwrite(tmp_path)
-
-    assert result is True
-
-
-def test_confirm_overwrite_user_declines(tmp_path):
-    """Test _confirm_overwrite raises Abort when user declines overwrite."""
-    # Create artifacts
-    (tmp_path / "constraints.yaml").write_text("test")
-
-    with patch('click.confirm', return_value=False):
-        with pytest.raises(click.Abort):
-            _confirm_overwrite(tmp_path)
+def test_archive_dir_location(tmp_path):
+    """_archive_dir returns .constrain/archive under the given directory."""
+    result = _archive_dir(tmp_path)
+    assert result == tmp_path / ".constrain" / "archive"
 
 
 # ============================================================================
@@ -332,16 +316,18 @@ def test_confirm_overwrite_user_declines(tmp_path):
 # ============================================================================
 
 @patch('constrain.cli.write_artifacts')
+@patch('constrain.cli.archive_artifacts')
+@patch('constrain.cli._archive_dir')
 @patch('constrain.cli.ConversationEngine')
 @patch('constrain.cli.create_backend')
-@patch('constrain.cli._confirm_overwrite')
 @patch('constrain.cli.Path')
 @patch('click.echo')
-def test_run_engine_success_complete_phase(mock_echo, mock_path, mock_confirm, mock_create_backend, mock_engine_class, mock_write_artifacts, mock_session, mock_session_manager, mock_engine_config):
+def test_run_engine_success_complete_phase(mock_echo, mock_path, mock_create_backend, mock_engine_class, mock_archive_dir, mock_archive, mock_write_artifacts, mock_session, mock_session_manager, mock_engine_config):
     """Test _run_engine writes artifacts when session completes successfully."""
     # Setup
     mock_session.phase = Phase.complete
-    mock_confirm.return_value = False  # No artifacts to overwrite
+    mock_archive.return_value = (None, [])  # No artifacts to archive
+    mock_archive_dir.return_value = Path("/fake/.constrain/archive")
 
     mock_engine = Mock()
     mock_engine_class.return_value = mock_engine
@@ -382,15 +368,17 @@ def test_run_engine_incomplete_phase(mock_echo, mock_create_backend, mock_engine
 
 
 @patch('constrain.cli.write_artifacts')
+@patch('constrain.cli.archive_artifacts')
+@patch('constrain.cli._archive_dir')
 @patch('constrain.cli.ConversationEngine')
 @patch('constrain.cli.create_backend')
-@patch('constrain.cli._confirm_overwrite')
 @patch('constrain.cli.Path')
-def test_run_engine_user_aborts_overwrite(mock_path, mock_confirm, mock_create_backend, mock_engine_class, mock_write_artifacts, mock_session, mock_session_manager, mock_engine_config):
-    """Test _run_engine raises error when user declines overwrite."""
+def test_run_engine_archives_before_writing(mock_path, mock_create_backend, mock_engine_class, mock_archive_dir, mock_archive, mock_write_artifacts, mock_session, mock_session_manager, mock_engine_config):
+    """Test _run_engine archives existing artifacts before writing new ones."""
     # Setup
     mock_session.phase = Phase.complete
-    mock_confirm.side_effect = click.Abort()
+    mock_archive.return_value = (Path("/fake/archive/auth"), [(Path("prompt.md"), Path("/fake/archive/auth/prompt.md"))])
+    mock_archive_dir.return_value = Path("/fake/.constrain/archive")
 
     mock_engine = Mock()
     mock_engine_class.return_value = mock_engine
@@ -398,9 +386,14 @@ def test_run_engine_user_aborts_overwrite(mock_path, mock_confirm, mock_create_b
     mock_cwd = Mock()
     mock_path.cwd.return_value = mock_cwd
 
-    # Execute and verify
-    with pytest.raises(click.Abort):
-        _run_engine(mock_session, mock_session_manager, mock_engine_config)
+    mock_write_artifacts.return_value = [Path("/fake/prompt.md")]
+
+    # Execute
+    _run_engine(mock_session, mock_session_manager, mock_engine_config)
+
+    # Verify archive was called before write
+    mock_archive.assert_called_once()
+    mock_write_artifacts.assert_called_once()
 
 
 def test_invariant_artifacts_written(tmp_path):
