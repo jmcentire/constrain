@@ -17,7 +17,8 @@ dependencies = [
 anthropic = ["anthropic>=0.40"]
 openai = ["openai>=1.0"]
 mcp = ["mcp[cli]>=1.26.0"]
-all = ["constrain[anthropic,openai,mcp]"]
+transmogrifier = ["transmogrifier>=0.2.0"]
+all = ["constrain[anthropic,openai,mcp,transmogrifier]"]
 
 [project.scripts]
 constrain = "constrain.cli:main"

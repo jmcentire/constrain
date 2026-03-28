@@ -378,6 +378,24 @@ class ConversationEngine:
         self, system: str, messages: list[dict]
     ) -> str:
         """Call the backend with exponential backoff on transient errors."""
+        # Optional register normalization via Transmogrifier
+        try:
+            from transmogrifier.core import Transmogrifier
+            from transmogrifier.system_prompts import inject_system_prompt
+            _transmog = Transmogrifier()
+            # Translate the last user message
+            for msg in reversed(messages):
+                if msg["role"] == "user":
+                    result = _transmog.translate(msg["content"])
+                    msg["content"] = result.output_text
+                    if result.system_prompt:
+                        system = inject_system_prompt(system, result.system_prompt)
+                    break
+        except ImportError:
+            pass
+        except Exception:
+            pass  # fail-safe: never let translation break the pipeline
+
         delays = [1, 2, 4]
         last_err: Exception | None = None
 
