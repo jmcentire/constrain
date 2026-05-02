@@ -1,0 +1,407 @@
+{
+  "component_id": "src_constrain_posture",
+  "name": "System Prompt Generation for Phase and Posture",
+  "description": "Generates system prompts tailored to different phases (understand, challenge, synthesize) and postures (adversarial, contrarian, critic, skeptic, collaborator) for an AI-assisted problem clarification workflow. Formats problem models into human-readable text and constructs phase-specific prompts with JSON instruction blocks.",
+  "version": 1,
+  "types": [
+    {
+      "name": "Posture",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "adversarial",
+        "contrarian",
+        "critic",
+        "skeptic",
+        "collaborator"
+      ],
+      "inner_types": [],
+      "description": "Analytical postures for challenge phase (imported from .models)"
+    },
+    {
+      "name": "Phase",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "understand",
+        "challenge",
+        "synthesize"
+      ],
+      "inner_types": [],
+      "description": "Workflow phases (imported from .models)"
+    }
+  ],
+  "functions": [
+    {
+      "name": "_format_problem_model",
+      "description": "Formats a ProblemModel into a human-readable multi-line string representation. Iterates through model fields (system_description, stakeholders, dependencies, assumptions, boundaries, history, success_shape, acceptance_criteria, failure_modes) and formats non-empty ones with titles and bullet points.",
+      "inputs": [
+        {
+          "name": "model",
+          "type_ref": "ProblemModel",
+          "required": true,
+          "default": "",
+          "description": "The problem model instance to format",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [
+        {
+          "name": "AttributeError",
+          "condition": "If model lacks expected attributes during getattr() calls",
+          "error_type": "AttributeError",
+          "error_data": {}
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Returns '(No information gathered yet)' if all model fields are empty",
+        "Returns formatted multi-line string with field names as headers and items as bullet points if any field has data",
+        "System description appears first if present",
+        "Failure modes are formatted by extracting 'description' key or converting to string"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "_understand_prompt",
+      "description": "Generates a system prompt for the 'understand' phase. Creates an interviewer persona that asks questions to build a complete mental model of the problem across 7 dimensions (system context, stakes, history, dependencies, boundaries, assumptions, acceptance criteria).",
+      "inputs": [
+        {
+          "name": "problem_model",
+          "type_ref": "ProblemModel",
+          "required": true,
+          "default": "",
+          "description": "Current state of the problem model",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Returns a multi-line string containing interviewer instructions",
+        "Includes formatted problem model as 'Current understanding' section",
+        "Includes _JSON_INSTRUCTION template at the end"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "_challenge_prompt",
+      "description": "Generates a system prompt for the 'challenge' phase with a specific analytical posture. Instructs the AI to find gaps, ambiguities, and hidden assumptions using the lens defined by the given posture.",
+      "inputs": [
+        {
+          "name": "problem_model",
+          "type_ref": "ProblemModel",
+          "required": true,
+          "default": "",
+          "description": "Current state of the problem model",
+          "validators": []
+        },
+        {
+          "name": "posture",
+          "type_ref": "Posture",
+          "required": true,
+          "default": "",
+          "description": "The analytical posture to apply",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [
+        {
+          "name": "KeyError",
+          "condition": "If posture is not found in POSTURE_DESCRIPTIONS",
+          "error_type": "KeyError",
+          "error_data": {}
+        }
+      ],
+      "preconditions": [
+        "posture must be a valid key in POSTURE_DESCRIPTIONS dictionary"
+      ],
+      "postconditions": [
+        "Returns a multi-line string with challenge phase instructions",
+        "Includes the posture description from POSTURE_DESCRIPTIONS",
+        "Includes formatted problem model as 'Current problem model' section",
+        "Includes _JSON_INSTRUCTION template at the end"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "_synthesize_prompt",
+      "description": "Generates a system prompt for the 'synthesize' phase. Instructs the AI to generate two artifacts: prompt.md (induced-understanding briefing) and constraints.yaml (structured constraint set) using specific delimiters.",
+      "inputs": [
+        {
+          "name": "problem_model",
+          "type_ref": "ProblemModel",
+          "required": true,
+          "default": "",
+          "description": "Current state of the problem model",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Returns a multi-line string with synthesis instructions",
+        "Specifies format for two artifacts with exact delimiters (--- PROMPT ---, --- CONSTRAINTS ---)",
+        "Includes formatted problem model as 'Problem model' section",
+        "Defines structure for prompt.md (7 sections) and constraints.yaml (constraint format)"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "_revision_prompt",
+      "description": "Generates a prompt for artifact revision based on engineer feedback. Instructs the AI to regenerate both artifacts (prompt.md and constraints.yaml) incorporating the provided feedback.",
+      "inputs": [
+        {
+          "name": "feedback",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Engineer's feedback on the generated artifacts",
+          "validators": []
+        },
+        {
+          "name": "problem_model",
+          "type_ref": "ProblemModel",
+          "required": true,
+          "default": "",
+          "description": "Current state of the problem model",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Returns a multi-line string with revision instructions",
+        "Includes the feedback text",
+        "Includes formatted problem model as 'Problem model' section",
+        "Specifies same output format with delimiters as _synthesize_prompt"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "get_system_prompt",
+      "description": "Main dispatcher function that returns the appropriate system prompt based on the current phase. Routes to _understand_prompt, _challenge_prompt, or _synthesize_prompt based on phase enum value.",
+      "inputs": [
+        {
+          "name": "phase",
+          "type_ref": "Phase",
+          "required": true,
+          "default": "",
+          "description": "The current workflow phase",
+          "validators": []
+        },
+        {
+          "name": "problem_model",
+          "type_ref": "ProblemModel",
+          "required": true,
+          "default": "",
+          "description": "Current state of the problem model",
+          "validators": []
+        },
+        {
+          "name": "posture",
+          "type_ref": "Posture | None",
+          "required": false,
+          "default": "",
+          "description": "Required for challenge phase, ignored for other phases",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [
+        {
+          "name": "ValueError_MissingPosture",
+          "condition": "When phase is Phase.challenge and posture is None",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Posture is required for challenge phase"
+          }
+        },
+        {
+          "name": "ValueError_UnknownPhase",
+          "condition": "When phase is not one of Phase.understand, Phase.challenge, or Phase.synthesize",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Unknown phase: {phase}"
+          }
+        }
+      ],
+      "preconditions": [
+        "If phase is Phase.challenge, posture must not be None"
+      ],
+      "postconditions": [
+        "Returns appropriate prompt string for the given phase"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "get_revision_prompt",
+      "description": "Public wrapper for _revision_prompt. Returns a prompt for revising artifacts based on feedback.",
+      "inputs": [
+        {
+          "name": "feedback",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Engineer's feedback on the generated artifacts",
+          "validators": []
+        },
+        {
+          "name": "problem_model",
+          "type_ref": "ProblemModel",
+          "required": true,
+          "default": "",
+          "description": "Current state of the problem model",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Returns revision prompt string identical to _revision_prompt output"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "select_posture",
+      "description": "Selects an analytical posture based on priority: explicit override parameter, CONSTRAIN_POSTURE environment variable, or random selection from all Posture enum values. Validates environment variable value if present.",
+      "inputs": [
+        {
+          "name": "override",
+          "type_ref": "Posture | None",
+          "required": false,
+          "default": "",
+          "description": "Explicit posture override; takes highest priority",
+          "validators": []
+        }
+      ],
+      "output_type": "Posture",
+      "error_cases": [
+        {
+          "name": "ValueError_InvalidEnvironmentPosture",
+          "condition": "When CONSTRAIN_POSTURE environment variable is set but contains invalid posture value",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Invalid CONSTRAIN_POSTURE: '{env}'. Must be one of: {valid}"
+          }
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "If override is not None, returns override value",
+        "If override is None and CONSTRAIN_POSTURE env var is set to valid posture, returns that posture",
+        "If override is None and CONSTRAIN_POSTURE is not set, returns a randomly selected Posture",
+        "Random selection uses random.choice() with uniform distribution across all Posture values"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Reads CONSTRAIN_POSTURE environment variable",
+        "Uses random number generator for posture selection"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "environment variable CONSTRAIN_POSTURE",
+          "description": ""
+        },
+        {
+          "kind": "mutates_state",
+          "target": "random number generator state",
+          "description": "random.choice() advances RNG state"
+        }
+      ],
+      "performance_budget": null
+    }
+  ],
+  "dependencies": [
+    "os",
+    "random",
+    ".models"
+  ],
+  "dependency_contracts": {
+    ".models": [
+      "Phase",
+      "Posture",
+      "ProblemModel"
+    ]
+  },
+  "invariants": [
+    "POSTURE_DESCRIPTIONS contains exactly 5 entries mapping each Posture enum value to a description string",
+    "_JSON_INSTRUCTION is a constant multi-line string template included in multiple prompt types",
+    "All prompt functions return non-empty strings",
+    "Formatted problem models return '(No information gathered yet)' when all fields are empty"
+  ],
+  "requires": [],
+  "processing_register": ""
+}

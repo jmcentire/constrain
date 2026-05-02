@@ -1,0 +1,439 @@
+{
+  "component_id": "src_constrain_models",
+  "name": "Constrain Session Models",
+  "description": "Core data models for Constrain sessions, including problem modeling, conversation tracking, constraints, and session state management using Pydantic BaseModel.",
+  "version": 1,
+  "types": [
+    {
+      "name": "Posture",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "adversarial",
+        "contrarian",
+        "critic",
+        "skeptic",
+        "collaborator"
+      ],
+      "inner_types": [],
+      "description": "Enumeration of AI assistant postures for constrain sessions"
+    },
+    {
+      "name": "Phase",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "understand",
+        "challenge",
+        "synthesize",
+        "complete"
+      ],
+      "inner_types": [],
+      "description": "Enumeration of session phases in the constraint elicitation process"
+    },
+    {
+      "name": "Severity",
+      "kind": "enum",
+      "fields": [],
+      "item_type": "",
+      "variants": [
+        "must",
+        "should"
+      ],
+      "inner_types": [],
+      "description": "Enumeration of constraint severity levels"
+    },
+    {
+      "name": "Message",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "role",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Message role: 'user' or 'assistant'",
+          "validators": []
+        },
+        {
+          "name": "content",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Message content text",
+          "validators": []
+        },
+        {
+          "name": "timestamp",
+          "type_ref": "str",
+          "required": false,
+          "default": "datetime.now(timezone.utc).isoformat()",
+          "description": "ISO format timestamp, defaults to current UTC time",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A conversation message with role, content, and timestamp"
+    },
+    {
+      "name": "ProblemModel",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "system_description",
+          "type_ref": "str",
+          "required": false,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "stakeholders",
+          "type_ref": "list[str]",
+          "required": false,
+          "default": "[]",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "failure_modes",
+          "type_ref": "list[dict]",
+          "required": false,
+          "default": "[]",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "dependencies",
+          "type_ref": "list[str]",
+          "required": false,
+          "default": "[]",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "assumptions",
+          "type_ref": "list[str]",
+          "required": false,
+          "default": "[]",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "boundaries",
+          "type_ref": "list[str]",
+          "required": false,
+          "default": "[]",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "history",
+          "type_ref": "list[str]",
+          "required": false,
+          "default": "[]",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "success_shape",
+          "type_ref": "list[str]",
+          "required": false,
+          "default": "[]",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "acceptance_criteria",
+          "type_ref": "list[str]",
+          "required": false,
+          "default": "[]",
+          "description": "",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Structured representation of a problem domain with stakeholders, boundaries, and constraints"
+    },
+    {
+      "name": "Constraint",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "boundary",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "condition",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "violation",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "severity",
+          "type_ref": "Severity",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "rationale",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "A formal constraint specification with boundary, condition, and violation details"
+    },
+    {
+      "name": "Session",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "id",
+          "type_ref": "str",
+          "required": false,
+          "default": "str(uuid4())",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "schema_version",
+          "type_ref": "int",
+          "required": false,
+          "default": "1",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "posture",
+          "type_ref": "Posture",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "phase",
+          "type_ref": "Phase",
+          "required": false,
+          "default": "Phase.understand",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "round",
+          "type_ref": "int",
+          "required": false,
+          "default": "0",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "understand_rounds",
+          "type_ref": "int",
+          "required": false,
+          "default": "0",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "challenge_rounds",
+          "type_ref": "int",
+          "required": false,
+          "default": "0",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "conversation",
+          "type_ref": "list[Message]",
+          "required": false,
+          "default": "[]",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "problem_model",
+          "type_ref": "ProblemModel",
+          "required": false,
+          "default": "ProblemModel()",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "prompt_md",
+          "type_ref": "str",
+          "required": false,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "constraints_yaml",
+          "type_ref": "str",
+          "required": false,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "created_at",
+          "type_ref": "str",
+          "required": false,
+          "default": "datetime.now(timezone.utc).isoformat()",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "updated_at",
+          "type_ref": "str",
+          "required": false,
+          "default": "datetime.now(timezone.utc).isoformat()",
+          "description": "",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Complete session state including conversation history, problem model, and metadata"
+    }
+  ],
+  "functions": [
+    {
+      "name": "apply_update",
+      "description": "Mutates ProblemModel instance by applying updates from a dictionary. String fields are replaced; list fields are appended to (strings only if not already present, dicts always appended). Ignores keys not in model_fields.",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "ProblemModel",
+          "required": true,
+          "default": "",
+          "description": "The ProblemModel instance to update",
+          "validators": []
+        },
+        {
+          "name": "update",
+          "type_ref": "dict",
+          "required": true,
+          "default": "",
+          "description": "Dictionary containing field updates to apply",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "AttributeError",
+          "condition": "If getattr fails (should not occur under normal operation with valid Pydantic model)",
+          "error_type": "AttributeError",
+          "error_data": {}
+        }
+      ],
+      "preconditions": [
+        "update must be a dict"
+      ],
+      "postconditions": [
+        "For each key in update that exists in self.model_fields: if current field is str, it is replaced with update[key]; if current field is list, update[key] items are appended (strings only if not duplicate, dicts always)",
+        "Fields not in self.model_fields are ignored",
+        "self is mutated in place"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Mutates the ProblemModel instance fields"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "mutates_state",
+          "target": "self",
+          "description": "Updates string and list fields based on update dict"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "touch",
+      "description": "Updates the updated_at timestamp of a Session instance to the current UTC time in ISO format.",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "Session",
+          "required": true,
+          "default": "",
+          "description": "The Session instance to update",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "self.updated_at is set to current UTC timestamp in ISO format",
+        "self is mutated in place"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Mutates the Session instance updated_at field"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "mutates_state",
+          "target": "self.updated_at",
+          "description": "Sets updated_at to current UTC timestamp"
+        }
+      ],
+      "performance_budget": null
+    }
+  ],
+  "dependencies": [
+    "pydantic",
+    "datetime",
+    "uuid",
+    "enum"
+  ],
+  "dependency_contracts": {},
+  "invariants": [
+    "All Message timestamps are ISO 8601 formatted strings",
+    "Session.schema_version is always 1",
+    "ProblemModel list fields contain no duplicate strings (for apply_update string appends)",
+    "Session.id is a UUID4 string",
+    "All datetime fields (timestamp, created_at, updated_at) use UTC timezone"
+  ],
+  "requires": [],
+  "processing_register": ""
+}

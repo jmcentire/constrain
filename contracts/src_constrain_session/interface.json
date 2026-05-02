@@ -1,0 +1,531 @@
+{
+  "component_id": "src_constrain_session",
+  "name": "Session Lifecycle and Persistence Manager",
+  "description": "Manages session creation, persistence, and retrieval for the constrain system. Provides lifecycle management including phase transitions, file-based persistence in JSON format, and session discovery utilities.",
+  "version": 1,
+  "types": [
+    {
+      "name": "SessionManager",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "base_path",
+          "type_ref": "Path",
+          "required": true,
+          "default": "",
+          "description": "Base directory path for session storage",
+          "validators": []
+        },
+        {
+          "name": "_sessions_dir",
+          "type_ref": "Path",
+          "required": true,
+          "default": "",
+          "description": "Directory path where session JSON files are stored (.constrain/sessions)",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Class that manages session creation, persistence, and retrieval operations"
+    },
+    {
+      "name": "SessionDict",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "phase",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "posture",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "created_at",
+          "type_ref": "Any",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "updated_at",
+          "type_ref": "Any",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "understand_rounds",
+          "type_ref": "Any",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "challenge_rounds",
+          "type_ref": "Any",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "is_complete",
+          "type_ref": "bool",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Dictionary structure returned by list_all for session summaries"
+    }
+  ],
+  "functions": [
+    {
+      "name": "__init__",
+      "description": "Initialize SessionManager with a base path for session storage. Sets up the sessions directory structure under .constrain/sessions.",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "SessionManager",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "base_path",
+          "type_ref": "str | Path",
+          "required": true,
+          "default": "",
+          "description": "Base directory path where sessions will be stored",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "self.base_path is set to Path(base_path)",
+        "self._sessions_dir is set to base_path/.constrain/sessions"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "mutates_state"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "mutates_state",
+          "target": "self.base_path",
+          "description": "Sets the base path attribute"
+        },
+        {
+          "kind": "mutates_state",
+          "target": "self._sessions_dir",
+          "description": "Sets the sessions directory path"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "create",
+      "description": "Create a new session with the specified or auto-selected posture. Delegates posture selection to select_posture function.",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "SessionManager",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "posture_override",
+          "type_ref": "Posture | None",
+          "required": false,
+          "default": "None",
+          "description": "Optional posture to use; if None, posture is auto-selected",
+          "validators": []
+        }
+      ],
+      "output_type": "Session",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Returns a new Session instance with selected posture"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "none"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "save",
+      "description": "Persist a session to disk as JSON. Updates session timestamp, creates directory if needed, writes atomically via temporary file, and optionally checks .gitignore on first save.",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "SessionManager",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "session",
+          "type_ref": "Session",
+          "required": true,
+          "default": "",
+          "description": "Session object to persist",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "OSError during file write",
+          "condition": "File system operation fails (write_text or replace)",
+          "error_type": "RuntimeError",
+          "error_data": {
+            "message": "Failed to save session: {e}"
+          }
+        }
+      ],
+      "preconditions": [
+        "session has valid id attribute",
+        "session.model_dump_json() is callable"
+      ],
+      "postconditions": [
+        "session.touch() has been called",
+        "_sessions_dir exists",
+        "Session JSON file exists at _sessions_dir/{session.id}.json",
+        "_check_gitignore() called if this was the first save"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "mutates_state",
+        "writes_file",
+        "logging"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "mutates_state",
+          "target": "session.updated_at",
+          "description": "Updates session timestamp via touch()"
+        },
+        {
+          "kind": "writes_file",
+          "target": "_sessions_dir/{session.id}.json",
+          "description": "Writes session data as JSON"
+        },
+        {
+          "kind": "writes_file",
+          "target": "_sessions_dir/{session.id}.json.tmp",
+          "description": "Creates temporary file during atomic write"
+        },
+        {
+          "kind": "logging",
+          "target": "sys.stderr",
+          "description": "May print gitignore tip via _check_gitignore"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "load",
+      "description": "Load a session from disk by its ID. Reads JSON file and validates it into a Session object.",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "SessionManager",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "session_id",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Unique session identifier",
+          "validators": []
+        }
+      ],
+      "output_type": "Session",
+      "error_cases": [
+        {
+          "name": "Session file not found",
+          "condition": "Session file does not exist",
+          "error_type": "FileNotFoundError",
+          "error_data": {
+            "message": "No session found with ID '{session_id}'."
+          }
+        },
+        {
+          "name": "OSError during file read",
+          "condition": "File system read operation fails",
+          "error_type": "RuntimeError",
+          "error_data": {
+            "message": "Failed to read session file: {e}"
+          }
+        },
+        {
+          "name": "JSON validation error",
+          "condition": "Session file cannot be parsed or validated",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Session file is corrupted: {e}"
+          }
+        }
+      ],
+      "preconditions": [
+        "Session file {session_id}.json exists in _sessions_dir"
+      ],
+      "postconditions": [
+        "Returns a valid Session object loaded from JSON"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "reads_file"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "_sessions_dir/{session_id}.json",
+          "description": "Reads session JSON file"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "find_latest_incomplete",
+      "description": "Find the most recently updated incomplete session. Scans all session files and returns the latest non-complete session by updated_at timestamp. Silently skips corrupted files.",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "SessionManager",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        }
+      ],
+      "output_type": "Session | None",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Returns None if no sessions exist or all are complete",
+        "Returns Session with latest updated_at among incomplete sessions"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "reads_file"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "_sessions_dir/*.json",
+          "description": "Reads all session JSON files"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "list_all",
+      "description": "List all sessions with summary information. Returns list of dictionaries sorted by updated_at in descending order. Silently skips corrupted files.",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "SessionManager",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        }
+      ],
+      "output_type": "list[dict]",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Returns empty list if no sessions exist",
+        "Returns list of session dictionaries sorted by updated_at (newest first)",
+        "Each dict contains: id, phase, posture, created_at, updated_at, understand_rounds, challenge_rounds, is_complete"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "reads_file"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "_sessions_dir/*.json",
+          "description": "Reads all session JSON files"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "transition_phase",
+      "description": "Transition a session to a new phase according to allowed transitions. Updates session phase and timestamp if transition is valid.",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "SessionManager",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "session",
+          "type_ref": "Session",
+          "required": true,
+          "default": "",
+          "description": "Session to transition",
+          "validators": []
+        },
+        {
+          "name": "to_phase",
+          "type_ref": "Phase",
+          "required": true,
+          "default": "",
+          "description": "Target phase to transition to",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "Invalid phase transition",
+          "condition": "to_phase is not in allowed transitions for current phase",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Cannot transition from '{session.phase.value}' to '{to_phase.value}'."
+          }
+        }
+      ],
+      "preconditions": [
+        "to_phase must be in ALLOWED_TRANSITIONS[session.phase]"
+      ],
+      "postconditions": [
+        "session.phase is set to to_phase",
+        "session.touch() has been called"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "mutates_state"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "mutates_state",
+          "target": "session.phase",
+          "description": "Updates session phase"
+        },
+        {
+          "kind": "mutates_state",
+          "target": "session.updated_at",
+          "description": "Updates session timestamp via touch()"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "_check_gitignore",
+      "description": "Check if .gitignore exists and contains .constrain entry. Prints tip to stderr if .gitignore is missing or doesn't contain .constrain patterns.",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "SessionManager",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "May print tip to stderr if .constrain not in .gitignore"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "reads_file",
+        "logging"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "base_path/.gitignore",
+          "description": "Reads .gitignore file if it exists"
+        },
+        {
+          "kind": "logging",
+          "target": "sys.stderr",
+          "description": "Prints tip message if .constrain not ignored"
+        }
+      ],
+      "performance_budget": null
+    }
+  ],
+  "dependencies": [
+    "pathlib",
+    "json",
+    "sys",
+    "models",
+    "posture"
+  ],
+  "dependency_contracts": {
+    "models": [
+      "Phase",
+      "Posture",
+      "Session"
+    ],
+    "posture": [
+      "select_posture"
+    ]
+  },
+  "invariants": [
+    "ALLOWED_TRANSITIONS defines valid phase transitions: understand→challenge, challenge→synthesize, synthesize→complete",
+    "_sessions_dir is always base_path/.constrain/sessions",
+    "Session files are stored as {session_id}.json",
+    "Atomic writes use .json.tmp temporary files",
+    "Phase.complete sessions are considered complete and filtered by find_latest_incomplete"
+  ],
+  "requires": [],
+  "processing_register": ""
+}

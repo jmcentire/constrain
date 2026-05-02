@@ -1,0 +1,880 @@
+{
+  "component_id": "src_constrain_engine",
+  "name": "Conversation Engine - Three-Phase Interview Orchestration",
+  "description": "Orchestrates a three-phase conversation interview (understand, challenge, synthesize) using Claude API. Manages conversation state, handles user I/O, performs API calls with retry logic, parses structured responses, and generates final artifacts (prompt.md and constraints.yaml).",
+  "version": 1,
+  "types": [
+    {
+      "name": "TerminalIO",
+      "kind": "struct",
+      "fields": [],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Protocol defining terminal I/O interface"
+    },
+    {
+      "name": "DefaultIO",
+      "kind": "struct",
+      "fields": [],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Production terminal I/O implementation using print/input"
+    },
+    {
+      "name": "EngineConfig",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "understand_min",
+          "type_ref": "int",
+          "required": true,
+          "default": "2",
+          "description": "Minimum rounds for understand phase",
+          "validators": []
+        },
+        {
+          "name": "understand_max",
+          "type_ref": "int",
+          "required": true,
+          "default": "10",
+          "description": "Maximum rounds for understand phase",
+          "validators": []
+        },
+        {
+          "name": "challenge_min",
+          "type_ref": "int",
+          "required": true,
+          "default": "2",
+          "description": "Minimum rounds for challenge phase",
+          "validators": []
+        },
+        {
+          "name": "challenge_max",
+          "type_ref": "int",
+          "required": true,
+          "default": "10",
+          "description": "Maximum rounds for challenge phase",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Configuration for conversation phase round limits"
+    },
+    {
+      "name": "ConversationEngine",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "session",
+          "type_ref": "Session",
+          "required": true,
+          "default": "",
+          "description": "Current conversation session state",
+          "validators": []
+        },
+        {
+          "name": "session_mgr",
+          "type_ref": "SessionManager",
+          "required": true,
+          "default": "",
+          "description": "Persistence manager for sessions",
+          "validators": []
+        },
+        {
+          "name": "client",
+          "type_ref": "anthropic.Anthropic",
+          "required": true,
+          "default": "",
+          "description": "Anthropic API client",
+          "validators": []
+        },
+        {
+          "name": "io",
+          "type_ref": "TerminalIO",
+          "required": true,
+          "default": "",
+          "description": "Terminal I/O interface",
+          "validators": []
+        },
+        {
+          "name": "config",
+          "type_ref": "EngineConfig",
+          "required": true,
+          "default": "",
+          "description": "Round limit configuration",
+          "validators": []
+        }
+      ],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Main orchestrator for the three-phase constrain interview"
+    }
+  ],
+  "functions": [
+    {
+      "name": "DefaultIO.display",
+      "description": "Display text to terminal using print",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "DefaultIO",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "text",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [],
+      "idempotent": false,
+      "side_effects": [
+        "Prints to stdout"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "logging",
+          "target": "stdout",
+          "description": "Prints text to console"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "DefaultIO.prompt",
+      "description": "Prompt user for input from terminal",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "DefaultIO",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "prefix",
+          "type_ref": "str",
+          "required": true,
+          "default": "\"> \"",
+          "description": "",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [
+        {
+          "name": "EOFError",
+          "condition": "User sends EOF (Ctrl+D)",
+          "error_type": "EOFError",
+          "error_data": {}
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "idempotent": false,
+      "side_effects": [
+        "Reads from stdin"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "stdin",
+          "description": "Reads user input from console"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "ConversationEngine.__init__",
+      "description": "Initialize ConversationEngine with session, manager, optional client, I/O, and config",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "ConversationEngine",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "session",
+          "type_ref": "Session",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "session_mgr",
+          "type_ref": "SessionManager",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "client",
+          "type_ref": "anthropic.Anthropic | None",
+          "required": false,
+          "default": "None",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "io",
+          "type_ref": "TerminalIO | None",
+          "required": false,
+          "default": "None",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "config",
+          "type_ref": "EngineConfig | None",
+          "required": false,
+          "default": "None",
+          "description": "",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "self.session is set to session parameter",
+        "self.session_mgr is set to session_mgr parameter",
+        "self.client is initialized (creates new Anthropic() if None passed)",
+        "self.io is initialized (creates DefaultIO() if None passed)",
+        "self.config is initialized (creates EngineConfig() if None passed)"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [],
+      "performance_budget": null
+    },
+    {
+      "name": "ConversationEngine.run_session",
+      "description": "Run all remaining phases of the interview. Saves session on KeyboardInterrupt and exits.",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "ConversationEngine",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        }
+      ],
+      "output_type": "Session",
+      "error_cases": [
+        {
+          "name": "KeyboardInterrupt",
+          "condition": "User sends interrupt signal (Ctrl+C)",
+          "error_type": "SystemExit",
+          "error_data": {
+            "exit_code": "0"
+          }
+        }
+      ],
+      "preconditions": [
+        "self.session is valid Session object"
+      ],
+      "postconditions": [
+        "All incomplete phases are executed sequentially",
+        "Session is saved after each phase transition",
+        "Returns the updated session object"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Calls _display_resume_summary if session.round > 0",
+        "Runs phase loops (_run_phase or _run_synthesis)",
+        "Transitions phases via session_mgr.transition_phase",
+        "Saves session via session_mgr.save",
+        "Displays phase transition messages via io.display",
+        "Exits with sys.exit(0) on KeyboardInterrupt"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "mutates_state",
+          "target": "self.session",
+          "description": "Updates session state through phases"
+        },
+        {
+          "kind": "writes_file",
+          "target": "session files",
+          "description": "Persists session via session_mgr"
+        },
+        {
+          "kind": "logging",
+          "target": "stdout",
+          "description": "Displays progress messages"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "ConversationEngine._run_phase",
+      "description": "Run understand or challenge phase conversation loop with round limits and user interaction",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "ConversationEngine",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "phase",
+          "type_ref": "Phase",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "EOFError",
+          "condition": "User sends EOF during prompt",
+          "error_type": "None",
+          "error_data": {
+            "behavior": "breaks loop and advances to next phase"
+          }
+        }
+      ],
+      "preconditions": [
+        "phase is Phase.understand or Phase.challenge"
+      ],
+      "postconditions": [
+        "Conversation proceeds for min_rounds to max_rounds",
+        "Session is updated with messages and round counts",
+        "Session is saved after each exchange"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Calls API via _call_api",
+        "Prompts user via io.prompt",
+        "Displays responses via io.display",
+        "Updates session.conversation with messages",
+        "Updates session.problem_model if model updates received",
+        "Saves session via session_mgr.save"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "mutates_state",
+          "target": "self.session",
+          "description": "Adds messages, increments rounds"
+        },
+        {
+          "kind": "network_call",
+          "target": "Claude API",
+          "description": "Calls Anthropic API"
+        },
+        {
+          "kind": "reads_file",
+          "target": "stdin",
+          "description": "Reads user input"
+        },
+        {
+          "kind": "writes_file",
+          "target": "session files",
+          "description": "Persists session"
+        },
+        {
+          "kind": "logging",
+          "target": "stdout",
+          "description": "Displays assistant responses"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "ConversationEngine._run_synthesis",
+      "description": "Run synthesis phase: generate prompt.md and constraints.yaml artifacts with optional revision cycle",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "ConversationEngine",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "ValueError",
+          "condition": "parse_synthesis_output fails to parse response",
+          "error_type": "None",
+          "error_data": {
+            "behavior": "displays warning, stores raw output, transitions to complete"
+          }
+        },
+        {
+          "name": "EOFError",
+          "condition": "User sends EOF when prompted for feedback",
+          "error_type": "None",
+          "error_data": {
+            "behavior": "treats as empty feedback, accepts artifacts"
+          }
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "session.prompt_md is populated",
+        "session.constraints_yaml is populated",
+        "Session transitions to Phase.complete",
+        "Session is saved"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Calls API twice (initial generation + optional revision)",
+        "Parses synthesis output via parse_synthesis_output",
+        "Displays artifacts to user",
+        "Prompts for optional feedback",
+        "Updates session.prompt_md and session.constraints_yaml",
+        "Transitions phase to Phase.complete",
+        "Saves session"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "mutates_state",
+          "target": "self.session",
+          "description": "Sets prompt_md and constraints_yaml"
+        },
+        {
+          "kind": "network_call",
+          "target": "Claude API",
+          "description": "Generates and optionally revises artifacts"
+        },
+        {
+          "kind": "reads_file",
+          "target": "stdin",
+          "description": "Reads optional feedback"
+        },
+        {
+          "kind": "writes_file",
+          "target": "session files",
+          "description": "Persists session"
+        },
+        {
+          "kind": "logging",
+          "target": "stdout",
+          "description": "Displays artifacts and prompts"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "ConversationEngine._call_api",
+      "description": "Call Claude API with exponential backoff on transient errors (rate limit, timeout, connection)",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "ConversationEngine",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "system",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "messages",
+          "type_ref": "list[dict]",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        }
+      ],
+      "output_type": "str",
+      "error_cases": [
+        {
+          "name": "RuntimeError",
+          "condition": "API returns empty response (no content)",
+          "error_type": "RuntimeError",
+          "error_data": {}
+        },
+        {
+          "name": "RuntimeError",
+          "condition": "API unavailable after 3 retry attempts",
+          "error_type": "RuntimeError",
+          "error_data": {}
+        },
+        {
+          "name": "AuthenticationError",
+          "condition": "API authentication fails",
+          "error_type": "anthropic.AuthenticationError",
+          "error_data": {}
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Returns text content from Claude API response on success"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Makes HTTP request to Anthropic API",
+        "Sleeps on transient errors (1s, 2s, 4s)"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "network_call",
+          "target": "Anthropic API",
+          "description": "Calls client.messages.create"
+        }
+      ],
+      "performance_budget": {
+        "p95_latency_ms": null,
+        "max_memory_mb": null,
+        "complexity": "O(1) with retry delays up to 7 seconds total"
+      }
+    },
+    {
+      "name": "ConversationEngine._parse_response",
+      "description": "Extract display text, problem model update dict, and ready flag from LLM response containing JSON code block",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "ConversationEngine",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "raw",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        }
+      ],
+      "output_type": "tuple[str, dict, bool]",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Returns tuple of (display_text, model_update_dict, ready_flag)",
+        "If no JSON block found, returns (raw, {}, False)",
+        "If JSON parse fails, returns (raw, {}, False)",
+        "Extracts last ```json...``` block if multiple present"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [],
+      "performance_budget": null
+    },
+    {
+      "name": "ConversationEngine._api_messages",
+      "description": "Build API message list from session conversation history",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "ConversationEngine",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        }
+      ],
+      "output_type": "list[dict]",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Returns list of dicts with 'role' and 'content' keys from session.conversation"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [],
+      "performance_budget": null
+    },
+    {
+      "name": "ConversationEngine._add_message",
+      "description": "Append a message to session conversation and touch session timestamp",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "ConversationEngine",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "role",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "content",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Message(role, content) appended to session.conversation",
+        "session.touch() called to update timestamp"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "mutates_state",
+          "target": "self.session.conversation",
+          "description": "Appends message to conversation list"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "ConversationEngine._increment_round",
+      "description": "Increment session round counter and phase-specific round counter",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "ConversationEngine",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "phase",
+          "type_ref": "Phase",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "session.round incremented by 1",
+        "session.understand_rounds incremented if phase is understand",
+        "session.challenge_rounds incremented if phase is challenge"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "mutates_state",
+          "target": "self.session",
+          "description": "Updates round counters"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "ConversationEngine._current_rounds",
+      "description": "Get current round count for the given phase",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "ConversationEngine",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "phase",
+          "type_ref": "Phase",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        }
+      ],
+      "output_type": "int",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Returns session.understand_rounds if phase is understand",
+        "Returns session.challenge_rounds if phase is challenge",
+        "Returns 0 for other phases"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [],
+      "performance_budget": null
+    },
+    {
+      "name": "ConversationEngine._round_limits",
+      "description": "Get min and max round limits for the given phase from config",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "ConversationEngine",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "phase",
+          "type_ref": "Phase",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        }
+      ],
+      "output_type": "tuple[int, int]",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Returns (understand_min, understand_max) if phase is understand",
+        "Returns (challenge_min, challenge_max) if phase is challenge",
+        "Returns (1, 1) for other phases"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [],
+      "performance_budget": null
+    },
+    {
+      "name": "ConversationEngine._phase_done",
+      "description": "Check if a phase is already completed based on session state by comparing phase order indices",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "ConversationEngine",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        },
+        {
+          "name": "phase",
+          "type_ref": "Phase",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        }
+      ],
+      "output_type": "bool",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Returns True if session.phase is later than the target phase in the phase order",
+        "Returns False otherwise"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [],
+      "performance_budget": null
+    },
+    {
+      "name": "ConversationEngine._display_resume_summary",
+      "description": "Display resume summary showing session ID, phase, round counts, and partial problem model info",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "ConversationEngine",
+          "required": true,
+          "default": "",
+          "description": "",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [],
+      "idempotent": false,
+      "side_effects": [
+        "Displays session resume information via io.display"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "logging",
+          "target": "stdout",
+          "description": "Displays session resume summary"
+        }
+      ],
+      "performance_budget": null
+    }
+  ],
+  "dependencies": [
+    "anthropic",
+    "json",
+    "re",
+    "sys",
+    "time",
+    "dataclasses",
+    "pathlib",
+    "typing"
+  ],
+  "dependency_contracts": {
+    "anthropic": [
+      "Anthropic",
+      "RateLimitError",
+      "APITimeoutError",
+      "APIConnectionError",
+      "AuthenticationError"
+    ],
+    ".models": [
+      "Message",
+      "Phase",
+      "Session"
+    ],
+    ".posture": [
+      "get_revision_prompt",
+      "get_system_prompt"
+    ],
+    ".session": [
+      "SessionManager"
+    ],
+    ".synthesizer": [
+      "parse_synthesis_output"
+    ]
+  },
+  "invariants": [
+    "MODEL constant is 'claude-sonnet-4-20250514'",
+    "Phase order is [understand, challenge, synthesize, complete]",
+    "Retry delays are [1, 2, 4] seconds for API calls",
+    "Max API tokens is 4096",
+    "Synthesis phase allows exactly one revision cycle",
+    "Messages must alternate user/assistant roles for API calls"
+  ],
+  "requires": [],
+  "processing_register": ""
+}

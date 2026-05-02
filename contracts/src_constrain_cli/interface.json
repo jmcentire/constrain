@@ -1,0 +1,885 @@
+{
+  "component_id": "src_constrain_cli",
+  "name": "Constrain CLI",
+  "description": "Click-based command-line interface for the Constrain tool. Provides commands to create, resume, list, and display sessions. Handles session management, artifact generation, and user interaction for the conversation engine that finds boundaries between specification and intent.",
+  "version": 1,
+  "types": [
+    {
+      "name": "SafeGroup",
+      "kind": "struct",
+      "fields": [],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "Click group with centralized exception handling. Catches and handles ClickException, Abort, KeyboardInterrupt, SystemExit, and general exceptions."
+    }
+  ],
+  "functions": [
+    {
+      "name": "ensure_api_key",
+      "description": "Retrieves and validates the ANTHROPIC_API_KEY from environment variables. Strips whitespace and ensures the key is non-empty.",
+      "inputs": [],
+      "output_type": "str",
+      "error_cases": [
+        {
+          "name": "missing_api_key",
+          "condition": "ANTHROPIC_API_KEY environment variable is not set or is empty/whitespace",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "ANTHROPIC_API_KEY not set. Export it or add it to your shell profile."
+          }
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Returns a non-empty stripped API key string"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Reads ANTHROPIC_API_KEY from environment variables"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "os.environ",
+          "description": "Reads ANTHROPIC_API_KEY environment variable"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "_round_options",
+      "description": "Decorator function that adds four Click options (--min-understand, --max-understand, --min-challenge, --max-challenge) to a command function. Each option is an optional integer with a default of None.",
+      "inputs": [
+        {
+          "name": "f",
+          "type_ref": "function",
+          "required": true,
+          "default": "",
+          "description": "The function to decorate with round limit options",
+          "validators": []
+        }
+      ],
+      "output_type": "function",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Returns the decorated function with four additional Click option parameters"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [],
+      "performance_budget": null
+    },
+    {
+      "name": "_resolve_int",
+      "description": "Resolves an integer value from CLI argument, environment variable, or default. Validates that environment variable values are positive integers if present.",
+      "inputs": [
+        {
+          "name": "cli_val",
+          "type_ref": "int | None",
+          "required": true,
+          "default": "",
+          "description": "Value from CLI argument",
+          "validators": []
+        },
+        {
+          "name": "env_var",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Environment variable name to check",
+          "validators": []
+        },
+        {
+          "name": "default",
+          "type_ref": "int",
+          "required": true,
+          "default": "",
+          "description": "Default value if neither CLI nor env are set",
+          "validators": []
+        }
+      ],
+      "output_type": "int",
+      "error_cases": [
+        {
+          "name": "invalid_env_value",
+          "condition": "Environment variable is set but cannot be parsed as a positive integer",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "Invalid value for {env_var}: expected a positive integer, got '{env}'."
+          }
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Returns cli_val if not None",
+        "Otherwise returns parsed environment variable if set and valid",
+        "Otherwise returns default value"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Reads from os.environ"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "os.environ",
+          "description": "Reads environment variable specified by env_var parameter"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "resolve_config",
+      "description": "Resolves EngineConfig from optional CLI arguments and environment variables. Validates that min values do not exceed max values for both understand and challenge phases.",
+      "inputs": [
+        {
+          "name": "min_understand",
+          "type_ref": "int | None",
+          "required": true,
+          "default": "",
+          "description": "Minimum understand rounds from CLI",
+          "validators": []
+        },
+        {
+          "name": "max_understand",
+          "type_ref": "int | None",
+          "required": true,
+          "default": "",
+          "description": "Maximum understand rounds from CLI",
+          "validators": []
+        },
+        {
+          "name": "min_challenge",
+          "type_ref": "int | None",
+          "required": true,
+          "default": "",
+          "description": "Minimum challenge rounds from CLI",
+          "validators": []
+        },
+        {
+          "name": "max_challenge",
+          "type_ref": "int | None",
+          "required": true,
+          "default": "",
+          "description": "Maximum challenge rounds from CLI",
+          "validators": []
+        }
+      ],
+      "output_type": "EngineConfig",
+      "error_cases": [
+        {
+          "name": "understand_min_exceeds_max",
+          "condition": "Resolved understand_min > understand_max",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "min-understand ({cfg.understand_min}) cannot exceed max-understand ({cfg.understand_max})."
+          }
+        },
+        {
+          "name": "challenge_min_exceeds_max",
+          "condition": "Resolved challenge_min > challenge_max",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "min-challenge ({cfg.challenge_min}) cannot exceed max-challenge ({cfg.challenge_max})."
+          }
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Returns EngineConfig with understand_min <= understand_max",
+        "Returns EngineConfig with challenge_min <= challenge_max"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Calls _resolve_int which reads environment variables"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "os.environ",
+          "description": "Reads CONSTRAIN_MIN_UNDERSTAND, CONSTRAIN_MAX_UNDERSTAND, CONSTRAIN_MIN_CHALLENGE, CONSTRAIN_MAX_CHALLENGE"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "_run_engine",
+      "description": "Creates a ConversationEngine with the given session, manager, and config, runs the session, and writes artifacts (prompt.md, constraints.yaml) to current directory if session completes successfully.",
+      "inputs": [
+        {
+          "name": "session",
+          "type_ref": "Session",
+          "required": true,
+          "default": "",
+          "description": "The session to run",
+          "validators": []
+        },
+        {
+          "name": "mgr",
+          "type_ref": "SessionManager",
+          "required": true,
+          "default": "",
+          "description": "Session manager instance",
+          "validators": []
+        },
+        {
+          "name": "config",
+          "type_ref": "EngineConfig",
+          "required": true,
+          "default": "",
+          "description": "Engine configuration",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "user_aborts_overwrite",
+          "condition": "Artifacts exist and user declines to overwrite in _confirm_overwrite",
+          "error_type": "click.Abort",
+          "error_data": {}
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Session has been executed via engine.run_session()",
+        "If session.phase is Phase.complete and session.prompt_md exists, artifacts are written to current directory",
+        "User is notified of artifact paths via click.echo"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Executes ConversationEngine which may interact with external APIs",
+        "May write prompt.md and constraints.yaml files to current directory",
+        "Outputs to stdout via click.echo",
+        "May prompt user for confirmation via _confirm_overwrite"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "network_call",
+          "target": "ConversationEngine",
+          "description": "Engine may make API calls during run_session()"
+        },
+        {
+          "kind": "writes_file",
+          "target": "prompt.md, constraints.yaml",
+          "description": "Writes artifacts to current working directory on successful completion"
+        },
+        {
+          "kind": "logging",
+          "target": "stdout",
+          "description": "Outputs artifact paths via click.echo"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "_confirm_overwrite",
+      "description": "Checks if prompt.md or constraints.yaml exist in the given directory. If they do, prompts user for confirmation to overwrite. Returns True if user confirms, raises Abort if declined.",
+      "inputs": [
+        {
+          "name": "cwd",
+          "type_ref": "Path",
+          "required": true,
+          "default": "",
+          "description": "Directory to check for existing artifacts",
+          "validators": []
+        }
+      ],
+      "output_type": "bool",
+      "error_cases": [
+        {
+          "name": "user_declines_overwrite",
+          "condition": "Artifacts exist and user does not confirm overwrite",
+          "error_type": "click.Abort",
+          "error_data": {}
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Returns False if no artifacts exist (no conflict)",
+        "Returns True if artifacts exist and user confirms overwrite"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Checks filesystem for existence of prompt.md and constraints.yaml",
+        "Prompts user via click.confirm if files exist"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "prompt.md, constraints.yaml",
+          "description": "Checks if files exist in the specified directory"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "cli",
+      "description": "Main Click group command. When invoked without subcommand, checks for incomplete sessions and prompts to resume, or creates a new session. Decorated with @click.group, @_round_options, and @click.pass_context.",
+      "inputs": [
+        {
+          "name": "ctx",
+          "type_ref": "click.Context",
+          "required": true,
+          "default": "",
+          "description": "Click context object",
+          "validators": []
+        },
+        {
+          "name": "min_understand",
+          "type_ref": "int | None",
+          "required": true,
+          "default": "",
+          "description": "Minimum understand rounds from --min-understand option",
+          "validators": []
+        },
+        {
+          "name": "max_understand",
+          "type_ref": "int | None",
+          "required": true,
+          "default": "",
+          "description": "Maximum understand rounds from --max-understand option",
+          "validators": []
+        },
+        {
+          "name": "min_challenge",
+          "type_ref": "int | None",
+          "required": true,
+          "default": "",
+          "description": "Minimum challenge rounds from --min-challenge option",
+          "validators": []
+        },
+        {
+          "name": "max_challenge",
+          "type_ref": "int | None",
+          "required": true,
+          "default": "",
+          "description": "Maximum challenge rounds from --max-challenge option",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "missing_api_key",
+          "condition": "ANTHROPIC_API_KEY not set",
+          "error_type": "click.ClickException",
+          "error_data": {}
+        },
+        {
+          "name": "invalid_config",
+          "condition": "Config validation fails in resolve_config",
+          "error_type": "click.ClickException",
+          "error_data": {}
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "If subcommand is invoked, returns immediately without action",
+        "Otherwise ensures API key is set",
+        "If incomplete session exists, prompts user to resume/decline/list",
+        "Creates and runs new session if no incomplete session or user declines resume"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Reads environment variables",
+        "Creates SessionManager with current directory",
+        "May create new session",
+        "May save session",
+        "May run engine",
+        "Outputs to stdout via click.echo",
+        "Prompts user for input via click.prompt"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "os.environ, session files",
+          "description": "Reads API key and session data"
+        },
+        {
+          "kind": "writes_file",
+          "target": "session files",
+          "description": "Saves session data"
+        },
+        {
+          "kind": "network_call",
+          "target": "ConversationEngine",
+          "description": "May trigger API calls via _run_engine"
+        },
+        {
+          "kind": "logging",
+          "target": "stdout",
+          "description": "Outputs session information and prompts"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "cmd_new",
+      "description": "Click command to start a new session, ignoring any incomplete sessions. Decorated with @cli.command('new') and @_round_options.",
+      "inputs": [
+        {
+          "name": "min_understand",
+          "type_ref": "int | None",
+          "required": true,
+          "default": "",
+          "description": "Minimum understand rounds",
+          "validators": []
+        },
+        {
+          "name": "max_understand",
+          "type_ref": "int | None",
+          "required": true,
+          "default": "",
+          "description": "Maximum understand rounds",
+          "validators": []
+        },
+        {
+          "name": "min_challenge",
+          "type_ref": "int | None",
+          "required": true,
+          "default": "",
+          "description": "Minimum challenge rounds",
+          "validators": []
+        },
+        {
+          "name": "max_challenge",
+          "type_ref": "int | None",
+          "required": true,
+          "default": "",
+          "description": "Maximum challenge rounds",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "missing_api_key",
+          "condition": "ANTHROPIC_API_KEY not set",
+          "error_type": "click.ClickException",
+          "error_data": {}
+        },
+        {
+          "name": "invalid_config",
+          "condition": "Config validation fails",
+          "error_type": "click.ClickException",
+          "error_data": {}
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Creates a new session unconditionally",
+        "Saves and runs the new session"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Creates SessionManager",
+        "Creates and saves new session",
+        "Runs engine"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "os.environ",
+          "description": "Reads API key and config environment variables"
+        },
+        {
+          "kind": "writes_file",
+          "target": "session files, artifacts",
+          "description": "Saves session and potentially writes artifacts"
+        },
+        {
+          "kind": "network_call",
+          "target": "ConversationEngine",
+          "description": "Runs engine which may call external APIs"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "cmd_resume",
+      "description": "Click command to resume an incomplete session by ID or latest. Decorated with @cli.command('resume') and @click.argument('session_id', required=False).",
+      "inputs": [
+        {
+          "name": "session_id",
+          "type_ref": "str | None",
+          "required": true,
+          "default": "",
+          "description": "Optional session ID to resume; if None, resumes latest incomplete",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "missing_api_key",
+          "condition": "ANTHROPIC_API_KEY not set",
+          "error_type": "click.ClickException",
+          "error_data": {}
+        },
+        {
+          "name": "session_not_found",
+          "condition": "Specified session_id does not exist (FileNotFoundError)",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "Session '{session_id}' not found."
+          }
+        },
+        {
+          "name": "session_load_error",
+          "condition": "Session load raises ValueError",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "Could not load session '{session_id}': {e}"
+          }
+        },
+        {
+          "name": "session_already_complete",
+          "condition": "Loaded session has phase == Phase.complete",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "Session '{session_id}' is already completed. Use 'constrain show' to view its artifacts."
+          }
+        },
+        {
+          "name": "no_incomplete_sessions",
+          "condition": "No session_id provided and no incomplete sessions found",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "No incomplete sessions found. Use 'constrain new' to start one."
+          }
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Loads specified or latest incomplete session",
+        "Runs the session with default config"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Loads session from filesystem",
+        "Runs engine"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "session files, os.environ",
+          "description": "Loads session data and API key"
+        },
+        {
+          "kind": "writes_file",
+          "target": "session files, artifacts",
+          "description": "May save session updates and write artifacts"
+        },
+        {
+          "kind": "network_call",
+          "target": "ConversationEngine",
+          "description": "Runs engine"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "cmd_show",
+      "description": "Click command to display artifacts (prompt.md and constraints.yaml) from the most recent completed session. Decorated with @cli.command('show').",
+      "inputs": [],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "no_completed_sessions",
+          "condition": "No completed sessions found in session list",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "No completed sessions found. Use 'constrain' to start one."
+          }
+        },
+        {
+          "name": "artifacts_not_found",
+          "condition": "Latest completed session has no prompt_md",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "Artifacts not found in session {session.id[:8]}. They may not have been generated."
+          }
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Outputs prompt.md and constraints.yaml content to stdout"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Reads session data from filesystem",
+        "Outputs to stdout"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "session files",
+          "description": "Loads session list and latest completed session"
+        },
+        {
+          "kind": "logging",
+          "target": "stdout",
+          "description": "Outputs artifact content"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "cmd_list",
+      "description": "Click command to list all sessions. Decorated with @cli.command('list'). Delegates to _do_list.",
+      "inputs": [],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "no_sessions",
+          "condition": "No sessions found (raised by _do_list)",
+          "error_type": "click.ClickException",
+          "error_data": {}
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Displays table of all sessions"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Reads session data",
+        "Outputs to stdout"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "reads_file",
+          "target": "session files",
+          "description": "Loads session list"
+        },
+        {
+          "kind": "logging",
+          "target": "stdout",
+          "description": "Outputs session table"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "_do_list",
+      "description": "Displays a formatted table of all sessions with ID, phase, rounds, posture, and updated timestamp.",
+      "inputs": [
+        {
+          "name": "mgr",
+          "type_ref": "SessionManager",
+          "required": true,
+          "default": "",
+          "description": "Session manager to query for session list",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "no_sessions",
+          "condition": "mgr.list_all() returns empty list",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "No sessions found. Use 'constrain' to start one."
+          }
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Outputs formatted session table to stdout"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Calls mgr.list_all()",
+        "Outputs to stdout via click.echo"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "logging",
+          "target": "stdout",
+          "description": "Outputs session table with header and rows"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "main",
+      "description": "Entry point for the constrain CLI. Simply invokes the cli() Click group.",
+      "inputs": [],
+      "output_type": "None",
+      "error_cases": [],
+      "preconditions": [],
+      "postconditions": [
+        "Invokes cli() Click group which handles command dispatch"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Delegates to cli() which has extensive side effects"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "mutates_state",
+          "target": "cli",
+          "description": "Invokes Click group"
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "invoke",
+      "description": "SafeGroup.invoke override that wraps Click group invocation with centralized exception handling. Catches ClickException, Abort, KeyboardInterrupt, SystemExit, and general exceptions, providing appropriate error messages and exit codes.",
+      "inputs": [
+        {
+          "name": "self",
+          "type_ref": "SafeGroup",
+          "required": true,
+          "default": "",
+          "description": "The SafeGroup instance",
+          "validators": []
+        },
+        {
+          "name": "ctx",
+          "type_ref": "click.Context",
+          "required": true,
+          "default": "",
+          "description": "Click context",
+          "validators": []
+        }
+      ],
+      "output_type": "None",
+      "error_cases": [
+        {
+          "name": "click_exception",
+          "condition": "click.ClickException raised during invocation",
+          "error_type": "click.ClickException",
+          "error_data": {
+            "message": "Re-raised as-is"
+          }
+        },
+        {
+          "name": "abort",
+          "condition": "click.Abort raised",
+          "error_type": "SystemExit",
+          "error_data": {
+            "exit_code": "1",
+            "message": "Aborted."
+          }
+        },
+        {
+          "name": "keyboard_interrupt",
+          "condition": "KeyboardInterrupt (Ctrl+C)",
+          "error_type": "SystemExit",
+          "error_data": {
+            "exit_code": "130",
+            "message": "\\nInterrupted."
+          }
+        },
+        {
+          "name": "system_exit",
+          "condition": "SystemExit raised",
+          "error_type": "SystemExit",
+          "error_data": {
+            "message": "Re-raised as-is"
+          }
+        },
+        {
+          "name": "general_exception",
+          "condition": "Any other exception",
+          "error_type": "SystemExit",
+          "error_data": {
+            "exit_code": "1",
+            "message": "Error: {e}"
+          }
+        }
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Invokes parent Click.Group.invoke(ctx)",
+        "Handles exceptions and exits with appropriate codes: 1 for Abort/general errors, 130 for KeyboardInterrupt"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "May call sys.exit() with codes 1 or 130",
+        "Outputs to stderr via click.echo(..., err=True)"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "logging",
+          "target": "stderr",
+          "description": "Outputs error messages"
+        },
+        {
+          "kind": "mutates_state",
+          "target": "sys.exit",
+          "description": "May exit process with specific codes"
+        }
+      ],
+      "performance_budget": null
+    }
+  ],
+  "dependencies": [
+    "os",
+    "sys",
+    "pathlib",
+    "click",
+    "constrain.engine",
+    "constrain.models",
+    "constrain.session",
+    "constrain.synthesizer"
+  ],
+  "dependency_contracts": {
+    "click": [
+      "Group",
+      "Context",
+      "ClickException",
+      "Abort",
+      "echo",
+      "confirm",
+      "prompt",
+      "Choice",
+      "group",
+      "command",
+      "option",
+      "argument",
+      "pass_context"
+    ],
+    "constrain.engine": [
+      "ConversationEngine",
+      "EngineConfig"
+    ],
+    "constrain.models": [
+      "Phase",
+      "Posture",
+      "Session"
+    ],
+    "constrain.session": [
+      "SessionManager"
+    ],
+    "constrain.synthesizer": [
+      "write_artifacts"
+    ],
+    "pathlib": [
+      "Path"
+    ],
+    "os": [
+      "environ"
+    ],
+    "sys": [
+      "exit"
+    ]
+  },
+  "invariants": [
+    "API key must be non-empty when ensure_api_key() succeeds",
+    "understand_min <= understand_max in resolved EngineConfig",
+    "challenge_min <= challenge_max in resolved EngineConfig",
+    "Default understand_min=2, understand_max=10, challenge_min=2, challenge_max=10",
+    "Environment variables: ANTHROPIC_API_KEY, CONSTRAIN_MIN_UNDERSTAND, CONSTRAIN_MAX_UNDERSTAND, CONSTRAIN_MIN_CHALLENGE, CONSTRAIN_MAX_CHALLENGE",
+    "Artifacts written are prompt.md and constraints.yaml",
+    "SafeGroup exits with code 1 for Abort and general errors, 130 for KeyboardInterrupt"
+  ],
+  "requires": [],
+  "processing_register": ""
+}

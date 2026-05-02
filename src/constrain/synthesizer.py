@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -111,13 +112,61 @@ def parse_synthesis_output(raw: str) -> SynthesisArtifacts:
     )
 
 
+def sanitize_yaml(content: str) -> str:
+    """Fix common LLM YAML generation mistakes before parsing.
+
+    Handles:
+    - Markdown code fences wrapping YAML content
+    - Unquoted string values containing colons (the most common LLM error)
+    """
+    # Strip markdown code fences
+    content = re.sub(r'^```(?:yaml)?\s*\n', '', content, flags=re.MULTILINE)
+    content = re.sub(r'^```\s*$', '', content, flags=re.MULTILINE)
+
+    lines = content.split('\n')
+    fixed = []
+    for line in lines:
+        stripped = line.lstrip()
+        # Skip comments, blank lines, block scalars, list-only lines
+        if not stripped or stripped.startswith('#') or stripped in ('|', '>', '|-', '>-'):
+            fixed.append(line)
+            continue
+
+        # Match YAML key-value lines: "  key: value"
+        # Only fix lines where the VALUE portion contains an unquoted colon
+        m = re.match(r'^(\s*-?\s*)([A-Za-z_][A-Za-z0-9_]*):\s+(.+)$', line)
+        if m:
+            indent, key, value = m.group(1), m.group(2), m.group(3)
+            # Don't touch values that are already quoted, are numbers, booleans,
+            # null, lists, or anchors/aliases
+            if (value.startswith('"') or value.startswith("'") or
+                    value.startswith('[') or value.startswith('{') or
+                    value.startswith('&') or value.startswith('*') or
+                    re.match(r'^(true|false|null|~|\d+\.?\d*([eE][+-]?\d+)?|0x[0-9a-fA-F]+)$',
+                             value, re.IGNORECASE)):
+                fixed.append(line)
+                continue
+
+            # If the value contains a colon followed by space (or end), it needs quoting
+            if re.search(r':\s|:$', value):
+                escaped = value.replace('\\', '\\\\').replace('"', '\\"')
+                fixed.append(f'{indent}{key}: "{escaped}"')
+                continue
+
+        fixed.append(line)
+
+    return '\n'.join(fixed)
+
+
 def validate_yaml_content(content: str, name: str) -> dict | list | None:
     """Parse YAML content and raise ValueError if invalid.
 
+    Sanitizes common LLM formatting errors before parsing.
     Returns the parsed data structure or None if content is empty.
     """
     if not content.strip():
         return None
+    content = sanitize_yaml(content)
     try:
         return yaml.safe_load(content)
     except yaml.YAMLError as e:
@@ -288,6 +337,9 @@ def write_artifacts(
     for name, content in files.items():
         if not content and name in _OPTIONAL_ARTIFACT_FILES:
             continue  # Skip empty optional artifacts (backward compat for old sessions)
+        # Sanitize YAML artifacts before writing
+        if name.endswith(".yaml"):
+            content = sanitize_yaml(content)
         path = out / name
         path.write_text(content, encoding="utf-8")
         written.append(path)

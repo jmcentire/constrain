@@ -1,0 +1,155 @@
+{
+  "component_id": "src_constrain_synthesizer",
+  "name": "Synthesizer Artifact Generator",
+  "description": "Artifact generation module for parsing LLM synthesis output and writing prompt and constraint files to disk. Parses delimited text sections and manages file I/O with overwrite protection.",
+  "version": 1,
+  "types": [
+    {
+      "name": "Path",
+      "kind": "primitive",
+      "fields": [],
+      "item_type": "",
+      "variants": [],
+      "inner_types": [],
+      "description": "pathlib.Path type for filesystem paths"
+    }
+  ],
+  "functions": [
+    {
+      "name": "parse_synthesis_output",
+      "description": "Parse '--- PROMPT ---' and '--- CONSTRAINTS ---' delimiters from LLM output. Extracts the content between the two markers, returning prompt content and constraints content as separate strings.",
+      "inputs": [
+        {
+          "name": "raw",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Raw LLM synthesis output containing delimited sections",
+          "validators": []
+        }
+      ],
+      "output_type": "tuple[str, str]",
+      "error_cases": [
+        {
+          "name": "missing_delimiters",
+          "condition": "prompt_idx == -1 or constraints_idx == -1",
+          "error_type": "ValueError",
+          "error_data": {
+            "message": "Synthesis output missing required delimiters ('--- PROMPT ---' and/or '--- CONSTRAINTS ---')."
+          }
+        }
+      ],
+      "preconditions": [
+        "raw must contain '--- PROMPT ---' marker",
+        "raw must contain '--- CONSTRAINTS ---' marker"
+      ],
+      "postconditions": [
+        "Returns tuple of (prompt_md, constraints_yaml)",
+        "prompt_md is the stripped text between '--- PROMPT ---' and '--- CONSTRAINTS ---'",
+        "constraints_yaml is the stripped text after '--- CONSTRAINTS ---'"
+      ],
+      "idempotent": false,
+      "side_effects": [],
+      "structured_side_effects": [
+        {
+          "kind": "none",
+          "target": "",
+          "description": ""
+        }
+      ],
+      "performance_budget": null
+    },
+    {
+      "name": "write_artifacts",
+      "description": "Write prompt.md and constraints.yaml to output_dir. Creates the output directory if it doesn't exist and writes two files with UTF-8 encoding. Provides overwrite protection by default.",
+      "inputs": [
+        {
+          "name": "prompt_md",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Content for prompt.md file",
+          "validators": []
+        },
+        {
+          "name": "constraints_yaml",
+          "type_ref": "str",
+          "required": true,
+          "default": "",
+          "description": "Content for constraints.yaml file",
+          "validators": []
+        },
+        {
+          "name": "output_dir",
+          "type_ref": "str | Path",
+          "required": true,
+          "default": "",
+          "description": "Directory path where artifacts will be written",
+          "validators": []
+        },
+        {
+          "name": "overwrite",
+          "type_ref": "bool",
+          "required": false,
+          "default": "False",
+          "description": "Whether to overwrite existing files",
+          "validators": []
+        }
+      ],
+      "output_type": "tuple[Path, Path]",
+      "error_cases": [
+        {
+          "name": "file_exists",
+          "condition": "existing files found and overwrite=False",
+          "error_type": "FileExistsError",
+          "error_data": {
+            "message": "Artifact(s) already exist: {names}. Use overwrite=True to replace."
+          }
+        }
+      ],
+      "preconditions": [
+        "output_dir must be a valid path string or Path object",
+        "If overwrite=False, prompt.md and constraints.yaml must not exist in output_dir"
+      ],
+      "postconditions": [
+        "output_dir exists as a directory",
+        "prompt.md is written to output_dir with prompt_md content in UTF-8 encoding",
+        "constraints.yaml is written to output_dir with constraints_yaml content in UTF-8 encoding",
+        "Returns tuple of (prompt_path, constraints_path) as Path objects"
+      ],
+      "idempotent": false,
+      "side_effects": [
+        "Creates output directory if it doesn't exist (including parent directories)",
+        "Writes prompt.md file to disk",
+        "Writes constraints.yaml file to disk",
+        "May overwrite existing files if overwrite=True"
+      ],
+      "structured_side_effects": [
+        {
+          "kind": "writes_file",
+          "target": "output_dir/prompt.md",
+          "description": "Writes prompt markdown content"
+        },
+        {
+          "kind": "writes_file",
+          "target": "output_dir/constraints.yaml",
+          "description": "Writes constraints YAML content"
+        }
+      ],
+      "performance_budget": null
+    }
+  ],
+  "dependencies": [
+    "re",
+    "pathlib"
+  ],
+  "dependency_contracts": {},
+  "invariants": [
+    "prompt_marker constant: '--- PROMPT ---'",
+    "constraints_marker constant: '--- CONSTRAINTS ---'",
+    "Output filenames are fixed: 'prompt.md' and 'constraints.yaml'",
+    "File encoding is always UTF-8"
+  ],
+  "requires": [],
+  "processing_register": ""
+}

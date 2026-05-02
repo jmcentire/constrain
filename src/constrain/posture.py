@@ -256,18 +256,25 @@ Derive field_hints from the interview: what sensitive fields were described? For
 When classification is PII, FINANCIAL, AUTH, or COMPLIANCE, there MUST be at least one likely_annotation.
 If the interview did not surface storage details, produce schema_hints.yaml with empty lists and a `_note` field explaining what was not covered. Do not fabricate.
 
+YAML formatting rules (critical — malformed YAML causes hard failures):
+- ALL string values containing colons MUST be quoted. Example: description: "Free tier: 100/day" NOT description: Free tier: 100/day
+- ALL string values containing curly braces, square brackets, or hash signs MUST be quoted
+- Use double quotes for strings. Escape internal double quotes with backslash
+- Do NOT wrap YAML content in markdown code fences (no ```yaml blocks)
+- Multi-line strings: use | or > block scalars, never unquoted multi-line values
+
 Output format: use these EXACT delimiters in this EXACT order:
 
 --- PROMPT ---
 (markdown content for prompt.md)
 --- CONSTRAINTS ---
-(YAML content for constraints.yaml)
+(YAML content for constraints.yaml — remember to quote all strings with colons)
 --- TRUST_POLICY ---
-(YAML content for trust_policy.yaml)
+(YAML content for trust_policy.yaml — remember to quote all strings with colons)
 --- COMPONENT_MAP ---
-(YAML content for component_map.yaml)
+(YAML content for component_map.yaml — remember to quote all strings with colons)
 --- SCHEMA_HINTS ---
-(YAML content for schema_hints.yaml)
+(YAML content for schema_hints.yaml — remember to quote all strings with colons)
 
 Problem model:
 {context}"""
@@ -317,18 +324,23 @@ Feedback: {feedback}
 Problem model:
 {context}
 
+YAML formatting rules (critical — malformed YAML causes hard failures):
+- ALL string values containing colons MUST be quoted with double quotes
+- ALL string values containing curly braces, square brackets, or hash signs MUST be quoted
+- Do NOT wrap YAML content in markdown code fences (no ```yaml blocks)
+
 Output format: use these EXACT delimiters in this EXACT order:
 
 --- PROMPT ---
 (markdown content for prompt.md)
 --- CONSTRAINTS ---
-(YAML content for constraints.yaml)
+(YAML content for constraints.yaml — quote all strings with colons)
 --- TRUST_POLICY ---
-(YAML content for trust_policy.yaml)
+(YAML content for trust_policy.yaml — quote all strings with colons)
 --- COMPONENT_MAP ---
-(YAML content for component_map.yaml)
+(YAML content for component_map.yaml — quote all strings with colons)
 --- SCHEMA_HINTS ---
-(YAML content for schema_hints.yaml)"""
+(YAML content for schema_hints.yaml — quote all strings with colons)"""
 
 
 def get_system_prompt(phase: Phase, problem_model: ProblemModel, posture: Posture | None = None) -> str:
