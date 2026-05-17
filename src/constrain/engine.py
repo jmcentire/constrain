@@ -316,9 +316,12 @@ class ConversationEngine:
                 self.io.display(f"YAML validation error: {err}")
 
         # Cross-validate artifacts
-        warnings = validate_artifacts(artifacts)
-        for w in warnings:
-            self.io.display(f"Warning: {w}")
+        try:
+            warnings = validate_artifacts(artifacts)
+            for w in warnings:
+                self.io.display(f"Warning: {w}")
+        except ValueError as e:
+            self.io.display(f"Cross-validation error (non-fatal): {e}")
 
         self._display_synthesis_preview(artifacts)
 
