@@ -15,7 +15,7 @@ DEFAULT_MODEL = "claude-sonnet-4-20250514"
 class AnthropicBackend:
     """Backend using the Anthropic Python SDK."""
 
-    def __init__(self, model: str | None = None, client=None) -> None:
+    def __init__(self, model: str | None = None, client=None, max_tokens: int = 4096) -> None:
         try:
             import anthropic as _anthropic
         except ImportError:
@@ -26,12 +26,13 @@ class AnthropicBackend:
         self._anthropic = _anthropic
         self.model = model or DEFAULT_MODEL
         self.client = client or _anthropic.Anthropic()
+        self.max_tokens = max_tokens
 
-    def complete(self, system: str, messages: list[dict], max_tokens: int = 4096) -> str:
+    def complete(self, system: str, messages: list[dict], max_tokens: int | None = None) -> str:
         try:
             resp = self.client.messages.create(
                 model=self.model,
-                max_tokens=max_tokens,
+                max_tokens=max_tokens or self.max_tokens,
                 system=system,
                 messages=messages,
             )

@@ -54,6 +54,8 @@ def ensure_api_key() -> None:
             raise click.ClickException(
                 "OPENAI_API_KEY not set (or set OPENAI_BASE_URL for local models)."
             )
+    elif backend_name in {"codex", "claude", "opencode", "cursor"}:
+        return
 
 
 def _round_options(f):
@@ -92,6 +94,23 @@ def _resolve_int(cli_val: int | None, env_var: str, default: int) -> int:
                 f"Invalid value for {env_var}: expected a positive integer, got '{env}'."
             )
     return default
+
+
+def _resolve_optional_int_env(env_var: str) -> int | None:
+    env = os.environ.get(env_var)
+    if not env:
+        return None
+    try:
+        value = int(env)
+    except ValueError as exc:
+        raise click.ClickException(
+            f"Invalid value for {env_var}: expected a positive integer, got '{env}'."
+        ) from exc
+    if value < 1:
+        raise click.ClickException(
+            f"Invalid value for {env_var}: expected a positive integer, got '{env}'."
+        )
+    return value
 
 
 def resolve_config(
@@ -246,9 +265,10 @@ def _run_engine(
     prime_paths: list[Path] | None = None,
     backend_name: str | None = None,
     model: str | None = None,
+    max_tokens: int | None = None,
 ) -> None:
     """Create engine and run session, then write artifacts on completion."""
-    backend = create_backend(backend=backend_name, model=model)
+    backend = create_backend(backend=backend_name, model=model, max_tokens=max_tokens)
     engine = ConversationEngine(session=session, session_mgr=mgr, backend=backend, config=config)
 
     # Kindex: first-run indexing prompt (only for new sessions)
@@ -308,19 +328,42 @@ def _run_engine(
 )
 @click.option(
     "--backend", "-b", default=None,
-    help="LLM backend: anthropic (default), openai. Env: CONSTRAIN_BACKEND.",
+    help=(
+        "LLM backend: anthropic (default), openai, codex, claude, "
+        "opencode, cursor. Env: CONSTRAIN_BACKEND."
+    ),
 )
 @click.option(
     "--model", "-m", default=None,
     help="Model name override. Env: CONSTRAIN_MODEL.",
 )
+@click.option(
+    "--max-tokens",
+    type=int,
+    default=None,
+    help="Maximum output tokens per backend call. Env: CONSTRAIN_MAX_TOKENS.",
+)
 @click.pass_context
-def cli(ctx, min_understand, max_understand, min_challenge, max_challenge, prime, backend, model):
+def cli(
+    ctx,
+    min_understand,
+    max_understand,
+    min_challenge,
+    max_challenge,
+    prime,
+    backend,
+    model,
+    max_tokens,
+):
     """Constrain: find the boundary between specification and intent."""
     if backend:
         os.environ["CONSTRAIN_BACKEND"] = backend
     if model:
         os.environ["CONSTRAIN_MODEL"] = model
+    if max_tokens is not None:
+        if max_tokens < 1:
+            raise click.ClickException("max-tokens must be a positive integer.")
+        os.environ["CONSTRAIN_MAX_TOKENS"] = str(max_tokens)
 
     if ctx.invoked_subcommand is not None:
         return
@@ -346,12 +389,27 @@ def cli(ctx, min_understand, max_understand, min_challenge, max_challenge, prime
             _do_list(mgr)
             return
         if choice == "y":
-            _run_engine(incomplete, mgr, config, backend_name=backend, model=model)
+            _run_engine(
+                incomplete,
+                mgr,
+                config,
+                backend_name=backend,
+                model=model,
+                max_tokens=max_tokens,
+            )
             return
 
     session = mgr.create()
     mgr.save(session)
-    _run_engine(session, mgr, config, prime_paths=[Path(p) for p in prime], backend_name=backend, model=model)
+    _run_engine(
+        session,
+        mgr,
+        config,
+        prime_paths=[Path(p) for p in prime],
+        backend_name=backend,
+        model=model,
+        max_tokens=max_tokens,
+    )
 
 
 @cli.command("new")
@@ -366,10 +424,19 @@ def cmd_new(min_understand, max_understand, min_challenge, max_challenge, prime)
     config = resolve_config(min_understand, max_understand, min_challenge, max_challenge)
     backend_name = os.environ.get("CONSTRAIN_BACKEND")
     model = os.environ.get("CONSTRAIN_MODEL")
+    max_tokens = _resolve_optional_int_env("CONSTRAIN_MAX_TOKENS")
     mgr = SessionManager(Path.cwd())
     session = mgr.create()
     mgr.save(session)
-    _run_engine(session, mgr, config, prime_paths=[Path(p) for p in prime], backend_name=backend_name, model=model)
+    _run_engine(
+        session,
+        mgr,
+        config,
+        prime_paths=[Path(p) for p in prime],
+        backend_name=backend_name,
+        model=model,
+        max_tokens=max_tokens,
+    )
 
 
 @cli.command("resume")
@@ -401,7 +468,8 @@ def cmd_resume(session_id):
     config = resolve_config(None, None, None, None)
     backend_name = os.environ.get("CONSTRAIN_BACKEND")
     model = os.environ.get("CONSTRAIN_MODEL")
-    _run_engine(session, mgr, config, backend_name=backend_name, model=model)
+    max_tokens = _resolve_optional_int_env("CONSTRAIN_MAX_TOKENS")
+    _run_engine(session, mgr, config, backend_name=backend_name, model=model, max_tokens=max_tokens)
 
 
 @cli.command("show")

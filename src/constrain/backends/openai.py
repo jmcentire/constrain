@@ -27,6 +27,7 @@ class OpenAIBackend:
         client=None,
         api_key: str | None = None,
         base_url: str | None = None,
+        max_tokens: int = 4096,
     ) -> None:
         try:
             import openai as _openai
@@ -46,8 +47,9 @@ class OpenAIBackend:
             if base_url or os.environ.get("OPENAI_BASE_URL"):
                 kwargs["base_url"] = base_url or os.environ["OPENAI_BASE_URL"]
             self.client = _openai.OpenAI(**kwargs)
+        self.max_tokens = max_tokens
 
-    def complete(self, system: str, messages: list[dict], max_tokens: int = 4096) -> str:
+    def complete(self, system: str, messages: list[dict], max_tokens: int | None = None) -> str:
         # Map Anthropic-style (system, messages) to OpenAI format
         oai_messages = [{"role": "system", "content": system}]
         for m in messages:
@@ -57,7 +59,7 @@ class OpenAIBackend:
             resp = self.client.chat.completions.create(
                 model=self.model,
                 messages=oai_messages,
-                max_tokens=max_tokens,
+                max_tokens=max_tokens or self.max_tokens,
             )
             choice = resp.choices[0]
             if not choice.message.content:

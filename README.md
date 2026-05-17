@@ -13,7 +13,7 @@ pip install -e ".[mcp]"          # MCP server
 pip install -e ".[all]"          # Everything
 ```
 
-Requires Python 3.12+ and an API key for your chosen backend.
+Requires Python 3.12+ and credentials or a logged-in local agent for your chosen backend.
 
 ## Usage
 
@@ -50,10 +50,30 @@ constrain --backend openai --model gpt-4o
 # Local model via OpenAI-compatible API
 CONSTRAIN_BACKEND=openai OPENAI_BASE_URL=http://localhost:11434/v1 constrain --model llama3
 
+# Local agent CLIs
+constrain --backend codex --model gpt-5.3-codex --max-tokens 32000
+constrain --backend claude --model sonnet --max-tokens 16000
+constrain --backend opencode
+constrain --backend cursor
+
 # Environment variables
-CONSTRAIN_BACKEND=anthropic|openai
+CONSTRAIN_BACKEND=anthropic|openai|codex|claude|opencode|cursor
 CONSTRAIN_MODEL=<model-name>
+CONSTRAIN_MAX_TOKENS=4096
 ```
+
+Backend credential and command settings:
+
+| Backend | Required/config env vars |
+|---------|--------------------------|
+| `anthropic` | `ANTHROPIC_API_KEY`, optional `CONSTRAIN_MODEL`, `CONSTRAIN_MAX_TOKENS` |
+| `openai` | `OPENAI_API_KEY` or `OPENAI_BASE_URL`, optional `CONSTRAIN_MODEL`, `CONSTRAIN_MAX_TOKENS` |
+| `codex` | logged-in `codex` CLI, optional `CONSTRAIN_CODEX_COMMAND`, `CONSTRAIN_CODEX_MODEL`, `CONSTRAIN_CODEX_ARGS` |
+| `claude` | logged-in `claude` CLI or its own auth env, optional `CONSTRAIN_CLAUDE_COMMAND`, `CONSTRAIN_CLAUDE_MODEL`, `CONSTRAIN_CLAUDE_ARGS` |
+| `opencode` | installed `opencode` CLI, optional `CONSTRAIN_OPENCODE_COMMAND`, `CONSTRAIN_OPENCODE_MODEL`, `CONSTRAIN_OPENCODE_ARGS` |
+| `cursor` | installed `cursor-agent` CLI, optional `CONSTRAIN_CURSOR_COMMAND`, `CONSTRAIN_CURSOR_MODEL`, `CONSTRAIN_CURSOR_ARGS` |
+
+`*_ARGS` is shell-split and may use `{prompt}`, `{system}`, `{model}`, and `{max_tokens}` placeholders.
 
 ## How It Works
 
