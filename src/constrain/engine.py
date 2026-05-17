@@ -297,31 +297,8 @@ class ConversationEngine:
             self.session_mgr.save(self.session)
             return
 
-        # Validate YAML artifacts
-        yaml_errors = []
-        for name, content in [
-            ("constraints.yaml", artifacts.constraints_yaml),
-            ("trust_policy.yaml", artifacts.trust_policy_yaml),
-            ("component_map.yaml", artifacts.component_map_yaml),
-            ("schema_hints.yaml", artifacts.schema_hints_yaml),
-        ]:
-            if content:
-                try:
-                    validate_yaml_content(content, name)
-                except ValueError as e:
-                    yaml_errors.append(str(e))
-
-        if yaml_errors:
-            for err in yaml_errors:
-                self.io.display(f"YAML validation error: {err}")
-
-        # Cross-validate artifacts
-        try:
-            warnings = validate_artifacts(artifacts)
-            for w in warnings:
-                self.io.display(f"Warning: {w}")
-        except ValueError as e:
-            self.io.display(f"Cross-validation error (non-fatal): {e}")
+        artifacts = self._repair_artifacts_if_needed(artifacts)
+        self._warn_about_artifact_validation(artifacts)
 
         self._display_synthesis_preview(artifacts)
 
@@ -348,6 +325,9 @@ class ConversationEngine:
                 artifacts = parse_synthesis_output(raw2)
             except ValueError:
                 self.io.display("Could not parse revised output. Keeping original artifacts.")
+            else:
+                artifacts = self._repair_artifacts_if_needed(artifacts)
+                self._warn_about_artifact_validation(artifacts)
 
             self._display_synthesis_preview(artifacts, prefix="Revised ")
 
@@ -374,6 +354,89 @@ class ConversationEngine:
                 self.io.display(
                     content[:limit] + ("..." if len(content) > limit else "")
                 )
+
+    def _repair_artifacts_if_needed(self, artifacts):
+        """Ask the backend for a YAML-only repair pass when artifacts are invalid."""
+        yaml_errors = self._collect_yaml_errors(artifacts)
+        if not yaml_errors:
+            return artifacts
+
+        self.io.display("Generated artifacts contain invalid YAML. Attempting automatic repair...")
+        for err in yaml_errors:
+            self.io.display(f"YAML validation error: {err}")
+
+        repair_system = (
+            "You repair generated Constrain artifacts. Return the complete artifact set "
+            "using exactly these delimiters: --- PROMPT ---, --- CONSTRAINTS ---, "
+            "--- TRUST_POLICY ---, --- COMPONENT_MAP ---, --- SCHEMA_HINTS ---. "
+            "Fix YAML syntax only unless a minimal structural correction is required. "
+            "Do not add commentary outside the delimited artifacts."
+        )
+        repair_user = (
+            "Repair the YAML errors below and return all artifacts.\n\n"
+            "Errors:\n"
+            + "\n".join(f"- {err}" for err in yaml_errors)
+            + "\n\n--- PROMPT ---\n"
+            + artifacts.prompt_md
+            + "\n--- CONSTRAINTS ---\n"
+            + artifacts.constraints_yaml
+            + "\n--- TRUST_POLICY ---\n"
+            + artifacts.trust_policy_yaml
+            + "\n--- COMPONENT_MAP ---\n"
+            + artifacts.component_map_yaml
+            + "\n--- SCHEMA_HINTS ---\n"
+            + artifacts.schema_hints_yaml
+        )
+
+        try:
+            repaired_raw = self._call_api(
+                repair_system,
+                [{"role": "user", "content": repair_user}],
+            )
+            repaired = parse_synthesis_output(repaired_raw)
+        except Exception as e:
+            self.io.display(f"Automatic repair failed: {e}")
+            return artifacts
+
+        repaired_errors = self._collect_yaml_errors(repaired)
+        if repaired_errors:
+            self.io.display("Automatic repair did not produce valid YAML.")
+            return repaired
+
+        self.io.display("Automatic YAML repair succeeded.")
+        return repaired
+
+    def _collect_yaml_errors(self, artifacts) -> list[str]:
+        """Return YAML validation errors for all generated YAML artifacts."""
+        yaml_errors = []
+        for name, content in [
+            ("constraints.yaml", artifacts.constraints_yaml),
+            ("trust_policy.yaml", artifacts.trust_policy_yaml),
+            ("component_map.yaml", artifacts.component_map_yaml),
+            ("schema_hints.yaml", artifacts.schema_hints_yaml),
+        ]:
+            if content:
+                try:
+                    validate_yaml_content(content, name)
+                except ValueError as e:
+                    yaml_errors.append(str(e))
+        return yaml_errors
+
+    def _warn_about_artifact_validation(self, artifacts) -> None:
+        """Report artifact validation problems without aborting synthesis."""
+        yaml_errors = self._collect_yaml_errors(artifacts)
+        if yaml_errors:
+            for err in yaml_errors:
+                self.io.display(f"YAML validation error: {err}")
+            self.io.display("Skipping cross-validation until YAML is valid.")
+            return
+
+        try:
+            warnings = validate_artifacts(artifacts)
+            for w in warnings:
+                self.io.display(f"Warning: {w}")
+        except ValueError as e:
+            self.io.display(f"Cross-validation error (non-fatal): {e}")
 
     # ── API layer ─────────────────────────────────────────
 
